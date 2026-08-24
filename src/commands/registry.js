@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { suggestNames } from '../utils/similarity.js';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)));
+const ROOT = dirname(fileURLToPath(import.meta.url));
 
 async function findCommandFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -11,7 +11,14 @@ async function findCommandFiles(directory) {
   for (const entry of entries) {
     const fullPath = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await findCommandFiles(fullPath));
-    else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.startsWith('_')) files.push(fullPath);
+    else if (
+      entry.isFile() &&
+      entry.name.endsWith('.js') &&
+      !entry.name.startsWith('_') &&
+      entry.name !== 'registry.js'
+    ) {
+      files.push(fullPath);
+    }
   }
   return files;
 }
@@ -42,6 +49,7 @@ export async function createCommandRegistry() {
     const key = command.name.toLowerCase();
     if (commands.has(key)) throw new Error(`Duplicate command: ${command.name}`);
     commands.set(key, command);
+
     for (const alias of command.aliases) {
       const aliasKey = alias.toLowerCase();
       if (aliases.has(aliasKey) || commands.has(aliasKey)) throw new Error(`Duplicate command alias: ${alias}`);
