@@ -9,7 +9,9 @@ function tokenize(input) {
   while (index < source.length) {
     TOKEN.lastIndex = index;
     const match = TOKEN.exec(source);
-    if (!match || match.index !== index) throw new Error('Ekspresi hanya boleh berisi angka dan operator + - * / % serta tanda kurung.');
+    if (!match || match.index !== index) {
+      throw new Error('Ekspresi hanya boleh berisi angka dan operator + - * / % serta tanda kurung.');
+    }
     tokens.push(match[1]);
     index = TOKEN.lastIndex;
   }
@@ -43,7 +45,7 @@ export function calculate(input) {
 
   function parseTerm() {
     let value = parseFactor();
-    while (peek() === '*' || peek === '/' || peek() === '%') {
+    while (peek() === '*' || peek() === '/' || peek() === '%') {
       const op = consume();
       const right = parseFactor();
       if (op === '*') value *= right;
@@ -80,6 +82,8 @@ export function calculate(input) {
   }
 
   const result = parseExpression();
-  if (position !== tokens.length || !Number.isFinite(result)) throw new Error('Ekspresi kalkulator tidak valid.');
+  if (position !== tokens.length || !Number.isFinite(result)) {
+    throw new Error('Ekspresi kalkulator tidak valid.');
+  }
   return result;
 }
