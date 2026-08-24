@@ -1,12 +1,15 @@
 import { config } from './config/index.js';
+import { createCommandRegistry } from './commands/registry.js';
 import { createLifecycle } from './core/lifecycle.js';
+import { createMessageEngine } from './message/engine.js';
 import { createWhatsAppConnection } from './platform/whatsapp/index.js';
+import { createIdentity } from './security/identity.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
 const logger = createLogger(config.logLevel);
-const whatsapp = createWhatsAppConnection({ config, logger });
-const lifecycle = createLifecycle({ logger, whatsapp });
+const identity = createIdentity({ config });
+let lifecycle = null;
 
 function assertRuntime() {
   const major = Number(process.versions.node.split('.')[0]);
@@ -17,6 +20,19 @@ function assertRuntime() {
 
 async function main() {
   assertRuntime();
+
+  const registry = await createCommandRegistry();
+  logger.info('Command registry loaded', { commands: registry.all().length });
+
+  let messageEngine;
+  const whatsapp = createWhatsAppConnection({
+    config,
+    logger,
+    onSocket: async (socket) => messageEngine.attach(socket),
+  });
+
+  messageEngine = createMessageEngine({ config, logger, identity, registry });
+  lifecycle = createLifecycle({ logger, whatsapp });
 
   logger.info(`${config.botName} starting`, {
     environment: config.nodeEnv,
@@ -31,7 +47,7 @@ const shutdownSignals = ['SIGINT', 'SIGTERM'];
 for (const signal of shutdownSignals) {
   process.once(signal, async () => {
     try {
-      await lifecycle.stop(signal);
+      await lifecycle?.stop(signal);
       process.exitCode = 0;
     } catch (error) {
       logger.error('Shutdown failed', { error: getErrorMessage(error) });
