@@ -4,26 +4,47 @@ export const command = {
   category: 'general',
   aliases: ['h'],
   permission: 'user',
+  usage: 'help [command]',
+  examples: ['help', 'help ping'],
   async execute(ctx) {
     const requested = ctx.parsed.args[0];
     if (requested) {
       const target = ctx.registry.resolve(requested);
-      if (!target) {
+      if (!target || target.hidden) {
         const suggestions = ctx.registry.suggest(requested);
         await ctx.reply(
           suggestions.length
-            ? `Command tidak ditemukan. Mungkin:\n${suggestions.map((item) => `${ctx.config.prefix}${item}`).join('\n')}`
+            ? `Command tidak ditemukan. Mungkin maksud kamu:\n${suggestions.map((item) => `${ctx.config.prefix}${item}`).join('\n')}`
             : `Command ${ctx.config.prefix}${requested} tidak ditemukan.`,
         );
         return;
       }
 
-      const usage = target.usage ? `\nUsage: ${ctx.config.prefix}${target.usage}` : '';
-      const aliases = target.aliases.length ? `\nAlias: ${target.aliases.map((item) => `${ctx.config.prefix}${item}`).join(', ')}` : '';
-      await ctx.reply(`*${ctx.config.prefix}${target.name}*\n${target.description}${usage}${aliases}`);
+      const lines = [
+        `╭━━〔 *${ctx.config.prefix}${target.name}* 〕`,
+        `┃ ${target.description}`,
+        `┃`,
+        `┃ Usage: ${ctx.config.prefix}${target.usage ?? target.name}`,
+      ];
+      if (target.aliases.length) lines.push(`┃ Alias: ${target.aliases.map((item) => `${ctx.config.prefix}${item}`).join(', ')}`);
+      if (target.examples.length) {
+        lines.push('┃', '┃ Contoh:');
+        for (const example of target.examples) lines.push(`┃ • ${ctx.config.prefix}${example}`);
+      }
+      lines.push('╰━━━━━━━━━━━━━━━━');
+      await ctx.reply(lines.join('\n'));
       return;
     }
 
-    await ctx.reply(`Ketik ${ctx.config.prefix}menu untuk melihat semua command.\nKetik ${ctx.config.prefix}help <command> untuk bantuan command tertentu.`);
+    const visible = ctx.registry.all({ includeHidden: false });
+    await ctx.reply([
+      `*SKYVERSE HELP*`,
+      '',
+      `Total command: ${visible.length}`,
+      `Prefix: ${ctx.config.prefix}`,
+      '',
+      `Ketik *${ctx.config.prefix}menu* untuk melihat menu.`,
+      `Ketik *${ctx.config.prefix}help <command>* untuk bantuan detail.`,
+    ].join('\n'));
   },
 };
