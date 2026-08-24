@@ -1,6 +1,7 @@
 import makeWASocket, {
   Browsers,
   DisconnectReason,
+  fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
@@ -15,12 +16,27 @@ export function createWhatsAppConnection({ config, logger }) {
   let reconnectAttempt = 0;
   const baileysLogger = createWhatsAppLogger(config.whatsappLogLevel);
 
+  async function resolveWhatsAppVersion() {
+    try {
+      const { version, isLatest } = await fetchLatestBaileysVersion();
+      logger.info('Resolved WhatsApp Web version', { version, isLatest });
+      return version;
+    } catch (error) {
+      logger.warn('Could not resolve latest WhatsApp Web version; using Baileys default', {
+        error: error?.message ?? String(error),
+      });
+      return undefined;
+    }
+  }
+
   async function connect() {
     if (stopping || socket) return socket;
 
     const { state, saveCreds } = await loadAuthState(config.authPath);
+    const version = await resolveWhatsAppVersion();
 
     socket = makeWASocket({
+      ...(version ? { version } : {}),
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
@@ -30,6 +46,7 @@ export function createWhatsAppConnection({ config, logger }) {
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
       syncFullHistory: false,
+      qrTimeout: 180_000,
     });
 
     socket.ev.on('creds.update', saveCreds);
