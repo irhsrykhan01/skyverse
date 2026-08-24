@@ -1,0 +1,15 @@
+{
+  "name": "skyverse",
+  "version": "0.1.0",
+  "description": "A modern, modular, and extensible WhatsApp bot built with Node.js and Baileys.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {}
+}
