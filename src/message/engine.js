@@ -1,5 +1,5 @@
 import { createMessageContext } from './context.js';
-import { getMessageText, parseIncomingMessage } from './parser.js';
+import { parseIncomingMessage } from './parser.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 
@@ -60,7 +60,7 @@ export function createMessageEngine({ config, logger, identity, registry }) {
       parsed,
     });
 
-    const permission = await context.permissionLevel();
+    const permission = await context.permissionLevel(command.permission);
     if (requiredPermissionOrder(permission) < requiredPermissionOrder(command.permission)) {
       await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.');
       return;
@@ -75,14 +75,26 @@ export function createMessageEngine({ config, logger, identity, registry }) {
         chat: chatId,
         error: error?.message ?? String(error),
       });
-      await context.reply('Terjadi kesalahan saat menjalankan command. Coba lagi nanti.');
+      try {
+        await context.reply('Terjadi kesalahan saat menjalankan command. Coba lagi nanti.');
+      } catch (replyError) {
+        logger.warn('Failed to send command error response', {
+          error: replyError?.message ?? String(replyError),
+        });
+      }
     }
   }
 
   function attach(socket) {
     socket.ev.on('messages.upsert', async ({ messages }) => {
       for (const message of messages ?? []) {
-        await handleMessage(socket, message);
+        try {
+          await handleMessage(socket, message);
+        } catch (error) {
+          logger.error('Message processing failed', {
+            error: error?.message ?? String(error),
+          });
+        }
       }
     });
 
