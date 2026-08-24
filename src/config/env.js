@@ -14,6 +14,7 @@ export function loadConfig(env = process.env) {
     ownerNumber: clean(env.OWNER_NUMBER) ?? null,
     logLevel: clean(env.LOG_LEVEL) ?? defaults.logLevel,
     authPath: clean(env.AUTH_PATH) ?? defaults.authPath,
+    databasePath: clean(env.DATABASE_PATH) ?? defaults.databasePath,
     whatsappLogLevel: clean(env.WHATSAPP_LOG_LEVEL) ?? defaults.whatsappLogLevel,
     autoRead: toBoolean(env.AUTO_READ, defaults.autoRead),
     autoOnline: toBoolean(env.AUTO_ONLINE, defaults.autoOnline),
