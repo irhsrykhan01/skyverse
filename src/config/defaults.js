@@ -3,4 +3,6 @@ export const defaults = Object.freeze({
   botName: 'SkyVerse',
   prefix: '.',
   logLevel: 'info',
+  authPath: './sessions/whatsapp',
+  whatsappLogLevel: 'silent',
 });
