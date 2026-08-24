@@ -1,5 +1,6 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
+import { createGroupService, calculate } from '../services/index.js';
 
 function getSenderJid(message) {
   if (message.key?.fromMe) return message.key?.participant ?? message.key?.remoteJid ?? null;
@@ -16,6 +17,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   const isGroup = isGroupJid(chatId);
   const isOwner = identity.isOwner(senderJid);
   let groupMetadataPromise = null;
+  const group = createGroupService();
 
   async function getGroupMetadata() {
     if (!isGroup) return null;
@@ -80,5 +82,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     react,
     read,
     sendPresence,
+    group,
+    calculate,
   });
 }
