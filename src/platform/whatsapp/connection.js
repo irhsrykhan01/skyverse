@@ -9,7 +9,7 @@ import qrcode from 'qrcode-terminal';
 import { loadAuthState } from './auth.js';
 import { createWhatsAppLogger } from './logger.js';
 
-export function createWhatsAppConnection({ config, logger }) {
+export function createWhatsAppConnection({ config, logger, onSocket }) {
   let socket = null;
   let stopping = false;
   let reconnectTimer = null;
@@ -76,6 +76,8 @@ export function createWhatsAppConnection({ config, logger }) {
         scheduleReconnect(statusCode);
       }
     });
+
+    if (onSocket) await onSocket(socket);
 
     return socket;
   }
