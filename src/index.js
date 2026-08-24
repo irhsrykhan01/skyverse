@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { config } from './config/index.js';
 import { createCommandRegistry } from './commands/registry.js';
 import { createLifecycle } from './core/lifecycle.js';
