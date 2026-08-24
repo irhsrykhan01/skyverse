@@ -33,11 +33,10 @@ export function createMessageContext({ socket, message, command, registry, ident
     return Boolean(participant?.admin);
   }
 
-  async function permissionLevel() {
-    return getPermissionLevel({
-      isOwner,
-      isGroupAdmin: await isAdmin(),
-    });
+  async function permissionLevel(required = 'user') {
+    if (isOwner) return getPermissionLevel({ isOwner: true });
+    if (required !== 'admin') return getPermissionLevel();
+    return getPermissionLevel({ isGroupAdmin: await isAdmin() });
   }
 
   async function reply(text, options = {}) {
