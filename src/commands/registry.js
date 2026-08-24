@@ -11,30 +11,39 @@ async function findCommandFiles(directory) {
   for (const entry of entries) {
     const fullPath = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await findCommandFiles(fullPath));
-    else if (
-      entry.isFile() &&
-      entry.name.endsWith('.js') &&
-      !entry.name.startsWith('_') &&
-      entry.name !== 'registry.js'
-    ) {
-      files.push(fullPath);
-    }
+    else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.startsWith('_') && entry.name !== 'registry.js') files.push(fullPath);
   }
   return files;
 }
 
+function normalizeAliases(aliases) {
+  return [...new Set((Array.isArray(aliases) ? aliases : []).map((alias) => String(alias).trim().toLowerCase()).filter(Boolean))];
+}
+
 function validateCommand(command, file) {
   if (!command || typeof command !== 'object') throw new Error(`Invalid command export: ${file}`);
-  if (!command.name || typeof command.execute !== 'function') {
-    throw new Error(`Command ${file} must export name and execute()`);
-  }
+  if (!command.name || typeof command.execute !== 'function') throw new Error(`Command ${file} must export name and execute()`);
+  const name = String(command.name).trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]*$/.test(name)) throw new Error(`Invalid command name: ${command.name}`);
+  const permission = String(command.permission ?? 'user').toLowerCase();
+  if (!['user', 'admin', 'owner'].includes(permission)) throw new Error(`Invalid permission for ${name}: ${permission}`);
+  const minArgs = Number.isInteger(command.minArgs) && command.minArgs >= 0 ? command.minArgs : 0;
+  const maxArgs = Number.isInteger(command.maxArgs) && command.maxArgs >= minArgs ? command.maxArgs : null;
+  const cooldown = Number.isFinite(command.cooldown) && command.cooldown > 0 ? command.cooldown : 0;
   return Object.freeze({
-    category: command.category ?? 'general',
-    description: command.description ?? 'No description available.',
-    aliases: Array.isArray(command.aliases) ? command.aliases.map(String) : [],
-    usage: command.usage ?? null,
-    permission: command.permission ?? 'user',
     ...command,
+    name,
+    category: String(command.category ?? 'general').trim().toLowerCase() || 'general',
+    description: String(command.description ?? 'No description available.'),
+    aliases: normalizeAliases(command.aliases),
+    usage: command.usage ? String(command.usage) : null,
+    examples: Array.isArray(command.examples) ? command.examples.map(String) : [],
+    permission,
+    minArgs,
+    maxArgs,
+    cooldown,
+    hidden: command.hidden === true,
+    enabled: command.enabled !== false,
   });
 }
 
@@ -46,38 +55,38 @@ export async function createCommandRegistry() {
   for (const file of files) {
     const module = await import(pathToFileURL(file).href);
     const command = validateCommand(module.default ?? module.command, file);
-    const key = command.name.toLowerCase();
-    if (commands.has(key)) throw new Error(`Duplicate command: ${command.name}`);
+    const key = command.name;
+    if (commands.has(key) || aliases.has(key)) throw new Error(`Duplicate command: ${command.name}`);
     commands.set(key, command);
-
     for (const alias of command.aliases) {
-      const aliasKey = alias.toLowerCase();
-      if (aliases.has(aliasKey) || commands.has(aliasKey)) throw new Error(`Duplicate command alias: ${alias}`);
-      aliases.set(aliasKey, key);
+      if (aliases.has(alias) || commands.has(alias)) throw new Error(`Duplicate command alias: ${alias}`);
+      aliases.set(alias, key);
     }
   }
 
   function resolve(name) {
-    const key = String(name).toLowerCase();
-    return commands.get(key) ?? commands.get(aliases.get(key));
+    const key = String(name).trim().toLowerCase();
+    const command = commands.get(key) ?? commands.get(aliases.get(key));
+    return command?.enabled === false ? undefined : command;
   }
 
-  function all() {
-    return [...commands.values()];
+  function all({ includeHidden = true, includeDisabled = false } = {}) {
+    return [...commands.values()]
+      .filter((command) => (includeHidden || !command.hidden) && (includeDisabled || command.enabled))
+      .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   }
 
-  function byCategory() {
+  function byCategory({ includeHidden = false } = {}) {
     const groups = new Map();
-    for (const command of commands.values()) {
+    for (const command of all({ includeHidden })) {
       if (!groups.has(command.category)) groups.set(command.category, []);
       groups.get(command.category).push(command);
     }
-    for (const list of groups.values()) list.sort((a, b) => a.name.localeCompare(b.name));
     return groups;
   }
 
   function suggest(name) {
-    return suggestNames(name, all().flatMap((command) => [command.name, ...command.aliases]));
+    return suggestNames(name, all({ includeHidden: false }).flatMap((command) => [command.name, ...command.aliases]));
   }
 
   return Object.freeze({ resolve, all, byCategory, suggest });
