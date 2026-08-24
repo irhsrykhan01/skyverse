@@ -7,7 +7,7 @@ function requiredPermissionOrder(level) {
   return { user: 0, admin: 1, owner: 2 }[level] ?? 0;
 }
 
-export function createMessageEngine({ config, logger, identity, registry }) {
+export function createMessageEngine({ config, logger, identity, registry, repositories }) {
   const seen = new Map();
   const seenTtl = 60_000;
 
@@ -22,11 +22,22 @@ export function createMessageEngine({ config, logger, identity, registry }) {
     if (!message?.message || message.key?.fromMe) return;
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
+    const senderJid = message.key?.participant ?? chatId;
     if (!chatId || !messageId || STATUS_JIDS.has(chatId)) return;
 
     pruneSeen();
     if (seen.has(messageId)) return;
     seen.set(messageId, Date.now());
+
+    repositories.users.upsert({
+      jid: senderJid,
+      pushName: message.pushName ?? null,
+      isBot: false,
+    });
+
+    if (chatId.endsWith('@g.us')) {
+      repositories.groups.upsert({ jid: chatId });
+    }
 
     if (config.autoRead) {
       try {
@@ -67,6 +78,7 @@ export function createMessageEngine({ config, logger, identity, registry }) {
     }
 
     try {
+      repositories.commands.increment(command.name);
       await command.execute(context);
     } catch (error) {
       logger.error('Command execution failed', {
@@ -91,48 +103,21 @@ export function createMessageEngine({ config, logger, identity, registry }) {
         try {
           await handleMessage(socket, message);
         } catch (error) {
-          logger.error('Message processing failed', {
-            error: error?.message ?? String(error),
-          });
+          logger.error('Message processing failed', { error: error?.message ?? String(error) });
         }
       }
     });
 
-    socket.ev.on('messages.update', (updates) => {
-      logger.debug('Messages updated', { count: updates?.length ?? 0 });
-    });
-
-    socket.ev.on('messages.delete', (event) => {
-      logger.debug('Messages deleted', { count: event?.keys?.length ?? 0 });
-    });
-
-    socket.ev.on('messages.reaction', (reactions) => {
-      logger.debug('Message reactions received', { count: reactions?.length ?? 0 });
-    });
-
-    socket.ev.on('message-receipt.update', (updates) => {
-      logger.debug('Message receipts updated', { count: updates?.length ?? 0 });
-    });
-
-    socket.ev.on('presence.update', (update) => {
-      logger.debug('Presence updated', { jid: update?.id });
-    });
-
-    socket.ev.on('groups.upsert', (groups) => {
-      logger.debug('Groups synced', { count: groups?.length ?? 0 });
-    });
-
-    socket.ev.on('groups.update', (groups) => {
-      logger.debug('Groups updated', { count: groups?.length ?? 0 });
-    });
-
-    socket.ev.on('group-participants.update', (update) => {
-      logger.debug('Group participants updated', {
-        jid: update?.id,
-        action: update?.action,
-        count: update?.participants?.length ?? 0,
-      });
-    });
+    socket.ev.on('messages.update', (updates) => logger.debug('Messages updated', { count: updates?.length ?? 0 }));
+    socket.ev.on('messages.delete', (event) => logger.debug('Messages deleted', { count: event?.keys?.length ?? 0 }));
+    socket.ev.on('messages.reaction', (reactions) => logger.debug('Message reactions received', { count: reactions?.length ?? 0 }));
+    socket.ev.on('message-receipt.update', (updates) => logger.debug('Message receipts updated', { count: updates?.length ?? 0 }));
+    socket.ev.on('presence.update', (update) => logger.debug('Presence updated', { jid: update?.id }));
+    socket.ev.on('groups.upsert', (groups) => logger.debug('Groups synced', { count: groups?.length ?? 0 }));
+    socket.ev.on('groups.update', (groups) => logger.debug('Groups updated', { count: groups?.length ?? 0 }));
+    socket.ev.on('group-participants.update', (update) => logger.debug('Group participants updated', {
+      jid: update?.id, action: update?.action, count: update?.participants?.length ?? 0,
+    }));
 
     socket.ev.on('connection.update', async ({ connection }) => {
       if (connection === 'open' && config.autoOnline) {
