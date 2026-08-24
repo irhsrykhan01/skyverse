@@ -1,4 +1,4 @@
-export function createLifecycle({ logger, whatsapp }) {
+export function createLifecycle({ logger, whatsapp, database }) {
   let started = false;
   let stopping = false;
 
@@ -7,6 +7,7 @@ export function createLifecycle({ logger, whatsapp }) {
     started = true;
 
     logger.info('SkyVerse foundation started');
+    logger.info('Database ready', { path: database.path });
     await whatsapp.start();
   }
 
@@ -17,7 +18,11 @@ export function createLifecycle({ logger, whatsapp }) {
     try {
       await whatsapp.stop();
     } finally {
-      logger.info(`SkyVerse shutting down (${signal})`);
+      try {
+        await database.close();
+      } finally {
+        logger.info(`SkyVerse shutting down (${signal})`);
+      }
     }
   }
 
