@@ -1,10 +1,12 @@
 import { config } from './config/index.js';
 import { createLifecycle } from './core/lifecycle.js';
+import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
 const logger = createLogger(config.logLevel);
-const lifecycle = createLifecycle({ logger });
+const whatsapp = createWhatsAppConnection({ config, logger });
+const lifecycle = createLifecycle({ logger, whatsapp });
 
 function assertRuntime() {
   const major = Number(process.versions.node.split('.')[0]);
