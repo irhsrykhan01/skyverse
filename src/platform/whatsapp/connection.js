@@ -13,7 +13,7 @@ export function createWhatsAppConnection({ config, logger }) {
   let stopping = false;
   let reconnectTimer = null;
   let reconnectAttempt = 0;
-  const baileysLogger = createWhatsAppLogger('silent');
+  const baileysLogger = createWhatsAppLogger(config.whatsappLogLevel);
 
   async function connect() {
     if (stopping || socket) return socket;
