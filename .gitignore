@@ -1,31 +1,55 @@
-# Dependencies
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Node dependencies
 node_modules/
 
-# Environment
+# Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn-integrity
+
+# Environment files
 .env
 .env.*
 !.env.example
 
-# Runtime data
-sessions/
-data/
-logs/
-*.log
-*.db
-*.db-shm
-*.db-wal
+# Build / cache output
+dist/
+build/
+.cache/
+.parcel-cache/
+.vite/
+.next/
+.nuxt/
+.output/
+.svelte-kit/
 
-# Test / coverage
-coverage/
-.nyc_output/
-
-# OS / editor
-.DS_Store
+# Editor / local settings
 .vscode/
 .idea/
 
-# Node diagnostics
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# SkyVerse runtime secrets and state
+sessions/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
