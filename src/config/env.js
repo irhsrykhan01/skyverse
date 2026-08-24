@@ -9,5 +9,7 @@ export function loadConfig(env = process.env) {
     prefix: clean(env.PREFIX) ?? defaults.prefix,
     ownerNumber: clean(env.OWNER_NUMBER) ?? null,
     logLevel: clean(env.LOG_LEVEL) ?? defaults.logLevel,
+    authPath: clean(env.AUTH_PATH) ?? defaults.authPath,
+    whatsappLogLevel: clean(env.WHATSAPP_LOG_LEVEL) ?? defaults.whatsappLogLevel,
   });
 }
