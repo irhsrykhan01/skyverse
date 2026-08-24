@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { config } from './config/index.js';
 import { createCommandRegistry } from './commands/registry.js';
+import { createDatabase, createRepositories } from './database/index.js';
 import { createLifecycle } from './core/lifecycle.js';
 import { createMessageEngine } from './message/engine.js';
 import { createWhatsAppConnection } from './platform/whatsapp/index.js';
@@ -22,6 +23,8 @@ function assertRuntime() {
 async function main() {
   assertRuntime();
 
+  const database = await createDatabase(config.databasePath, logger);
+  const repositories = createRepositories(database);
   const registry = await createCommandRegistry();
   logger.info('Command registry loaded', { commands: registry.all().length });
 
@@ -32,8 +35,14 @@ async function main() {
     onSocket: async (socket) => messageEngine.attach(socket),
   });
 
-  messageEngine = createMessageEngine({ config, logger, identity, registry });
-  lifecycle = createLifecycle({ logger, whatsapp });
+  messageEngine = createMessageEngine({
+    config,
+    logger,
+    identity,
+    registry,
+    repositories,
+  });
+  lifecycle = createLifecycle({ logger, whatsapp, database });
 
   logger.info(`${config.botName} starting`, {
     environment: config.nodeEnv,
