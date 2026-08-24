@@ -5,4 +5,6 @@ export const defaults = Object.freeze({
   logLevel: 'info',
   authPath: './sessions/whatsapp',
   whatsappLogLevel: 'silent',
+  autoRead: true,
+  autoOnline: true,
 });
