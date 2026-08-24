@@ -6,12 +6,14 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import { loadAuthState } from './auth.js';
+import { createWhatsAppLogger } from './logger.js';
 
 export function createWhatsAppConnection({ config, logger }) {
   let socket = null;
   let stopping = false;
   let reconnectTimer = null;
   let reconnectAttempt = 0;
+  const baileysLogger = createWhatsAppLogger('silent');
 
   async function connect() {
     if (stopping || socket) return socket;
@@ -21,9 +23,10 @@ export function createWhatsAppConnection({ config, logger }) {
     socket = makeWASocket({
       auth: {
         creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, logger),
+        keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
       },
       browser: Browsers.macOS('Google Chrome'),
+      logger: baileysLogger,
       markOnlineOnConnect: false,
       generateHighQualityLinkPreview: false,
       syncFullHistory: false,
@@ -78,7 +81,9 @@ export function createWhatsAppConnection({ config, logger }) {
         await connect();
       } catch (error) {
         socket = null;
-        logger.error('WhatsApp reconnect failed', { error: error?.message ?? String(error) });
+        logger.error('WhatsApp reconnect failed', {
+          error: error?.message ?? String(error),
+        });
         scheduleReconnect(undefined);
       }
     }, delay);
@@ -101,7 +106,9 @@ export function createWhatsAppConnection({ config, logger }) {
       try {
         socket.end(undefined);
       } catch (error) {
-        logger.warn('WhatsApp socket close failed', { error: error?.message ?? String(error) });
+        logger.warn('WhatsApp socket close failed', {
+          error: error?.message ?? String(error),
+        });
       }
     }
 
