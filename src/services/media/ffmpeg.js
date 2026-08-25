@@ -61,6 +61,19 @@ export async function toVoiceNote(buffer) {
   ], buffer);
 }
 
+export async function toHd(buffer, { scale = 2 } = {}) {
+  const multiplier = Number(scale);
+  if (![2, 4].includes(multiplier)) throw new Error('HD hanya mendukung scale 2x atau 4x.');
+  return runFfmpeg([
+    '-i', 'pipe:0',
+    '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv444p`,
+    '-q:v', '2',
+    '-frames:v', '1',
+    '-f', 'image/jpeg',
+    'pipe:1',
+  ], buffer);
+}
+
 export async function toSticker(buffer) {
   const output = await runFfmpeg(['-i', 'pipe:0', '-vf', scaleFilter(), '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', 'pipe:1'], buffer);
   return throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker');
