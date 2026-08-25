@@ -4,6 +4,7 @@ function unwrapContextInfo(content) {
   return content?.extendedTextMessage?.contextInfo ??
     content?.imageMessage?.contextInfo ??
     content?.videoMessage?.contextInfo ??
+    content?.ptvMessage?.contextInfo ??
     content?.audioMessage?.contextInfo ??
     content?.stickerMessage?.contextInfo ??
     content?.documentMessage?.contextInfo ?? null;
@@ -32,19 +33,40 @@ function normalizedMessage(message) {
   return { ...message, message: content };
 }
 
+function normalizePtvMessage(message, node) {
+  return {
+    ...message,
+    message: {
+      videoMessage: node,
+    },
+  };
+}
+
 function describeMedia(message) {
   const normalized = normalizedMessage(message);
   if (!normalized) return null;
+
   const type = getContentType(normalized.message);
   if (!type) return null;
   const node = normalized.message[type];
   if (!node || typeof node !== 'object') return null;
 
-  if (type === 'imageMessage') return { message: normalized, type: 'image', node, mimetype: node.mimetype ?? 'image/jpeg', animated: false };
-  if (type === 'videoMessage') return { message: normalized, type: 'video', node, mimetype: node.mimetype ?? 'video/mp4', animated: false };
-  if (type === 'audioMessage') return { message: normalized, type: 'audio', node, mimetype: node.mimetype ?? 'audio/ogg; codecs=opus', animated: false };
-  if (type === 'stickerMessage') return { message: normalized, type: 'sticker', node, mimetype: node.mimetype ?? 'image/webp', animated: Boolean(node.isAnimated) };
-  if (type === 'documentMessage') return { message: normalized, type: 'document', node, mimetype: node.mimetype ?? 'application/octet-stream', animated: false };
+  if (type === 'ptvMessage') {
+    return {
+      message: normalizePtvMessage(normalized, node),
+      type: 'video',
+      node,
+      mimetype: node.mimetype ?? 'video/mp4',
+      animated: false,
+      isPTV: true,
+    };
+  }
+
+  if (type === 'imageMessage') return { message: normalized, type: 'image', node, mimetype: node.mimetype ?? 'image/jpeg', animated: false, isPTV: false };
+  if (type === 'videoMessage') return { message: normalized, type: 'video', node, mimetype: node.mimetype ?? 'video/mp4', animated: false, isPTV: Boolean(normalized.message.ptv) };
+  if (type === 'audioMessage') return { message: normalized, type: 'audio', node, mimetype: node.mimetype ?? 'audio/ogg; codecs=opus', animated: false, isPTV: false };
+  if (type === 'stickerMessage') return { message: normalized, type: 'sticker', node, mimetype: node.mimetype ?? 'image/webp', animated: Boolean(node.isAnimated), isPTV: false };
+  if (type === 'documentMessage') return { message: normalized, type: 'document', node, mimetype: node.mimetype ?? 'application/octet-stream', animated: false, isPTV: false };
   return null;
 }
 
@@ -119,8 +141,6 @@ export async function downloadResolvedMedia({ socket, message, retries = 2, logg
         throw new Error(`Media ${descriptor.type} hasil download tidak valid atau terpotong (buffer ${buffer?.length ?? 0} byte).`);
       }
 
-      // Do not trust stickerMessage.isAnimated alone. Some quoted messages do
-      // not preserve that flag, while the actual WebP contains ANIM/ANMF.
       const animated = descriptor.type === 'sticker' ? isAnimatedWebp(buffer) : descriptor.animated;
       return { ...descriptor, animated, buffer };
     } catch (error) {
