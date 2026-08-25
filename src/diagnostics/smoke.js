@@ -14,7 +14,13 @@ const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'tomp3', 'tomp4', 'tovideo', 'tovn']) {
+for (const required of [
+  'menu', 'help', 'ping', 'info', 'owner',
+  'sticker', 'smeme', 'stickerwatermark',
+  'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn',
+  'texttoqr', 'hd', 'removebg',
+  'warn', 'unwarn', 'warnings', 'delete',
+]) {
   assert(visibleNames.has(required), `Missing visible command: ${required}`);
 }
 
@@ -28,5 +34,8 @@ assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Keyra YouTube MP
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toVideo === 'function', 'Media toVideo export is missing.');
 assert(typeof media.toVoiceNote === 'function', 'Media toVoiceNote export is missing.');
+assert(typeof media.toHd === 'function', 'Media toHd export is missing.');
+assert(typeof media.toSmeme === 'function', 'Media toSmeme export is missing.');
+assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark export is missing.');
 
 console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands.`);
