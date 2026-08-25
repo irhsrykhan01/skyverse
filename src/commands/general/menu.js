@@ -1,3 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
 const CATEGORY_META = Object.freeze({
   general: { icon: '✦', label: 'General', order: 1 },
   group: { icon: '◈', label: 'Group', order: 2 },
@@ -7,27 +11,54 @@ const CATEGORY_META = Object.freeze({
   system: { icon: '◇', label: 'System', order: 99 },
 });
 
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../../');
+const defaultBannerPath = join(repoRoot, 'file_000000007a90720880001aa9bde3c4b7.png');
+
 function titleFor(category) {
   const key = String(category).toLowerCase();
   return CATEGORY_META[key] ?? { icon: '•', label: key.charAt(0).toUpperCase() + key.slice(1), order: 50 };
 }
 
-function bannerOptions(config) {
-  if (!config.menuBannerEnabled || !config.menuBannerImage || !config.menuBannerLink) return null;
+async function loadBannerThumbnail(config) {
+  const configured = config.menuBannerImage?.trim();
+  if (!configured) return null;
 
-  return {
-    contextInfo: {
-      externalAdReply: {
-        title: config.menuBannerTitle,
-        body: config.menuBannerBody,
-        mediaType: 1,
-        thumbnailUrl: config.menuBannerImage,
-        sourceUrl: config.menuBannerLink,
-        renderLargerThumbnail: true,
-        showAdAttribution: false,
+  if (/^https?:\/\//i.test(configured)) {
+    return { thumbnailUrl: configured };
+  }
+
+  const path = configured.startsWith('./') ? join(repoRoot, configured.slice(2)) : configured;
+  return { thumbnail: await readFile(path) };
+}
+
+async function sendMenuBanner(ctx) {
+  if (!ctx.config.menuBannerEnabled || !ctx.config.menuBannerLink) return;
+
+  try {
+    const image = await loadBannerThumbnail(ctx.config);
+    if (!image) return;
+
+    const externalAdReply = {
+      title: ctx.config.menuBannerTitle,
+      body: ctx.config.menuBannerBody,
+      mediaType: 1,
+      sourceUrl: ctx.config.menuBannerLink,
+      renderLargerThumbnail: true,
+      showAdAttribution: false,
+      thumbnailUrl: image.thumbnailUrl,
+      thumbnail: image.thumbnail,
+    };
+
+    await ctx.reply(ctx.config.menuBannerTitle, {
+      sendOptions: {
+        contextInfo: {
+          externalAdReply,
+        },
       },
-    },
-  };
+    });
+  } catch (error) {
+    console.warn('Menu banner unavailable:', error?.message ?? String(error));
+  }
 }
 
 export const command = {
@@ -38,6 +69,8 @@ export const command = {
   permission: 'user',
   usage: 'menu',
   async execute(ctx) {
+    await sendMenuBanner(ctx);
+
     const groups = ctx.registry.byCategory({ includeHidden: false });
     const orderedGroups = [...groups.entries()].sort((a, b) => titleFor(a[0]).order - titleFor(b[0]).order || a[0].localeCompare(b[0]));
     const visibleCommands = ctx.registry.all({ includeHidden: false });
@@ -67,6 +100,6 @@ export const command = {
     }
 
     lines.push('', `Ketik *${ctx.config.prefix}help <command>* untuk detail command.`);
-    await ctx.reply(lines.join('\n'), { sendOptions: bannerOptions(ctx.config) });
+    await ctx.reply(lines.join('\n'));
   },
 };
