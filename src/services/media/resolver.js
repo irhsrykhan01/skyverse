@@ -14,8 +14,6 @@ function getQuotedMessage(message) {
   const contextInfo = unwrapContextInfo(normalized);
   if (!contextInfo?.quotedMessage || !contextInfo.stanzaId) return null;
 
-  // Keep the quoted media payload intact. Only normalize wrapper messages around it;
-  // mediaKey/directPath and the other fields inside the actual media node must survive.
   const normalizedQuoted = normalizeMessageContent(contextInfo.quotedMessage) ?? contextInfo.quotedMessage;
   return {
     key: {
@@ -36,9 +34,9 @@ function normalizedMessage(message) {
 
 function describeMedia(message) {
   const normalized = normalizedMessage(message);
-  const type = getContentType(normalized?.message);
-  if (!normalized || !type) return null;
-
+  if (!normalized) return null;
+  const type = getContentType(normalized.message);
+  if (!type) return null;
   const node = normalized.message[type];
   if (!node || typeof node !== 'object') return null;
 
@@ -55,14 +53,27 @@ function isValidWebp(buffer) {
   if (buffer.subarray(0, 4).toString('ascii') !== 'RIFF') return false;
   if (buffer.subarray(8, 12).toString('ascii') !== 'WEBP') return false;
 
-  // RIFF stores the payload size in little-endian at byte 4. A truncated
-  // WhatsApp download can still contain the RIFF/WEBP header, so checking
-  // only those eight bytes is not enough.
   const riffSize = buffer.readUInt32LE(4);
   if (riffSize + 8 !== buffer.length) return false;
 
   const chunkType = buffer.subarray(12, 16).toString('ascii');
   return chunkType === 'VP8 ' || chunkType === 'VP8L' || chunkType === 'VP8X';
+}
+
+function isAnimatedWebp(buffer) {
+  if (!isValidWebp(buffer)) return false;
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const type = buffer.subarray(offset, offset + 4).toString('ascii');
+    const size = buffer.readUInt32LE(offset + 4);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + size;
+    if (dataEnd > buffer.length) return false;
+    if (type === 'ANIM' || type === 'ANMF') return true;
+    if (type === 'VP8X' && size >= 1 && (buffer[dataStart] & 0x02)) return true;
+    offset = dataEnd + (size & 1);
+  }
+  return false;
 }
 
 function plausibleSignature(buffer, descriptor) {
@@ -100,8 +111,6 @@ export async function downloadResolvedMedia({ socket, message, retries = 2, logg
         {},
         {
           logger,
-          // Baileys may request a fresh upload URL for expired media. Always
-          // re-upload the exact WAMessage it asks for, not a stale descriptor.
           reuploadRequest: async (requestMessage) => socket.updateMediaMessage(requestMessage),
         },
       );
@@ -110,14 +119,14 @@ export async function downloadResolvedMedia({ socket, message, retries = 2, logg
         throw new Error(`Media ${descriptor.type} hasil download tidak valid atau terpotong (buffer ${buffer?.length ?? 0} byte).`);
       }
 
-      return { ...descriptor, buffer };
+      // Do not trust stickerMessage.isAnimated alone. Some quoted messages do
+      // not preserve that flag, while the actual WebP contains ANIM/ANMF.
+      const animated = descriptor.type === 'sticker' ? isAnimatedWebp(buffer) : descriptor.animated;
+      return { ...descriptor, animated, buffer };
     } catch (error) {
       lastError = error;
       if (attempt > retries) break;
 
-      // Force a fresh media message before the next attempt. This is important
-      // when WhatsApp has an expired/invalid directPath but the first download
-      // did not surface a useful reupload error.
       try {
         const refreshed = await socket.updateMediaMessage(target);
         if (refreshed?.message) target = refreshed;
