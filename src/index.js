@@ -6,11 +6,13 @@ import { createLifecycle } from './core/lifecycle.js';
 import { createMessageEngine } from './message/engine.js';
 import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createIdentity } from './security/identity.js';
+import { createProviderManager } from './services/providers/manager.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
 const logger = createLogger(config.logLevel);
 const identity = createIdentity({ config });
+const providers = createProviderManager(config);
 let lifecycle = null;
 
 function assertRuntime() {
@@ -41,6 +43,7 @@ async function main() {
     identity,
     registry,
     repositories,
+    providers,
   });
   lifecycle = createLifecycle({ logger, whatsapp, database });
 
@@ -48,6 +51,7 @@ async function main() {
     environment: config.nodeEnv,
     node: process.versions.node,
     prefix: config.prefix,
+    providers: ['keyra'],
   });
 
   await lifecycle.start();
