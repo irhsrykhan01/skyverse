@@ -8,7 +8,7 @@ function normalizeMention(jid) {
   const value = String(jid).trim();
   if (value.includes('@')) return value;
   const digits = value.replace(/\D/g, '');
-  if (!digits || digits.length < 7) return null;
+  if (!/^\d{7,15}$/.test(digits)) return null;
   return `${digits}@s.whatsapp.net`;
 }
 
@@ -24,10 +24,7 @@ function resolveTargetJids(context) {
   const mentioned = getMentionedJids(context.message);
   if (mentioned.length) return [...new Set(mentioned.map(normalizeMention).filter(Boolean))];
 
-  const fromArgs = context.parsed.args
-    .map(normalizeMention)
-    .filter(Boolean);
-  return [...new Set(fromArgs)];
+  return [...new Set(context.parsed.args.map(normalizeMention).filter(Boolean))];
 }
 
 export function createGroupService() {
@@ -39,7 +36,7 @@ export function createGroupService() {
   async function add(context) {
     const ctx = getGroupContext(context);
     const jids = resolveTargetJids(ctx);
-    if (!jids.length) throw new Error(`Tag nomor atau isi nomor setelah ${ctx.config.prefix}add.`);
+    if (!jids.length) throw new Error(`Tag nomor valid atau isi nomor setelah ${ctx.config.prefix}add.`);
     return ctx.socket.groupParticipantsUpdate(ctx.chatId, jids, 'add');
   }
 
@@ -53,23 +50,36 @@ export function createGroupService() {
   async function inviteLink(context) {
     const ctx = getGroupContext(context);
     const code = await ctx.socket.groupInviteCode(ctx.chatId);
+    if (!code) throw new Error('Link group tidak tersedia saat ini.');
     return `https://chat.whatsapp.com/${code}`;
   }
 
   async function tagAll(context, text = '') {
     const ctx = getGroupContext(context);
     const group = await metadata(ctx);
-    const participants = (group.participants ?? []).map((item) => item.id).filter(Boolean);
-    const body = text.trim() || 'Tag all';
-    await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: participants });
+    const participants = (group?.participants ?? [])
+      .map((item) => item.id)
+      .filter(Boolean);
+    if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
+    const body = String(text).trim() || 'Tag all';
+    await ctx.socket.sendMessage(ctx.chatId, {
+      text: body,
+      mentions: [...new Set(participants)],
+    });
   }
 
   async function hideTag(context, text = '') {
     const ctx = getGroupContext(context);
     const group = await metadata(ctx);
-    const participants = (group.participants ?? []).map((item) => item.id).filter(Boolean);
-    const body = text.trim() || '\u200e';
-    await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: participants });
+    const participants = (group?.participants ?? [])
+      .map((item) => item.id)
+      .filter(Boolean);
+    if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
+    const body = String(text).trim() || '\u200e';
+    await ctx.socket.sendMessage(ctx.chatId, {
+      text: body,
+      mentions: [...new Set(participants)],
+    });
   }
 
   return Object.freeze({ metadata, add, kick, inviteLink, tagAll, hideTag });
