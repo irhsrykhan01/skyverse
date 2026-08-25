@@ -1,6 +1,6 @@
 export const command = {
   name: 'tomp3',
-  description: 'Mengubah audio/video menjadi MP3 secara lokal.',
+  description: 'Mengubah audio atau video menjadi MP3 yang kompatibel.',
   category: 'sticker',
   aliases: ['mp3'],
   usage: 'tomp3 (reply/kirim audio atau video)',
@@ -10,8 +10,13 @@ export const command = {
   cooldown: 3000,
   async execute(ctx) {
     const media = await ctx.media.download();
-    if (!['audio', 'video', 'document'].includes(media.type)) throw new Error('tomp3 membutuhkan audio atau video.');
+    if (!['audio', 'video', 'document'].includes(media.type)) {
+      throw new Error('tomp3 membutuhkan audio atau video.');
+    }
     const output = await ctx.media.toMp3(media.buffer);
-    await ctx.media.send(output, 'document', { mimetype: 'audio/mpeg', fileName: 'SkyVerse.mp3' });
+    await ctx.media.send(output, 'audio', {
+      mimetype: 'audio/mpeg',
+      ptt: false,
+    });
   },
 };
