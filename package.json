@@ -5,7 +5,12 @@
   "type": "module",
   "private": true,
   "engines": {"node": ">=20.0.0"},
-  "scripts": {"start": "node src/index.js", "dev": "node --watch src/index.js"},
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "check": "find src -type f -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "smoke": "node src/diagnostics/smoke.js"
+  },
   "dependencies": {
     "@hapi/boom": "9.1.3",
     "@whiskeysockets/baileys": "6.7.23",
