@@ -1,7 +1,7 @@
 export const command = {
   name: 'sticker',
   description: 'Mengubah gambar/video menjadi sticker secara lokal.',
-  category: 'sticker-media',
+  category: 'sticker',
   aliases: ['s'],
   usage: 'sticker (reply/kirim gambar atau video)',
   permission: 'user',
