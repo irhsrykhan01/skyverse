@@ -92,12 +92,7 @@ async function buildQuotedContent(context) {
     const buffer = await readMediaBuffer(quoted.imageMessage, 'image');
     const motion = extractMotionPhoto(buffer);
     if (motion) {
-      return {
-        motionPhoto: true,
-        image: motion.image,
-        video: motion.video,
-        caption: quoted.imageMessage.caption ?? '',
-      };
+      return { motionPhoto: true, image: motion.image, video: motion.video, caption: quoted.imageMessage.caption ?? '' };
     }
     return { image: buffer, ...(quoted.imageMessage.caption ? { caption: quoted.imageMessage.caption } : {}) };
   }
@@ -131,6 +126,7 @@ export function createNewsletterService() {
     const role = metadata?.role;
     if (role && !['ADMIN', 'OWNER'].includes(role)) throw new Error(`Akun ini bukan admin channel. Role: ${role}`);
   }
+
   async function upload(context, text = '') {
     const saved = getSaved(context);
     if (!saved) throw new Error(`Channel belum diatur. Gunakan ${context.config.prefix}setchannel <link/JID>.`);
@@ -141,9 +137,20 @@ export function createNewsletterService() {
     const content = quotedContent ?? (bodyText ? { text: bodyText } : null);
     if (!content) throw new Error(`Balas pesan yang ingin di-upload atau tulis teks setelah ${context.config.prefix}upch.`);
 
+    // PTV khusus: tandai video sebagai WhatsApp Video Note. Ini dicoba lewat
+    // jalur sendMessage newsletter yang sama dengan pesan media lainnya.
+    // Jika versi Baileys/WhatsApp tidak menerima PTV di newsletter, error
+    // akan ditangkap command layer tanpa membuat bot crash.
+    if (content.video && !content.motionPhoto) {
+      return context.socket.sendMessage(latest.id, {
+        video: content.video,
+        ...(content.caption ? { caption: content.caption } : {}),
+        mimetype: 'video/mp4',
+        ptv: true,
+      });
+    }
+
     if (content.motionPhoto) {
-      // WhatsApp/Baileys newsletter sending does not expose a stable native Motion Photo message type.
-      // Keep the photo and motion video intact and use a safe two-message fallback.
       await context.socket.sendMessage(latest.id, {
         image: content.image,
         ...(content.caption ? { caption: content.caption } : {}),
@@ -156,5 +163,6 @@ export function createNewsletterService() {
 
     return context.socket.sendMessage(latest.id, content);
   }
+
   return Object.freeze({ getCurrentChannel, resolve, getSaved, setSaved, assertCanPost, upload });
 }
