@@ -21,43 +21,33 @@ function titleFor(category) {
 
 async function loadBannerThumbnail(config) {
   const configured = config.menuBannerImage?.trim();
-  if (!configured) return null;
+  const target = configured || defaultBannerPath;
+  if (/^https?:\/\//i.test(target)) return { thumbnailUrl: target };
 
-  if (/^https?:\/\//i.test(configured)) {
-    return { thumbnailUrl: configured };
-  }
-
-  const path = configured.startsWith('./') ? join(repoRoot, configured.slice(2)) : configured;
+  const path = target.startsWith('./') ? join(repoRoot, target.slice(2)) : target;
   return { thumbnail: await readFile(path) };
 }
 
-async function sendMenuBanner(ctx) {
-  if (!ctx.config.menuBannerEnabled || !ctx.config.menuBannerLink) return;
+async function buildExternalAdReply(ctx) {
+  if (!ctx.config.menuBannerEnabled || !ctx.config.menuBannerLink) return null;
 
   try {
     const image = await loadBannerThumbnail(ctx.config);
-    if (!image) return;
-
     const externalAdReply = {
-      title: ctx.config.menuBannerTitle,
-      body: ctx.config.menuBannerBody,
+      title: ctx.config.menuBannerTitle || ctx.config.botName || 'SkyVerse',
+      body: ctx.config.menuBannerBody || 'Official Bot System',
       mediaType: 1,
       sourceUrl: ctx.config.menuBannerLink,
       renderLargerThumbnail: true,
       showAdAttribution: false,
-      thumbnailUrl: image.thumbnailUrl,
-      thumbnail: image.thumbnail,
     };
 
-    await ctx.reply(ctx.config.menuBannerTitle, {
-      sendOptions: {
-        contextInfo: {
-          externalAdReply,
-        },
-      },
-    });
+    if (image.thumbnailUrl) externalAdReply.thumbnailUrl = image.thumbnailUrl;
+    if (image.thumbnail) externalAdReply.thumbnail = image.thumbnail;
+    return externalAdReply;
   } catch (error) {
     console.warn('Menu banner unavailable:', error?.message ?? String(error));
+    return null;
   }
 }
 
@@ -69,8 +59,6 @@ export const command = {
   permission: 'user',
   usage: 'menu',
   async execute(ctx) {
-    await sendMenuBanner(ctx);
-
     const groups = ctx.registry.byCategory({ includeHidden: false });
     const orderedGroups = [...groups.entries()].sort((a, b) => titleFor(a[0]).order - titleFor(b[0]).order || a[0].localeCompare(b[0]));
     const visibleCommands = ctx.registry.all({ includeHidden: false });
@@ -100,6 +88,17 @@ export const command = {
     }
 
     lines.push('', `Ketik *${ctx.config.prefix}help <command>* untuk detail command.`);
-    await ctx.reply(lines.join('\n'));
+    const text = lines.join('\n');
+    const externalAdReply = await buildExternalAdReply(ctx);
+
+    if (externalAdReply) {
+      await ctx.reply(text, {
+        sendOptions: {
+          contextInfo: { externalAdReply },
+        },
+      });
+    } else {
+      await ctx.reply(text);
+    }
   },
 };
