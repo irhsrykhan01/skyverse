@@ -63,6 +63,7 @@ function getContextInfo(message) {
   return normalized?.extendedTextMessage?.contextInfo ??
     normalized?.imageMessage?.contextInfo ??
     normalized?.videoMessage?.contextInfo ??
+    normalized?.ptvMessage?.contextInfo ??
     normalized?.audioMessage?.contextInfo ??
     normalized?.stickerMessage?.contextInfo ??
     normalized?.documentMessage?.contextInfo ??
@@ -77,14 +78,10 @@ function getQuotedMessage(message) {
 
 function getQuotedText(message) {
   const quoted = normalizeMessageContent(getQuotedMessage(message));
-  return quoted?.conversation ?? quoted?.extendedTextMessage?.text ?? quoted?.imageMessage?.caption ?? quoted?.videoMessage?.caption ?? quoted?.documentMessage?.caption ?? '';
+  return quoted?.conversation ?? quoted?.extendedTextMessage?.text ?? quoted?.imageMessage?.caption ?? quoted?.videoMessage?.caption ?? quoted?.ptvMessage?.caption ?? quoted?.documentMessage?.caption ?? '';
 }
 
 async function buildQuotedContent(context) {
-  // Use the same hardened MediaResolver as the working toimg/tovideo commands.
-  // This is important for PTV: a Video Note is still represented by a
-  // videoMessage with PTV metadata, so resolving the quoted message through
-  // the shared resolver avoids treating it as an unknown message type.
   const descriptor = resolveMediaTarget(context.message);
   if (descriptor) {
     const downloaded = await downloadResolvedMedia({ socket: context.socket, message: context.message, retries: 2, logger: console });
@@ -92,7 +89,7 @@ async function buildQuotedContent(context) {
     if (downloaded.type === 'video') {
       return {
         video: downloaded.buffer,
-        ptv: Boolean(downloaded.node?.ptv),
+        ptv: Boolean(downloaded.isPTV),
         caption: downloaded.node?.caption ?? '',
       };
     }
