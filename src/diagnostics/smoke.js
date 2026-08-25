@@ -2,6 +2,7 @@ import { createCommandRegistry } from '../commands/registry.js';
 import { loadConfig } from '../config/env.js';
 import { createProviderManager } from '../services/providers/manager.js';
 import * as media from '../services/media/index.js';
+import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -37,5 +38,7 @@ assert(typeof media.toVoiceNote === 'function', 'Media toVoiceNote export is mis
 assert(typeof media.toHd === 'function', 'Media toHd export is missing.');
 assert(typeof media.toSmeme === 'function', 'Media toSmeme export is missing.');
 assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark export is missing.');
+assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
+assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
 
 console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands.`);
