@@ -1,7 +1,7 @@
 export const command = {
   name: 'tovn',
   description: 'Mengubah audio/video menjadi Voice Note WhatsApp secara lokal.',
-  category: 'sticker-media',
+  category: 'sticker',
   aliases: ['vn'],
   usage: 'tovn (reply/kirim audio atau video)',
   permission: 'user',
