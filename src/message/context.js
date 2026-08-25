@@ -1,6 +1,7 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
 import { createGroupService, calculate } from '../services/index.js';
+import { toMp3, toImage, toVideo } from '../services/media/index.js';
 
 function getSenderJid(message) {
   if (message.key?.fromMe) return message.key?.participant ?? message.key?.remoteJid ?? null;
@@ -11,7 +12,7 @@ function isGroupJid(jid) {
   return typeof jid === 'string' && jid.endsWith('@g.us');
 }
 
-export function createMessageContext({ socket, message, command, registry, identity, config, parsed }) {
+export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
   const isGroup = isGroupJid(chatId);
@@ -70,6 +71,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     registry,
     command,
     parsed,
+    providers,
     chatId,
     senderJid,
     senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
@@ -84,5 +86,6 @@ export function createMessageContext({ socket, message, command, registry, ident
     sendPresence,
     group,
     calculate,
+    media: Object.freeze({ toMp3, toImage, toVideo }),
   });
 }
