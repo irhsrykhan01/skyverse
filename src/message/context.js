@@ -1,6 +1,6 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
-import { createGroupService, calculate } from '../services/index.js';
+import { createGroupService, calculate, createNewsletterService } from '../services/index.js';
 import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker } from '../services/media/index.js';
 
 function getSenderJid(message) {
@@ -12,13 +12,14 @@ function isGroupJid(jid) {
   return typeof jid === 'string' && jid.endsWith('@g.us');
 }
 
-export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers }) {
+export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
   const isGroup = isGroupJid(chatId);
   const isOwner = identity.isOwner(senderJid);
   let groupMetadataPromise = null;
   const group = createGroupService();
+  const newsletter = createNewsletterService();
 
   async function getGroupMetadata() {
     if (!isGroup) return null;
@@ -72,6 +73,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     command,
     parsed,
     providers,
+    repositories,
     chatId,
     senderJid,
     senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
@@ -85,6 +87,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     read,
     sendPresence,
     group,
+    newsletter,
     calculate,
     media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker }),
   });
