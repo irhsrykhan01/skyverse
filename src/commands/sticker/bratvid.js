@@ -1,8 +1,8 @@
-import { replyWithProviderMedia } from '../../services/providers/media-response.js';
+import { replyWithProviderSticker } from '../../services/providers/media-response.js';
 
 export const command = {
   name: 'bratvid',
-  description: 'Membuat video Brat dari teks.',
+  description: 'Membuat stiker animasi Brat dari teks.',
   category: 'sticker',
   aliases: [],
   usage: 'bratvid <teks>',
@@ -11,6 +11,6 @@ export const command = {
   cooldown: 5000,
   async execute(ctx) {
     const response = await ctx.providers.keyra.bratVideo(ctx.parsed.args.join(' '));
-    await replyWithProviderMedia(ctx, response, 'video');
+    await replyWithProviderSticker(ctx, response, { animated: true });
   },
 };
