@@ -1,38 +1,60 @@
 const DEFAULT_BASE_URL = 'https://www.keyrafara.com';
+const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 function joinUrl(baseUrl, path) {
   return new URL(path.replace(/^\//, ''), `${baseUrl.replace(/\/$/, '')}/`).toString();
 }
 
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      accept: 'application/json',
-      ...(options.headers ?? {}),
-    },
-    signal: AbortSignal.timeout(20_000),
-  });
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  const text = await response.text();
-  let body = null;
+async function requestJson(url, options = {}, attempt = 0) {
   try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = text;
-  }
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        accept: 'application/json',
+        ...(options.headers ?? {}),
+      },
+      signal: AbortSignal.timeout(20_000),
+    });
 
-  if (!response.ok) {
-    const message = body?.error?.message ?? body?.error ?? `HTTP ${response.status}`;
-    throw new Error(`Keyra request failed (${response.status}): ${String(message)}`);
-  }
+    const text = await response.text();
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
 
-  if (body && typeof body === 'object' && body.status === false) {
-    const message = body.error?.message ?? body.error ?? 'Unknown provider error';
-    throw new Error(`Keyra rejected request: ${String(message)}`);
-  }
+    if (!response.ok) {
+      if (RETRYABLE_STATUS.has(response.status) && attempt < 1) {
+        const retryAfter = Number(response.headers.get('retry-after'));
+        const delay = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(retryAfter * 1000, 10_000)
+          : 1_000;
+        await wait(delay);
+        return requestJson(url, options, attempt + 1);
+      }
 
-  return body;
+      const message = body?.error?.message ?? body?.error ?? `HTTP ${response.status}`;
+      throw new Error(`Keyra request failed (${response.status}): ${String(message)}`);
+    }
+
+    if (body && typeof body === 'object' && body.status === false) {
+      const message = body.error?.message ?? body.error ?? 'Unknown provider error';
+      throw new Error(`Keyra rejected request: ${String(message)}`);
+    }
+
+    return body;
+  } catch (error) {
+    if (attempt < 1 && (error?.name === 'AbortError' || error?.name === 'TimeoutError')) {
+      await wait(1_000);
+      return requestJson(url, options, attempt + 1);
+    }
+    throw error;
+  }
 }
 
 function withApiKey(headers, apiKey) {
@@ -47,7 +69,7 @@ export function createKeyraProvider({ apiKey = null, baseUrl = DEFAULT_BASE_URL 
       if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
     }
 
-    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const suffix = query.toString() ? `?${query}` : '';
     return requestJson(joinUrl(baseUrl, path) + suffix, {
       headers: withApiKey({}, apiKey),
     });
