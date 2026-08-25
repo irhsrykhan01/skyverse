@@ -247,3 +247,19 @@ export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = '
     '-f', 'webp', output,
   ]);
 }
+
+export function toSticker(buffer) {
+  return withTempMedia(buffer, '.webp', (input, output) => [
+    '-i', input, '-frames:v', '1', '-vf', scaleFilter(), '-c:v', 'libwebp',
+    '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture',
+    '-an', '-f', 'webp', output,
+  ]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
+}
+
+export function toAnimatedSticker(buffer) {
+  return withTempMedia(buffer, '.webp', (input, output) => [
+    '-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()}`, '-c:v', 'libwebp',
+    '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-loop', '0',
+    '-an', '-f', 'webp', output,
+  ]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
+}
