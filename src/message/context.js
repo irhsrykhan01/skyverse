@@ -1,4 +1,4 @@
-import { downloadContentFromMessage, downloadMediaMessage } from '@whiskeysockets/baileys';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
 import { createGroupService, calculate, createNewsletterService } from '../services/index.js';
@@ -59,20 +59,15 @@ function targetMediaMessage(message) {
 
 function bufferLooksPlausible(buffer, descriptor) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) return false;
+  const type = descriptor.type;
   const mimetype = String(descriptor.mimetype ?? '').toLowerCase();
-  if (mimetype.includes('webp') || descriptor.type === 'sticker') return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (type === 'sticker' || mimetype.includes('webp')) return buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
   if (mimetype.includes('jpeg') || mimetype.includes('jpg')) return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
   if (mimetype.includes('png')) return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-  if (mimetype.includes('ogg')) return buffer.subarray(0, 4).toString('ascii') === 'OggS';
+  if (type === 'audio' && mimetype.includes('ogg')) return buffer.subarray(0, 4).toString('ascii') === 'OggS';
+  if (type === 'video' || mimetype.startsWith('video/')) return buffer.subarray(4, 8).toString('ascii') === 'ftyp' || buffer.subarray(0, 4).toString('ascii') === 'RIFF';
   if (mimetype.includes('mpeg') || mimetype.includes('mp3')) return buffer.subarray(0, 3).toString('ascii') === 'ID3' || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0);
-  if (mimetype.startsWith('video/') || descriptor.type === 'video') return buffer.subarray(4, 8).toString('ascii') === 'ftyp' || buffer.subarray(0, 4).toString('ascii') === 'RIFF';
   return true;
-}
-
-async function collectMediaStream(stream) {
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-  return Buffer.concat(chunks);
 }
 
 export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories }) {
@@ -123,36 +118,32 @@ export function createMessageContext({ socket, message, command, registry, ident
   async function downloadMedia() {
     const target = targetMediaMessage(message);
     const descriptor = mediaDescriptor(target);
-    if (!descriptor) throw new Error('Tidak ada media yang bisa diproses. Kirim atau reply gambar, video, audio, sticker, atau dokumen media.');
+    if (!descriptor) throw new Error('Tidak ada media yang bisa diproses. Reply gambar, video, audio, sticker, atau dokumen media.');
 
     let lastError = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        const stream = await downloadContentFromMessage(descriptor.node, descriptor.type);
-        const buffer = await collectMediaStream(stream);
-        if (!bufferLooksPlausible(buffer, descriptor)) throw new Error(`Data ${descriptor.type} hasil download tidak lengkap atau formatnya rusak.`);
+        const buffer = await downloadMediaMessage(
+          target,
+          'buffer',
+          {},
+          { logger: console, reuploadRequest: socket.updateMediaMessage },
+        );
+        if (!bufferLooksPlausible(buffer, descriptor)) throw new Error(`Data ${descriptor.type} hasil download tidak utuh atau formatnya tidak valid.`);
         return { buffer, type: descriptor.type, mimetype: descriptor.mimetype, animated: descriptor.animated, message: target };
       } catch (error) {
         lastError = error;
-        try {
-          if (attempt === 1) await socket.updateMediaMessage(target);
-        } catch {
-          // Retry with the standard Baileys helper below.
+        if (attempt === 1) {
+          try { await socket.updateMediaMessage(target); } catch { /* retry below */ }
         }
       }
     }
 
-    try {
-      const buffer = await downloadMediaMessage(target, 'buffer', {}, { logger: undefined, reuploadRequest: socket.updateMediaMessage });
-      if (!bufferLooksPlausible(buffer, descriptor)) throw new Error(`Data ${descriptor.type} hasil download tidak lengkap atau formatnya rusak.`);
-      return { buffer, type: descriptor.type, mimetype: descriptor.mimetype, animated: descriptor.animated, message: target };
-    } catch (fallbackError) {
-      const reason = fallbackError?.message ?? lastError?.message ?? String(lastError ?? fallbackError);
-      throw new Error(`Gagal mengunduh media secara utuh: ${reason}`);
-    }
+    throw new Error(`Gagal mengunduh media secara utuh: ${lastError?.message ?? 'downloadMediaMessage gagal.'}`);
   }
 
   async function sendMedia(buffer, type, options = {}) {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Media hasil proses kosong atau tidak valid.');
     const payload = type === 'sticker'
       ? { sticker: buffer }
       : type === 'image'
