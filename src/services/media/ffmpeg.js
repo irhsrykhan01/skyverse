@@ -51,6 +51,7 @@ export async function toMp3(buffer) {
     '-ac', '2',
     '-b:a', '192k',
     '-id3v2_version', '3',
+    '-write_xing', '0',
     '-f', 'mp3',
     'pipe:1',
   ], buffer);
@@ -68,37 +69,20 @@ export async function toImage(buffer) {
   ], buffer);
 }
 
-export async function toVideo(buffer, { sourceType = 'unknown', animated = false } = {}) {
-  const still = (sourceType === 'image' || sourceType === 'sticker') && !animated;
-  const args = still
-    ? [
-        '-loop', '1',
-        '-i', 'pipe:0',
-        '-t', '4',
-        '-an',
-        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,fps=30,format=yuv420p',
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
-        '-movflags', '+faststart',
-        '-f', 'mp4',
-        'pipe:1',
-      ]
-    : [
-        '-i', 'pipe:0',
-        '-map', '0:v:0',
-        '-map', '0:a?',
-        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,fps=30,format=yuv420p',
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-movflags', '+faststart',
-        '-f', 'mp4',
-        'pipe:1',
-      ];
-  return runFfmpeg(args, buffer);
+export async function toVideo(buffer, { sourceType = 'sticker', animated = false } = {}) {
+  if (sourceType !== 'sticker' || !animated) throw new Error('tovideo hanya mendukung sticker bergerak.');
+  return runFfmpeg([
+    '-i', 'pipe:0',
+    '-map', '0:v:0',
+    '-an',
+    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,fps=30,format=yuv420p',
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '23',
+    '-movflags', '+faststart',
+    '-f', 'mp4',
+    'pipe:1',
+  ], buffer);
 }
 
 export async function toVoiceNote(buffer) {
@@ -114,6 +98,7 @@ export async function toVoiceNote(buffer) {
     '-vbr', 'on',
     '-application', 'voip',
     '-frame_duration', '20',
+    '-avoid_negative_ts', 'make_zero',
     '-f', 'ogg',
     'pipe:1',
   ], buffer);
