@@ -9,7 +9,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "check": "find src -type f -name '*.js' -print0 | xargs -0 -n1 node --check",
-    "smoke": "node src/diagnostics/smoke.js"
+    "smoke": "node src/diagnostics/smoke.js",
+    "check-media-tools": "sh -c 'command -v ffmpeg >/dev/null && command -v webpmux >/dev/null'"
   },
   "dependencies": {
     "@hapi/boom": "9.1.3",
