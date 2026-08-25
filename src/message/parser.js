@@ -8,14 +8,19 @@ function getTextContent(message) {
   if (content.extendedTextMessage?.text) return content.extendedTextMessage.text;
   if (content.imageMessage?.caption) return content.imageMessage.caption;
   if (content.videoMessage?.caption) return content.videoMessage.caption;
+  if (content.documentMessage?.caption) return content.documentMessage.caption;
+  if (content.documentWithCaptionMessage?.message?.documentMessage?.caption) {
+    return content.documentWithCaptionMessage.message.documentMessage.caption;
+  }
   return '';
 }
 
 export function parseIncomingMessage(message, prefix) {
+  const configuredPrefix = String(prefix ?? '.');
   const text = getTextContent(message).trim();
-  if (!text || !text.startsWith(prefix)) return null;
+  if (!text || !text.startsWith(configuredPrefix)) return null;
 
-  const body = text.slice(prefix.length).trim();
+  const body = text.slice(configuredPrefix.length).trim();
   if (!body) return null;
 
   const [name = '', ...args] = body.split(/\s+/);
