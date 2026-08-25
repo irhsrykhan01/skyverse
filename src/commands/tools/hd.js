@@ -1,3 +1,5 @@
+import { toHd } from '../../services/media/ffmpeg.js';
+
 export const command = {
   name: 'hd',
   description: 'Meningkatkan resolusi gambar 2x atau 4x secara lokal.',
@@ -13,7 +15,7 @@ export const command = {
     const media = await ctx.media.download();
     if (media.type !== 'image') throw new Error('HD membutuhkan gambar.');
     const scale = Number(ctx.parsed.args[0] ?? 2);
-    const output = await ctx.media.toHd(media.buffer, { scale });
+    const output = await toHd(media.buffer, { scale });
     await ctx.media.send(output, 'image', { mimetype: 'image/jpeg', caption: `SkyVerse HD ${scale}x` });
   },
 };
