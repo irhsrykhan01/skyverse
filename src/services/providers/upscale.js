@@ -1,34 +1,21 @@
-export function createUpscaleProvider({ baseUrl = 'https://api.upscale.media/v1', apiKey } = {}) {
+export function createUpscaleProvider({ baseUrl = 'https://cdn.pixelbin.io', cloudName, zoneSlug } = {}) {
   return Object.freeze({
-    async upscale(buffer, { scale = 2, filename = 'image.jpg', mimeType = 'image/jpeg' } = {}) {
-      if (!apiKey) throw new Error('UPSCALE_API_KEY belum dikonfigurasi.');
+    async upscale(buffer, { scale = 2, filePath = `skyverse-${Date.now()}.jpg` } = {}) {
+      if (!cloudName || !zoneSlug) {
+        throw new Error('Pixelbin cloudName/zoneSlug belum dikonfigurasi untuk Upscale.media.');
+      }
       if (!Buffer.isBuffer(buffer) || buffer.length === 0) throw new Error('Input gambar kosong.');
+      if (![2, 4, 8].includes(Number(scale))) throw new Error('Scale upscale harus 2, 4, atau 8.');
 
-      const form = new FormData();
-      form.append('image', new Blob([buffer], { type: mimeType }), filename);
-      form.append('scale', String(scale));
-
-      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/upscale`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: form,
-      });
-
+      // Official Upscale.media docs expose a Pixelbin CDN transformation URL.
+      // The source image must already exist at the configured Pixelbin filePath.
+      const url = `${baseUrl.replace(/\/$/, '')}/v2/${encodeURIComponent(cloudName)}/${encodeURIComponent(zoneSlug)}/sr.upscale()/` + encodeURIComponent(filePath);
+      const response = await fetch(url);
       if (!response.ok) {
         const detail = await response.text().catch(() => '');
-        throw new Error(`Upscale provider gagal (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`);
+        throw new Error(`Upscale.media gagal (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`);
       }
-
-      const contentType = response.headers.get('content-type') ?? '';
-      if (contentType.startsWith('image/')) return Buffer.from(await response.arrayBuffer());
-
-      const payload = await response.json();
-      const url = payload?.result?.url ?? payload?.url ?? payload?.output_url;
-      if (!url) throw new Error('Upscale provider tidak mengembalikan gambar.');
-
-      const media = await fetch(url);
-      if (!media.ok) throw new Error(`Gagal mengambil hasil upscale (${media.status}).`);
-      return Buffer.from(await media.arrayBuffer());
+      return Buffer.from(await response.arrayBuffer());
     },
   });
 }
