@@ -6,7 +6,7 @@ function isDataUrl(value) {
   return typeof value === 'string' && /^data:[^;]+;base64,/i.test(value);
 }
 
-function normalizeMediaUrl(value, baseUrl) {
+function normalizeMediaSource(value, baseUrl) {
   if (isHttpUrl(value) || isDataUrl(value)) return value;
   if (typeof value === 'string' && value.trim().startsWith('/')) {
     return new URL(value.trim(), `${baseUrl.replace(/\/$/, '')}/`).toString();
@@ -15,7 +15,7 @@ function normalizeMediaUrl(value, baseUrl) {
 }
 
 export function findMediaSource(value, { baseUrl = 'https://www.keyrafara.com' } = {}, seen = new Set()) {
-  const direct = normalizeMediaUrl(value, baseUrl);
+  const direct = normalizeMediaSource(value, baseUrl);
   if (direct) return { kind: direct.startsWith('data:') ? 'data' : 'url', value: direct };
 
   if (!value || typeof value !== 'object' || seen.has(value)) return null;
@@ -53,13 +53,26 @@ function decodeDataUrl(value) {
   return match ? Buffer.from(match[1], 'base64') : null;
 }
 
-export async function replyWithProviderMedia(
-  ctx,
-  response,
-  type = 'image',
-  caption = null,
-  options = {},
-) {
+export async function downloadMediaSource(source, { maxBytes = 12 * 1024 * 1024 } = {}) {
+  if (source.kind === 'data') {
+    const buffer = decodeDataUrl(source.value);
+    if (!buffer) throw new Error('Provider mengembalikan data media yang tidak valid.');
+    if (buffer.length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
+    return buffer;
+  }
+
+  const response = await fetch(source.value, { signal: AbortSignal.timeout(30_000) });
+  if (!response.ok) throw new Error(`Gagal mengambil media provider (${response.status}).`);
+
+  const length = Number(response.headers.get('content-length') ?? 0);
+  if (length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
+  return buffer;
+}
+
+export async function replyWithProviderMedia(ctx, response, type = 'image', caption = null, options = {}) {
   const result = response?.result ?? response;
   const source = findMediaSource(result, {
     baseUrl: options.baseUrl ?? ctx.config.keyraBaseUrl ?? 'https://www.keyrafara.com',
@@ -72,23 +85,37 @@ export async function replyWithProviderMedia(
     throw new Error(String(errorMessage));
   }
 
-  const media = source.kind === 'data'
-    ? decodeDataUrl(source.value)
-    : { url: source.value };
+  const media = await downloadMediaSource(source);
+  const content = type === 'video'
+    ? { video: media, ...(caption ? { caption } : {}) }
+    : { image: media, ...(caption ? { caption } : {}) };
 
-  if (!media) throw new Error('Provider mengembalikan data media yang tidak valid.');
+  return ctx.socket.sendMessage(ctx.chatId, content, { quoted: ctx.message });
+}
 
-  if (type === 'video') {
-    return ctx.socket.sendMessage(
-      ctx.chatId,
-      { video: media, ...(caption ? { caption } : {}) },
-      { quoted: ctx.message },
-    );
+export async function replyWithProviderSticker(ctx, response, { animated = false } = {}) {
+  const result = response?.result ?? response;
+  const source = findMediaSource(result, {
+    baseUrl: ctx.config.keyraBaseUrl ?? 'https://www.keyrafara.com',
+  });
+
+  if (!source) {
+    const errorMessage = response?.error?.message
+      ?? response?.error
+      ?? 'Provider tidak mengembalikan gambar/video untuk sticker.';
+    throw new Error(String(errorMessage));
   }
+
+  const input = await downloadMediaSource(source, {
+    maxBytes: animated ? 20 * 1024 * 1024 : 12 * 1024 * 1024,
+  });
+  const sticker = animated
+    ? await ctx.media.toAnimatedSticker(input)
+    : await ctx.media.toSticker(input);
 
   return ctx.socket.sendMessage(
     ctx.chatId,
-    { image: media, ...(caption ? { caption } : {}) },
+    { sticker },
     { quoted: ctx.message },
   );
 }
