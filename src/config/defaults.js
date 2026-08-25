@@ -8,4 +8,5 @@ export const defaults = Object.freeze({
   whatsappLogLevel: 'silent',
   autoRead: true,
   autoOnline: true,
+  keyraBaseUrl: 'https://www.keyrafara.com/api',
 });
