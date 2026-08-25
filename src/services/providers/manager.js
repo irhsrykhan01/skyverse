@@ -1,5 +1,6 @@
 import { createDepayProvider } from './depay.js';
 import { createKeyraDownloaderProvider } from './keyra-downloaders.js';
+import { createRemoveBgProvider } from './removebg.js';
 
 export function createProviderManager(config) {
   const depay = createDepayProvider({
@@ -11,8 +12,13 @@ export function createProviderManager(config) {
     baseUrl: config.keyraBaseUrl,
   });
 
+  const removebg = createRemoveBgProvider({
+    baseUrl: config.removeBgBaseUrl,
+  });
+
   return Object.freeze({
     depay,
     downloader,
+    removebg,
   });
 }
