@@ -5,14 +5,18 @@ const MAX_ANIMATED_STICKER_BYTES = 500 * 1024;
 
 function runFfmpeg(args, input) {
   return new Promise((resolve, reject) => {
-    const child = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...args], { stdio: ['pipe', 'pipe', 'pipe'] });
     const stdout = [];
     const stderr = [];
     child.stdout.on('data', (chunk) => stdout.push(chunk));
     child.stderr.on('data', (chunk) => stderr.push(chunk));
     child.once('error', (error) => reject(new Error(`FFmpeg tidak tersedia: ${error.message}`)));
     child.once('close', (code) => {
-      if (code === 0) return resolve(Buffer.concat(stdout));
+      if (code === 0) {
+        const output = Buffer.concat(stdout);
+        if (!output.length) return reject(new Error('FFmpeg tidak menghasilkan file output yang valid.'));
+        return resolve(output);
+      }
       reject(new Error(`FFmpeg gagal (${code}): ${Buffer.concat(stderr).toString().trim() || 'unknown error'}`));
     });
     child.stdin.end(input);
@@ -37,11 +41,24 @@ export async function toImage(buffer) {
 }
 
 export async function toVideo(buffer) {
-  return runFfmpeg(['-i', 'pipe:0', '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart', '-f', 'mp4', 'pipe:1'], buffer);
+  return runFfmpeg(['-i', 'pipe:0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', '-f', 'mp4', 'pipe:1'], buffer);
 }
 
 export async function toVoiceNote(buffer) {
-  return runFfmpeg(['-i', 'pipe:0', '-vn', '-c:a', 'libopus', '-b:a', '64k', '-vbr', 'on', '-compression_level', '10', '-f', 'ogg', 'pipe:1'], buffer);
+  return runFfmpeg([
+    '-i', 'pipe:0',
+    '-vn',
+    '-map', '0:a:0',
+    '-ac', '1',
+    '-ar', '48000',
+    '-c:a', 'libopus',
+    '-b:a', '32k',
+    '-vbr', 'on',
+    '-application', 'voip',
+    '-frame_duration', '20',
+    '-f', 'ogg',
+    'pipe:1',
+  ], buffer);
 }
 
 export async function toSticker(buffer) {
