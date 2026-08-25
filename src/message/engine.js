@@ -8,6 +8,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   const seen = new Map();
   const cooldowns = new Map();
   const seenTtl = 60_000;
+  const slowCommandDelay = 900;
 
   function prune() {
     const now = Date.now();
@@ -16,6 +17,17 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     }
     for (const [key, until] of cooldowns) {
       if (until <= now) cooldowns.delete(key);
+    }
+  }
+
+  async function safeReact(context, emoji) {
+    try {
+      await context.react(emoji);
+    } catch (error) {
+      logger.debug('Command progress reaction failed', {
+        emoji,
+        error: error?.message ?? String(error),
+      });
     }
   }
 
@@ -43,9 +55,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       try {
         await socket.readMessages([message.key]);
       } catch (error) {
-        logger.warn('Failed to mark message as read', {
-          error: error?.message ?? String(error),
-        });
+        logger.warn('Failed to mark message as read', { error: error?.message ?? String(error) });
       }
     }
 
@@ -58,11 +68,8 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (suggestions.length) {
         await socket.sendMessage(chatId, {
           text: [
-            'Command tidak ditemukan.',
-            '',
-            'Mungkin maksud kamu:',
-            ...suggestions.map((item) => `${config.prefix}${item}`),
-            '',
+            'Command tidak ditemukan.', '', 'Mungkin maksud kamu:',
+            ...suggestions.map((item) => `${config.prefix}${item}`), '',
             `Ketik ${config.prefix}help untuk bantuan.`,
           ].join('\n'),
         }, { quoted: message });
@@ -70,16 +77,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       return;
     }
 
-    const context = createMessageContext({
-      socket,
-      message,
-      command,
-      registry,
-      identity,
-      config,
-      parsed,
-      providers,
-    });
+    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers });
 
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) {
@@ -89,9 +87,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
     if (parsed.args.length < command.minArgs ||
         (command.maxArgs !== null && parsed.args.length > command.maxArgs)) {
-      const usage = command.usage
-        ? `${config.prefix}${command.usage}`
-        : `${config.prefix}${command.name}`;
+      const usage = command.usage ? `${config.prefix}${command.usage}` : `${config.prefix}${command.name}`;
       await context.reply(`Format penggunaan tidak sesuai.\n\nUsage: ${usage}`);
       return;
     }
@@ -107,9 +103,18 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       cooldowns.set(key, Date.now() + command.cooldown);
     }
 
+    let slowReactionTimer = null;
+    let slowReactionShown = false;
     try {
       repositories.commands.increment(command.name);
+      slowReactionTimer = setTimeout(async () => {
+        slowReactionShown = true;
+        await safeReact(context, '⏳');
+      }, slowCommandDelay);
+
       await command.execute(context);
+
+      if (slowReactionShown) await safeReact(context, '✅');
     } catch (error) {
       logger.error('Command execution failed', {
         command: command.name,
@@ -117,6 +122,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
         chat: chatId,
         error: error?.message ?? String(error),
       });
+      if (slowReactionShown) await safeReact(context, '❌');
       try {
         await context.reply('Terjadi kesalahan saat menjalankan command. Coba lagi nanti.');
       } catch (replyError) {
@@ -124,6 +130,8 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
           error: replyError?.message ?? String(replyError),
         });
       }
+    } finally {
+      if (slowReactionTimer) clearTimeout(slowReactionTimer);
     }
   }
 
@@ -131,53 +139,26 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     socket.ev.on('messages.upsert', async ({ messages, type }) => {
       if (type && type !== 'notify') return;
       for (const message of messages ?? []) {
-        try {
-          await handleMessage(socket, message);
-        } catch (error) {
-          logger.error('Message processing failed', {
-            error: error?.message ?? String(error),
-          });
-        }
+        try { await handleMessage(socket, message); }
+        catch (error) { logger.error('Message processing failed', { error: error?.message ?? String(error) }); }
       }
     });
 
-    socket.ev.on('messages.update', (updates) =>
-      logger.debug('Messages updated', { count: updates?.length ?? 0 }),
-    );
-    socket.ev.on('messages.delete', (event) =>
-      logger.debug('Messages deleted', { count: event?.keys?.length ?? 0 }),
-    );
-    socket.ev.on('messages.reaction', (reactions) =>
-      logger.debug('Message reactions received', { count: reactions?.length ?? 0 }),
-    );
-    socket.ev.on('message-receipt.update', (updates) =>
-      logger.debug('Message receipts updated', { count: updates?.length ?? 0 }),
-    );
-    socket.ev.on('presence.update', (update) =>
-      logger.debug('Presence updated', { jid: update?.id }),
-    );
-    socket.ev.on('groups.upsert', (groups) =>
-      logger.debug('Groups synced', { count: groups?.length ?? 0 }),
-    );
-    socket.ev.on('groups.update', (groups) =>
-      logger.debug('Groups updated', { count: groups?.length ?? 0 }),
-    );
-    socket.ev.on('group-participants.update', (update) =>
-      logger.debug('Group participants updated', {
-        jid: update?.id,
-        action: update?.action,
-        count: update?.participants?.length ?? 0,
-      }),
-    );
+    socket.ev.on('messages.update', (updates) => logger.debug('Messages updated', { count: updates?.length ?? 0 }));
+    socket.ev.on('messages.delete', (event) => logger.debug('Messages deleted', { count: event?.keys?.length ?? 0 }));
+    socket.ev.on('messages.reaction', (reactions) => logger.debug('Message reactions received', { count: reactions?.length ?? 0 }));
+    socket.ev.on('message-receipt.update', (updates) => logger.debug('Message receipts updated', { count: updates?.length ?? 0 }));
+    socket.ev.on('presence.update', (update) => logger.debug('Presence updated', { jid: update?.id }));
+    socket.ev.on('groups.upsert', (groups) => logger.debug('Groups synced', { count: groups?.length ?? 0 }));
+    socket.ev.on('groups.update', (groups) => logger.debug('Groups updated', { count: groups?.length ?? 0 }));
+    socket.ev.on('group-participants.update', (update) => logger.debug('Group participants updated', { jid: update?.id, action: update?.action, count: update?.participants?.length ?? 0 }));
     socket.ev.on('connection.update', async ({ connection }) => {
       if (connection === 'open' && config.autoOnline) {
         try {
           await socket.sendPresenceUpdate('available');
           logger.info('WhatsApp presence set to online');
         } catch (error) {
-          logger.warn('Failed to set online presence', {
-            error: error?.message ?? String(error),
-          });
+          logger.warn('Failed to set online presence', { error: error?.message ?? String(error) });
         }
       }
     });
