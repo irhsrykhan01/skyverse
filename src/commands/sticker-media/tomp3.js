@@ -13,7 +13,11 @@ export const command = {
     const allowed = media.type === 'audio' || media.type === 'video' || (media.type === 'document' && /^(audio|video)\//i.test(media.mimetype));
     if (!allowed) throw new Error('tomp3 membutuhkan audio atau video.');
     const output = await ctx.media.toMp3(media.buffer);
-    if (!Buffer.isBuffer(output) || output.length < 1024) throw new Error('Hasil MP3 kosong atau terlalu kecil.');
+    const isMp3 = Buffer.isBuffer(output) && output.length >= 64 && (
+      output.subarray(0, 3).toString('ascii') === 'ID3' ||
+      (output[0] === 0xff && (output[1] & 0xe0) === 0xe0)
+    );
+    if (!isMp3) throw new Error('Hasil MP3 tidak valid.');
     await ctx.media.send(output, 'audio', { mimetype: 'audio/mpeg', ptt: false });
   },
 };
