@@ -5,7 +5,11 @@ function getGroupContext(context) {
 
 function normalizeMention(jid) {
   if (!jid) return null;
-  return String(jid).includes('@') ? String(jid) : `${String(jid).replace(/\D/g, '')}@s.whatsapp.net`;
+  const value = String(jid).trim();
+  if (value.includes('@')) return value;
+  const digits = value.replace(/\D/g, '');
+  if (!digits || digits.length < 7) return null;
+  return `${digits}@s.whatsapp.net`;
 }
 
 function getMentionedJids(message) {
