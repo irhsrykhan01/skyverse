@@ -1,4 +1,4 @@
-import { replyWithProviderMedia } from '../../services/providers/media-response.js';
+import { replyWithProviderSticker } from '../../services/providers/media-response.js';
 
 export const command = {
   name: 'brat',
@@ -11,6 +11,6 @@ export const command = {
   cooldown: 3000,
   async execute(ctx) {
     const response = await ctx.providers.keyra.brat(ctx.parsed.args.join(' '));
-    await replyWithProviderMedia(ctx, response, 'image');
+    await replyWithProviderSticker(ctx, response);
   },
 };
