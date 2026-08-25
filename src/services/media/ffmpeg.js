@@ -68,8 +68,8 @@ export async function toImage(buffer) {
   ], buffer);
 }
 
-export async function toVideo(buffer, { sourceType = 'unknown' } = {}) {
-  const still = sourceType === 'image' || sourceType === 'sticker';
+export async function toVideo(buffer, { sourceType = 'unknown', animated = false } = {}) {
+  const still = (sourceType === 'image' || sourceType === 'sticker') && !animated;
   const args = still
     ? [
         '-loop', '1',
@@ -88,7 +88,7 @@ export async function toVideo(buffer, { sourceType = 'unknown' } = {}) {
         '-i', 'pipe:0',
         '-map', '0:v:0',
         '-map', '0:a?',
-        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,format=yuv420p',
+        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,fps=30,format=yuv420p',
         '-c:v', 'libx264',
         '-preset', 'veryfast',
         '-crf', '23',
