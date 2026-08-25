@@ -51,7 +51,7 @@ async function main() {
     environment: config.nodeEnv,
     node: process.versions.node,
     prefix: config.prefix,
-    providers: ['keyra'],
+    providers: ['depay', 'keyra-downloader'],
   });
 
   await lifecycle.start();
