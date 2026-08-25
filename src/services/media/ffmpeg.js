@@ -41,22 +41,81 @@ function escapeDrawtext(text) {
 }
 
 export async function toMp3(buffer) {
-  return runFfmpeg(['-i', 'pipe:0', '-vn', '-codec:a', 'libmp3lame', '-q:a', '4', '-f', 'mp3', 'pipe:1'], buffer);
+  return runFfmpeg([
+    '-i', 'pipe:0',
+    '-map', '0:a:0',
+    '-vn',
+    '-map_metadata', '-1',
+    '-c:a', 'libmp3lame',
+    '-ar', '44100',
+    '-ac', '2',
+    '-b:a', '192k',
+    '-id3v2_version', '3',
+    '-f', 'mp3',
+    'pipe:1',
+  ], buffer);
 }
 
 export async function toImage(buffer) {
-  return runFfmpeg(['-i', 'pipe:0', '-frames:v', '1', '-c:v', 'mjpeg', '-f', 'image2pipe', 'pipe:1'], buffer);
+  return runFfmpeg([
+    '-i', 'pipe:0',
+    '-frames:v', '1',
+    '-map_metadata', '-1',
+    '-c:v', 'mjpeg',
+    '-q:v', '3',
+    '-f', 'image2pipe',
+    'pipe:1',
+  ], buffer);
 }
 
-export async function toVideo(buffer) {
-  return runFfmpeg(['-i', 'pipe:0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', '-f', 'mp4', 'pipe:1'], buffer);
+export async function toVideo(buffer, { sourceType = 'unknown' } = {}) {
+  const still = sourceType === 'image' || sourceType === 'sticker';
+  const args = still
+    ? [
+        '-loop', '1',
+        '-i', 'pipe:0',
+        '-t', '4',
+        '-an',
+        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,fps=30,format=yuv420p',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-movflags', '+faststart',
+        '-f', 'mp4',
+        'pipe:1',
+      ]
+    : [
+        '-i', 'pipe:0',
+        '-map', '0:v:0',
+        '-map', '0:a?',
+        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,format=yuv420p',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        '-f', 'mp4',
+        'pipe:1',
+      ];
+  return runFfmpeg(args, buffer);
 }
 
 export async function toVoiceNote(buffer) {
   return runFfmpeg([
-    '-i', 'pipe:0', '-vn', '-map', '0:a:0', '-ac', '1', '-ar', '48000',
-    '-c:a', 'libopus', '-b:a', '32k', '-vbr', 'on', '-application', 'voip',
-    '-frame_duration', '20', '-f', 'ogg', 'pipe:1',
+    '-i', 'pipe:0',
+    '-map', '0:a:0',
+    '-vn',
+    '-map_metadata', '-1',
+    '-ac', '1',
+    '-ar', '48000',
+    '-c:a', 'libopus',
+    '-b:a', '32k',
+    '-vbr', 'on',
+    '-application', 'voip',
+    '-frame_duration', '20',
+    '-f', 'ogg',
+    'pipe:1',
   ], buffer);
 }
 
