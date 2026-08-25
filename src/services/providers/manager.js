@@ -1,10 +1,18 @@
-import { createKeyraProvider } from './keyra.js';
+import { createDepayProvider } from './depay.js';
+import { createKeyraDownloaderProvider } from './keyra-downloaders.js';
 
 export function createProviderManager(config) {
-  const keyra = createKeyraProvider({
+  const depay = createDepayProvider({
+    baseUrl: config.depayBaseUrl,
+  });
+
+  const downloader = createKeyraDownloaderProvider({
     apiKey: config.keyraApiKey,
     baseUrl: config.keyraBaseUrl,
   });
 
-  return Object.freeze({ keyra });
+  return Object.freeze({
+    depay,
+    downloader,
+  });
 }
