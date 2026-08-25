@@ -1,4 +1,4 @@
-import { Image } from 'node-webpmux';
+import WebP from 'node-webpmux';
 
 function buildExif(packname, author) {
   const data = JSON.stringify({
@@ -29,7 +29,7 @@ export async function addExif(buffer, { packname, author }) {
   if (!publisher) throw new Error('Author wajib diisi.');
 
   try {
-    const image = new Image();
+    const image = new WebP.Image();
     await image.load(buffer);
     image.exif = buildExif(pack, publisher);
     const output = await image.save(null);
