@@ -1,25 +1,29 @@
-export function createRemoveBgProvider({ apiKey, baseUrl = 'https://api.remove.bg/v1.0' }) {
+export function createRemoveBgProvider({ baseUrl = 'https://clearbackdrop.com/api/v1' } = {}) {
   return Object.freeze({
-    async remove(buffer, { filename = 'image.jpg', mimeType = 'image/jpeg', size = 'auto' } = {}) {
-      if (!apiKey) throw new Error('REMOVE_BG_API_KEY belum dikonfigurasi.');
+    async remove(buffer, { filename = 'image.jpg', mimeType = 'image/jpeg' } = {}) {
       if (!Buffer.isBuffer(buffer) || buffer.length === 0) throw new Error('Input gambar kosong.');
 
       const form = new FormData();
-      form.append('image_file', new Blob([buffer], { type: mimeType }), filename);
-      form.append('size', size);
+      form.append('image', new Blob([buffer], { type: mimeType }), filename);
 
-      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/removebg`, {
+      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/remove-background`, {
         method: 'POST',
-        headers: { 'X-Api-Key': apiKey },
         body: form,
       });
 
       if (!response.ok) {
         const detail = await response.text().catch(() => '');
-        throw new Error(`remove.bg gagal (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`);
+        throw new Error(`ClearBackdrop gagal (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`);
       }
 
-      return Buffer.from(await response.arrayBuffer());
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.startsWith('image/')) {
+        throw new Error('ClearBackdrop tidak mengembalikan PNG hasil remove background.');
+      }
+
+      const output = Buffer.from(await response.arrayBuffer());
+      if (output.length === 0) throw new Error('ClearBackdrop mengembalikan file kosong.');
+      return output;
     },
   });
 }
