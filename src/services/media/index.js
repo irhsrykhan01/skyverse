@@ -6,4 +6,6 @@ export {
   toAnimatedSticker,
   toVoiceNote,
   toHd,
+  toSmeme,
+  toStickerWatermark,
 } from './ffmpeg.js';
