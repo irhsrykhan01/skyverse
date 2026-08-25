@@ -1,7 +1,7 @@
 export const command = {
   name: 'tomp3',
   description: 'Mengubah audio/video menjadi MP3 secara lokal.',
-  category: 'sticker-media',
+  category: 'sticker',
   aliases: ['mp3'],
   usage: 'tomp3 (reply/kirim audio atau video)',
   permission: 'user',
