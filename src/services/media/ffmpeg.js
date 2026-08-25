@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const MAX_STATIC_STICKER_BYTES = 100 * 1024;
 const MAX_ANIMATED_STICKER_BYTES = 500 * 1024;
+const MAX_ANIMATED_FRAMES = 180;
 
 function runProcess(command, args) {
   return new Promise((resolve, reject) => {
@@ -23,6 +24,44 @@ function runProcess(command, args) {
   });
 }
 
+function isWebp(buffer) {
+  return Buffer.isBuffer(buffer) && buffer.length >= 20 &&
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP' &&
+    buffer.readUInt32LE(4) + 8 === buffer.length;
+}
+
+function isAnimatedWebp(buffer) {
+  if (!isWebp(buffer)) return false;
+  let offset = 12;
+  while (offset + 8 <= buffer.length) {
+    const type = buffer.subarray(offset, offset + 4).toString('ascii');
+    const size = buffer.readUInt32LE(offset + 4);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + size;
+    if (dataEnd > buffer.length) return false;
+    if (type === 'ANIM' || type === 'ANMF') return true;
+    if (type === 'VP8X' && size >= 1 && (buffer[dataStart] & 0x02)) return true;
+    offset = dataEnd + (size & 1);
+  }
+  return false;
+}
+
+function countAnimatedFrames(buffer) {
+  if (!isAnimatedWebp(buffer)) return 1;
+  let offset = 12;
+  let frames = 0;
+  while (offset + 8 <= buffer.length) {
+    const type = buffer.subarray(offset, offset + 4).toString('ascii');
+    const size = buffer.readUInt32LE(offset + 4);
+    const dataEnd = offset + 8 + size;
+    if (dataEnd > buffer.length) break;
+    if (type === 'ANMF') frames += 1;
+    offset = dataEnd + (size & 1);
+  }
+  return Math.max(1, Math.min(frames, MAX_ANIMATED_FRAMES));
+}
+
 async function withTempMedia(input, outputExtension, buildArgs) {
   const dir = await mkdtemp(join(tmpdir(), 'skyverse-media-'));
   const inputPath = join(dir, 'input.bin');
@@ -35,6 +74,60 @@ async function withTempMedia(input, outputExtension, buildArgs) {
     if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan output yang valid.');
     await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
     return output;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function extractAnimatedFrames(buffer, dir) {
+  if (!isAnimatedWebp(buffer)) throw new Error('Input bukan sticker WebP bergerak yang valid.');
+  const inputPath = join(dir, 'animated.webp');
+  await writeFile(inputPath, buffer);
+  const frameCount = countAnimatedFrames(buffer);
+  if (frameCount < 2) throw new Error('Sticker tidak memiliki frame animasi yang cukup untuk dijadikan video.');
+
+  const frames = [];
+  for (let index = 1; index <= frameCount; index += 1) {
+    const framePath = join(dir, `frame-${String(index).padStart(4, '0')}.webp`);
+    await runProcess('webpmux', ['-get', 'frame', String(index), inputPath, '-o', framePath]);
+    const frame = await readFile(framePath);
+    if (!isWebp(frame)) throw new Error(`Frame WebP ${index} hasil ekstraksi tidak valid.`);
+    frames.push(framePath);
+  }
+  return frames;
+}
+
+async function animatedWebpToVideo(buffer) {
+  const dir = await mkdtemp(join(tmpdir(), 'skyverse-animated-webp-'));
+  try {
+    const frames = await extractAnimatedFrames(buffer, dir);
+    const outputPath = join(dir, 'output.mp4');
+    await runProcess('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+      '-framerate', '30', '-i', join(dir, 'frame-%04d.webp'),
+      '-an', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,format=yuv420p',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-movflags', '+faststart',
+      '-frames:v', String(frames.length), outputPath,
+    ]);
+    const output = await readFile(outputPath);
+    if (output.length < 1024) throw new Error('Video hasil ekstraksi WebP kosong atau terlalu kecil.');
+    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
+    return output;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function animatedWebpToFirstFrame(buffer) {
+  const dir = await mkdtemp(join(tmpdir(), 'skyverse-webp-frame-'));
+  try {
+    const inputPath = join(dir, 'animated.webp');
+    const framePath = join(dir, 'frame.webp');
+    await writeFile(inputPath, buffer);
+    await runProcess('webpmux', ['-get', 'frame', '1', inputPath, '-o', framePath]);
+    const frame = await readFile(framePath);
+    if (!isWebp(frame)) throw new Error('Frame pertama WebP tidak valid.');
+    return frame;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
@@ -65,21 +158,21 @@ export function toMp3(buffer) {
   ]);
 }
 
-export function toImage(buffer) {
-  return withTempMedia(buffer, '.jpg', (input, output) => [
+export async function toImage(buffer) {
+  const source = isAnimatedWebp(buffer) ? await animatedWebpToFirstFrame(buffer) : buffer;
+  return withTempMedia(source, '.jpg', (input, output) => [
     '-i', input, '-frames:v', '1', '-map_metadata', '-1',
     '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
   ]);
 }
 
-export function toVideo(buffer, { sourceType = 'sticker', animated = false } = {}) {
-  if (sourceType !== 'sticker' || !animated) throw new Error('tovideo hanya mendukung sticker bergerak.');
-  return withTempMedia(buffer, '.mp4', (input, output) => [
-    '-i', input, '-map', '0:v:0', '-an',
-    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,fps=30,format=yuv420p',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-movflags', '+faststart',
-    '-f', 'mp4', output,
-  ]);
+export async function toVideo(buffer, { sourceType = 'sticker', animated = false } = {}) {
+  if (sourceType !== 'sticker') throw new Error('tovideo hanya mendukung sticker bergerak.');
+  if (!isAnimatedWebp(buffer)) {
+    if (!animated) throw new Error('tovideo hanya menerima sticker bergerak.');
+    throw new Error('Sticker ditandai bergerak tetapi WebP tidak berisi frame animasi yang valid.');
+  }
+  return animatedWebpToVideo(buffer);
 }
 
 export function toVoiceNote(buffer) {
