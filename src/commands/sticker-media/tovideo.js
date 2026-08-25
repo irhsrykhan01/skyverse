@@ -1,6 +1,6 @@
 export const command = {
   name: 'tovideo',
-  description: 'Mengubah gambar, sticker, atau video menjadi video MP4.',
+  description: 'Mengubah gambar, sticker statis/bergerak, atau video menjadi video MP4.',
   category: 'sticker',
   aliases: ['vid'],
   usage: 'tovideo (reply/kirim gambar, sticker, atau video)',
@@ -13,7 +13,9 @@ export const command = {
     if (!['image', 'video', 'sticker', 'document'].includes(media.type)) {
       throw new Error('tovideo membutuhkan gambar, sticker, atau video.');
     }
-    const output = await ctx.media.toVideo(media.buffer, { sourceType: media.type });
+    const stickerMessage = media.message?.message?.stickerMessage;
+    const animated = Boolean(stickerMessage?.isAnimated);
+    const output = await ctx.media.toVideo(media.buffer, { sourceType: media.type, animated });
     await ctx.media.send(output, 'video', { mimetype: 'video/mp4' });
   },
 };
