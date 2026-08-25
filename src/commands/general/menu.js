@@ -12,6 +12,24 @@ function titleFor(category) {
   return CATEGORY_META[key] ?? { icon: '•', label: key.charAt(0).toUpperCase() + key.slice(1), order: 50 };
 }
 
+function bannerOptions(config) {
+  if (!config.menuBannerEnabled || !config.menuBannerImage || !config.menuBannerLink) return null;
+
+  return {
+    contextInfo: {
+      externalAdReply: {
+        title: config.menuBannerTitle,
+        body: config.menuBannerBody,
+        mediaType: 1,
+        thumbnailUrl: config.menuBannerImage,
+        sourceUrl: config.menuBannerLink,
+        renderLargerThumbnail: true,
+        showAdAttribution: false,
+      },
+    },
+  };
+}
+
 export const command = {
   name: 'menu',
   description: 'Menampilkan menu SkyVerse.',
@@ -49,6 +67,6 @@ export const command = {
     }
 
     lines.push('', `Ketik *${ctx.config.prefix}help <command>* untuk detail command.`);
-    await ctx.reply(lines.join('\n'));
+    await ctx.reply(lines.join('\n'), { sendOptions: bannerOptions(ctx.config) });
   },
 };
