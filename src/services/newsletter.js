@@ -1,5 +1,6 @@
-import { normalizeMessageContent, downloadContentFromMessage } from '@whiskeysockets/baileys';
+import { normalizeMessageContent } from '@whiskeysockets/baileys';
 import { extractMotionPhoto } from './media/motion-photo.js';
+import { downloadResolvedMedia, resolveMediaTarget } from './media/resolver.js';
 
 const CHANNEL_SCOPE = 'user';
 const CHANNEL_KEY = 'newsletter.channel';
@@ -58,14 +59,16 @@ async function resolveReference(socket, reference) {
 }
 
 function getContextInfo(message) {
-  const content = normalizeMessageContent(message?.message);
-  return content?.extendedTextMessage?.contextInfo
-    ?? content?.imageMessage?.contextInfo
-    ?? content?.videoMessage?.contextInfo
-    ?? content?.audioMessage?.contextInfo
-    ?? content?.documentMessage?.contextInfo
-    ?? content?.stickerMessage?.contextInfo
-    ?? null;
+  const normalized = normalizeMessageContent(message?.message ?? message);
+  return normalized?.extendedTextMessage?.contextInfo ??
+    normalized?.imageMessage?.contextInfo ??
+    normalized?.videoMessage?.contextInfo ??
+    normalized?.audioMessage?.contextInfo ??
+    normalized?.stickerMessage?.contextInfo ??
+    normalized?.documentMessage?.contextInfo ??
+    normalized?.viewOnceMessage?.message?.videoMessage?.contextInfo ??
+    normalized?.viewOnceMessageV2?.message?.videoMessage?.contextInfo ??
+    normalized?.ephemeralMessage?.message?.extendedTextMessage?.contextInfo ?? null;
 }
 
 function getQuotedMessage(message) {
@@ -77,30 +80,34 @@ function getQuotedText(message) {
   return quoted?.conversation ?? quoted?.extendedTextMessage?.text ?? quoted?.imageMessage?.caption ?? quoted?.videoMessage?.caption ?? quoted?.documentMessage?.caption ?? '';
 }
 
-async function readMediaBuffer(mediaMessage, type) {
-  const stream = await downloadContentFromMessage(mediaMessage, type);
-  const chunks = [];
-  for await (const chunk of stream) chunks.push(chunk);
-  return Buffer.concat(chunks);
-}
-
 async function buildQuotedContent(context) {
-  const quoted = normalizeMessageContent(getQuotedMessage(context.message));
-  if (!quoted) return null;
+  // Use the same hardened MediaResolver as the working toimg/tovideo commands.
+  // This is important for PTV: a Video Note is still represented by a
+  // videoMessage with PTV metadata, so resolving the quoted message through
+  // the shared resolver avoids treating it as an unknown message type.
+  const descriptor = resolveMediaTarget(context.message);
+  if (descriptor) {
+    const downloaded = await downloadResolvedMedia({ socket: context.socket, message: context.message, retries: 2, logger: console });
 
-  if (quoted.imageMessage) {
-    const buffer = await readMediaBuffer(quoted.imageMessage, 'image');
-    const motion = extractMotionPhoto(buffer);
-    if (motion) {
-      return { motionPhoto: true, image: motion.image, video: motion.video, caption: quoted.imageMessage.caption ?? '' };
+    if (downloaded.type === 'video') {
+      return {
+        video: downloaded.buffer,
+        ptv: Boolean(downloaded.node?.ptv),
+        caption: downloaded.node?.caption ?? '',
+      };
     }
-    return { image: buffer, ...(quoted.imageMessage.caption ? { caption: quoted.imageMessage.caption } : {}) };
+    if (downloaded.type === 'image') {
+      const motion = extractMotionPhoto(downloaded.buffer);
+      if (motion) return { motionPhoto: true, image: motion.image, video: motion.video, caption: downloaded.node?.caption ?? '' };
+      return { image: downloaded.buffer, caption: downloaded.node?.caption ?? '' };
+    }
+    if (downloaded.type === 'audio') return { audio: downloaded.buffer, mimetype: downloaded.mimetype, ptt: Boolean(downloaded.node?.ptt) };
+    if (downloaded.type === 'document') return { document: downloaded.buffer, mimetype: downloaded.mimetype, fileName: downloaded.node?.fileName ?? 'file', caption: downloaded.node?.caption ?? '' };
+    if (downloaded.type === 'sticker') return { sticker: downloaded.buffer };
   }
-  if (quoted.videoMessage) return { video: await readMediaBuffer(quoted.videoMessage, 'video'), ...(quoted.videoMessage.caption ? { caption: quoted.videoMessage.caption } : {}) };
-  if (quoted.audioMessage) return { audio: await readMediaBuffer(quoted.audioMessage, 'audio'), mimetype: quoted.audioMessage.mimetype ?? 'audio/mpeg', ptt: Boolean(quoted.audioMessage.ptt) };
-  if (quoted.documentMessage) return { document: await readMediaBuffer(quoted.documentMessage, 'document'), mimetype: quoted.documentMessage.mimetype ?? 'application/octet-stream', fileName: quoted.documentMessage.fileName ?? 'file', ...(quoted.documentMessage.caption ? { caption: quoted.documentMessage.caption } : {}) };
-  if (quoted.stickerMessage) return { sticker: await readMediaBuffer(quoted.stickerMessage, 'sticker') };
-  if (quoted.conversation || quoted.extendedTextMessage?.text) return { text: getQuotedText(context.message) };
+
+  const quoted = normalizeMessageContent(getQuotedMessage(context.message));
+  if (quoted?.conversation || quoted?.extendedTextMessage?.text) return { text: getQuotedText(context.message) };
   return null;
 }
 
@@ -132,21 +139,18 @@ export function createNewsletterService() {
     if (!saved) throw new Error(`Channel belum diatur. Gunakan ${context.config.prefix}setchannel <link/JID>.`);
     const latest = await resolveReference(context.socket, saved.id);
     await assertCanPost(context, latest);
+
     const quotedContent = await buildQuotedContent(context);
     const bodyText = String(text).trim();
     const content = quotedContent ?? (bodyText ? { text: bodyText } : null);
     if (!content) throw new Error(`Balas pesan yang ingin di-upload atau tulis teks setelah ${context.config.prefix}upch.`);
 
-    // PTV khusus: tandai video sebagai WhatsApp Video Note. Ini dicoba lewat
-    // jalur sendMessage newsletter yang sama dengan pesan media lainnya.
-    // Jika versi Baileys/WhatsApp tidak menerima PTV di newsletter, error
-    // akan ditangkap command layer tanpa membuat bot crash.
     if (content.video && !content.motionPhoto) {
       return context.socket.sendMessage(latest.id, {
         video: content.video,
         ...(content.caption ? { caption: content.caption } : {}),
         mimetype: 'video/mp4',
-        ptv: true,
+        ptv: Boolean(content.ptv),
       });
     }
 
