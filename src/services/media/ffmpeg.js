@@ -133,6 +133,19 @@ async function animatedWebpToFirstFrame(buffer) {
   }
 }
 
+async function videoToVideoNote(buffer, { maxDuration = 60 } = {}) {
+  const duration = Math.max(1, Math.min(60, Number(maxDuration) || 60));
+  return withTempMedia(buffer, '.mp4', (input, output) => [
+    '-i', input,
+    '-t', String(duration),
+    '-map', '0:v:0', '-an',
+    '-vf', 'scale=512:512:force_original_aspect_ratio=increase:flags=lanczos,crop=512:512,setsar=1,format=yuv420p',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+    '-r', '30', '-movflags', '+faststart', '-pix_fmt', 'yuv420p',
+    '-f', 'mp4', output,
+  ]);
+}
+
 function scaleFilter() {
   return 'scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=512:512:-1:-1:color=black@0';
 }
@@ -166,7 +179,8 @@ export async function toImage(buffer) {
   ]);
 }
 
-export async function toVideo(buffer, { sourceType = 'sticker', animated = false } = {}) {
+export async function toVideo(buffer, { sourceType = 'sticker', animated = false, videoNote = false, maxDuration = 60 } = {}) {
+  if (videoNote) return videoToVideoNote(buffer, { maxDuration });
   if (sourceType !== 'sticker') throw new Error('tovideo hanya mendukung sticker bergerak.');
   if (!isAnimatedWebp(buffer)) {
     if (!animated) throw new Error('tovideo hanya menerima sticker bergerak.');
@@ -219,37 +233,17 @@ export function toSmeme(buffer, { top = '', bottom = '' } = {}) {
   const filters = [];
   if (top) filters.push(memeTextFilter(top, 'top'));
   if (bottom) filters.push(memeTextFilter(bottom, 'bottom'));
-  if (!filters.length) throw new Error('Masukkan teks atas atau bawah untuk smeme.');
+  if (!filters.length) throw new Error('Teks meme tidak boleh kosong.');
   return withTempMedia(buffer, '.jpg', (input, output) => [
-    '-i', input, '-vf', filters.join(','), '-frames:v', '1',
-    '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
+    '-i', input, '-vf', `${scaleFilter()},${filters.join(',')}`,
+    '-frames:v', '1', '-map_metadata', '-1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
   ]);
 }
 
-export function toStickerWatermark(buffer, { text = 'SkyVerse' } = {}) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Data sticker kosong atau tidak valid.');
-  const watermark = String(text).trim().slice(0, 80);
-  if (!watermark) throw new Error('Teks watermark tidak boleh kosong.');
+export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = 'SkyVerse Bot' } = {}) {
   return withTempMedia(buffer, '.webp', (input, output) => [
-    '-i', input, '-frames:v', '1',
-    '-vf', `drawtext=text='${escapeDrawtext(watermark)}':fontcolor=white@0.9:fontsize=24:box=1:boxcolor=black@0.45:boxborderw=8:x=w-text_w-12:y=h-text_h-12,${scaleFilter()}`,
-    '-c:v', 'libwebp', '-lossless', '0', '-q:v', '60', '-compression_level', '6',
-    '-preset', 'picture', '-an', '-f', 'webp', output,
-  ]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker watermark'));
-}
-
-export function toSticker(buffer) {
-  return withTempMedia(buffer, '.webp', (input, output) => [
-    '-i', input, '-frames:v', '1', '-vf', scaleFilter(), '-c:v', 'libwebp',
-    '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture',
-    '-an', '-f', 'webp', output,
-  ]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
-}
-
-export function toAnimatedSticker(buffer) {
-  return withTempMedia(buffer, '.webp', (input, output) => [
-    '-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()}`, '-c:v', 'libwebp',
-    '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-loop', '0',
-    '-an', '-f', 'webp', output,
-  ]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
+    '-i', input, '-vf', `${scaleFilter()},format=rgba`, '-frames:v', '1',
+    '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-preset', 'picture', '-metadata', `comment=${pack} | ${author}`,
+    '-f', 'webp', output,
+  ]);
 }
