@@ -32,6 +32,14 @@ function throwOversize(buffer, limit, kind) {
   return buffer;
 }
 
+function escapeDrawtext(text) {
+  return String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'")
+    .replace(/%/g, '\\%');
+}
+
 export async function toMp3(buffer) {
   return runFfmpeg(['-i', 'pipe:0', '-vn', '-codec:a', 'libmp3lame', '-q:a', '4', '-f', 'mp3', 'pipe:1'], buffer);
 }
@@ -72,6 +80,25 @@ export async function toHd(buffer, { scale = 2 } = {}) {
     '-f', 'image/jpeg',
     'pipe:1',
   ], buffer);
+}
+
+export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
+  const filters = [];
+  if (top) filters.push(`drawtext=text='${escapeDrawtext(top)}':fontcolor=white:fontsize=44:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=24`);
+  if (bottom) filters.push(`drawtext=text='${escapeDrawtext(bottom)}':fontcolor=white:fontsize=44:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=h-text_h-24`);
+  if (!filters.length) throw new Error('Masukkan teks atas atau bawah untuk smeme.');
+  return runFfmpeg(['-i', 'pipe:0', '-vf', `format=yuv420p,${filters.join(',')}`, '-frames:v', '1', '-q:v', '3', '-f', 'jpeg', 'pipe:1'], buffer);
+}
+
+export async function toStickerWatermark(buffer, { text = 'SkyVerse' } = {}) {
+  const watermark = String(text).trim().slice(0, 80);
+  if (!watermark) throw new Error('Teks watermark tidak boleh kosong.');
+  const output = await runFfmpeg([
+    '-i', 'pipe:0',
+    '-vf', `drawtext=text='${escapeDrawtext(watermark)}':fontcolor=white@0.9:fontsize=24:box=1:boxcolor=black@0.45:boxborderw=8:x=w-text_w-12:y=h-text_h-12,${scaleFilter()}`,
+    '-c:v', 'libwebp', '-lossless', '0', '-q:v', '60', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', 'pipe:1',
+  ], buffer);
+  return throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker watermark');
 }
 
 export async function toSticker(buffer) {
