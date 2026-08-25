@@ -1,7 +1,7 @@
 export const command = {
   name: 'toimg',
   description: 'Mengambil frame gambar dari media secara lokal.',
-  category: 'sticker-media',
+  category: 'sticker',
   aliases: ['toimage'],
   usage: 'toimg (reply/kirim media)',
   permission: 'user',
