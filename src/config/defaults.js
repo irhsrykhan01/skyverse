@@ -5,7 +5,7 @@ export const defaults = Object.freeze({
   logLevel: 'info',
   authPath: './sessions/whatsapp',
   databasePath: './data/skyverse.sqlite',
-  keyraBaseUrl: 'https://www.keyrafara.com/api',
+  keyraBaseUrl: 'https://www.keyrafara.com',
   keyraApiKey: null,
   whatsappLogLevel: 'silent',
   autoRead: true,
