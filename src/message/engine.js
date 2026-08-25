@@ -7,7 +7,7 @@ function requiredPermissionOrder(level) {
   return { user: 0, admin: 1, owner: 2 }[level] ?? 0;
 }
 
-export function createMessageEngine({ config, logger, identity, registry, repositories }) {
+export function createMessageEngine({ config, logger, identity, registry, repositories, providers }) {
   const seen = new Map();
   const cooldowns = new Map();
   const seenTtl = 60_000;
@@ -51,7 +51,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       return;
     }
 
-    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed });
+    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers });
     const permission = await context.permissionLevel(command.permission);
     if (requiredPermissionOrder(permission) < requiredPermissionOrder(command.permission)) {
       await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.');
