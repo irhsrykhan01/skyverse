@@ -13,7 +13,9 @@ export const command = {
     const allowed = media.type === 'audio' || media.type === 'video' || (media.type === 'document' && /^(audio|video)\//i.test(media.mimetype));
     if (!allowed) throw new Error('tovn membutuhkan audio atau video.');
     const output = await ctx.media.toVoiceNote(media.buffer);
-    if (!Buffer.isBuffer(output) || output.length < 1024) throw new Error('Hasil Voice Note kosong atau terlalu kecil.');
+    if (!Buffer.isBuffer(output) || output.length < 64 || output.subarray(0, 4).toString('ascii') !== 'OggS') {
+      throw new Error('Hasil Voice Note tidak valid.');
+    }
     await ctx.media.send(output, 'audio', { mimetype: 'audio/ogg; codecs=opus', ptt: true });
   },
 };
