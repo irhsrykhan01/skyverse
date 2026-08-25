@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { suggestNames } from '../utils/similarity.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+const BLOCKED_COMMANDS = new Set(['qc', 'bratvid']);
 
 async function findCommandFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -30,6 +31,7 @@ function validateCommand(command, file) {
   const minArgs = Number.isInteger(command.minArgs) && command.minArgs >= 0 ? command.minArgs : 0;
   const maxArgs = Number.isInteger(command.maxArgs) && command.maxArgs >= minArgs ? command.maxArgs : null;
   const cooldown = Number.isFinite(command.cooldown) && command.cooldown > 0 ? command.cooldown : 0;
+  const blocked = BLOCKED_COMMANDS.has(name);
   return Object.freeze({
     ...command,
     name,
@@ -42,8 +44,8 @@ function validateCommand(command, file) {
     minArgs,
     maxArgs,
     cooldown,
-    hidden: command.hidden === true,
-    enabled: command.enabled !== false,
+    hidden: blocked || command.hidden === true,
+    enabled: !blocked && command.enabled !== false,
   });
 }
 
