@@ -1,7 +1,7 @@
 export const command = {
   name: 'tomp4',
   description: 'Mengubah video/media menjadi MP4 secara lokal.',
-  category: 'sticker-media',
+  category: 'sticker',
   aliases: ['mp4'],
   usage: 'tomp4 (reply/kirim media)',
   permission: 'user',
