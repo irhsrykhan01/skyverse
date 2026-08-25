@@ -77,7 +77,17 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       return;
     }
 
-    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers });
+    const context = createMessageContext({
+      socket,
+      message,
+      command,
+      registry,
+      identity,
+      config,
+      parsed,
+      providers,
+      repositories,
+    });
 
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) {
