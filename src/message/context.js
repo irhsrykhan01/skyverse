@@ -68,7 +68,7 @@ export function createMessageContext({ socket, message, command, registry, ident
       : type === 'image'
         ? { image: buffer, mimetype: options.mimetype ?? 'image/jpeg', caption: options.caption }
         : type === 'video'
-          ? { video: buffer, mimetype: options.mimetype ?? 'video/mp4', caption: options.caption, videoNote: Boolean(options.videoNote) }
+          ? { video: buffer, mimetype: options.mimetype ?? 'video/mp4', caption: options.caption, ptv: Boolean(options.ptv) }
           : type === 'audio'
             ? { audio: buffer, mimetype: options.mimetype ?? 'audio/mpeg', ptt: Boolean(options.ptt) }
             : { document: buffer, mimetype: options.mimetype ?? 'application/octet-stream', fileName: options.fileName ?? 'SkyVerse.bin' };
