@@ -2,7 +2,7 @@ import { replyWithProviderSticker } from '../../services/providers/media-respons
 
 export const command = {
   name: 'iqc',
-  description: 'Membuat quote sticker dari teks menggunakan Keyra.',
+  description: 'Membuat IQC dari teks menggunakan Depay.',
   category: 'sticker',
   aliases: [],
   usage: 'iqc <teks>',
@@ -10,7 +10,7 @@ export const command = {
   minArgs: 1,
   cooldown: 3000,
   async execute(ctx) {
-    const response = await ctx.providers.keyra.iqc(ctx.parsed.args.join(' '));
+    const response = await ctx.providers.depay.iqc(ctx.parsed.args.join(' '));
     await replyWithProviderSticker(ctx, response);
   },
 };
