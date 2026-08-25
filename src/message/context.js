@@ -1,7 +1,7 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
 import { createGroupService, calculate } from '../services/index.js';
-import { toMp3, toImage, toVideo } from '../services/media/index.js';
+import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker } from '../services/media/index.js';
 
 function getSenderJid(message) {
   if (message.key?.fromMe) return message.key?.participant ?? message.key?.remoteJid ?? null;
@@ -86,6 +86,6 @@ export function createMessageContext({ socket, message, command, registry, ident
     sendPresence,
     group,
     calculate,
-    media: Object.freeze({ toMp3, toImage, toVideo }),
+    media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker }),
   });
 }
