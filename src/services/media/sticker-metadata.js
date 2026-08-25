@@ -1,25 +1,41 @@
-import { spawn } from 'node:child_process';
+import { Image } from 'node-webpmux';
 
-function runExifTool(args, input) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('exiftool', ['-stay_open', 'True', '-@', '-', '-common_args', '-overwrite_original'], { stdio: ['pipe', 'pipe', 'pipe'] });
-    const stdout = [];
-    const stderr = [];
-    child.stdout.on('data', (chunk) => stdout.push(chunk));
-    child.stderr.on('data', (chunk) => stderr.push(chunk));
-    child.once('error', (error) => reject(new Error(`ExifTool tidak tersedia: ${error.message}`)));
-    child.once('close', (code) => {
-      if (code !== 0) reject(new Error(`ExifTool gagal (${code}): ${Buffer.concat(stderr).toString().trim() || 'unknown error'}`));
-    });
-    child.stdin.end(Buffer.concat([input]));
+function buildExif(packname, author) {
+  const data = JSON.stringify({
+    'sticker-pack-id': 'com.skyverse.sticker',
+    'sticker-pack-name': packname,
+    'sticker-pack-publisher': author,
+    'emojis': [],
+    'android-app-store-link': '',
+    'ios-app-store-link': '',
+    'website': '',
   });
+  const json = Buffer.from(data, 'utf8');
+  const header = Buffer.from([
+    0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x16, 0x00, 0x00, 0x00,
+  ]);
+  const exif = Buffer.concat([header, json]);
+  exif.writeUInt32LE(json.length, 14);
+  return exif;
 }
 
 export async function addExif(buffer, { packname, author }) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Data sticker kosong atau tidak valid.');
-  if (!packname?.trim()) throw new Error('Nama pack wajib diisi.');
-  if (!author?.trim()) throw new Error('Author wajib diisi.');
-  // Placeholder guard: metadata rewriting is intentionally isolated from FFmpeg.
-  // The command must not alter sticker pixels.
-  return buffer;
+  const pack = String(packname ?? '').trim().slice(0, 100);
+  const publisher = String(author ?? '').trim().slice(0, 100);
+  if (!pack) throw new Error('Nama pack wajib diisi.');
+  if (!publisher) throw new Error('Author wajib diisi.');
+
+  try {
+    const image = new Image();
+    await image.load(buffer);
+    image.exif = buildExif(pack, publisher);
+    const output = await image.save(null);
+    if (!Buffer.isBuffer(output) || output.length < 16) throw new Error('Metadata sticker gagal dibuat.');
+    return output;
+  } catch (error) {
+    throw new Error(`Gagal mengubah metadata sticker: ${error.message}`);
+  }
 }
