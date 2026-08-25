@@ -4,4 +4,5 @@ export {
   toVideo,
   toSticker,
   toAnimatedSticker,
+  toVoiceNote,
 } from './ffmpeg.js';
