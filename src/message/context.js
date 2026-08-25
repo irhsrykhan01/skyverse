@@ -2,7 +2,7 @@ import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
 import { createGroupService, calculate, createNewsletterService } from '../services/index.js';
-import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote } from '../services/media/index.js';
+import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark } from '../services/media/index.js';
 
 function getSenderJid(message) {
   return message.key?.fromMe ? message.key?.participant ?? message.key?.remoteJid ?? null : message.key?.participant ?? message.key?.remoteJid ?? null;
@@ -27,6 +27,7 @@ function mediaTypeOf(message) {
   if (content.imageMessage) return 'image';
   if (content.videoMessage) return 'video';
   if (content.audioMessage) return 'audio';
+  if (content.stickerMessage) return 'sticker';
   if (content.documentMessage) return 'document';
   return null;
 }
@@ -37,7 +38,8 @@ function quotedWAMessage(message) {
     content?.imageMessage?.contextInfo ??
     content?.videoMessage?.contextInfo ??
     content?.documentMessage?.contextInfo ??
-    content?.audioMessage?.contextInfo;
+    content?.audioMessage?.contextInfo ??
+    content?.stickerMessage?.contextInfo;
   const quoted = contextInfo?.quotedMessage;
   if (!quoted) return null;
   return {
@@ -103,7 +105,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   async function downloadMedia() {
     const target = targetMediaMessage(message);
     const type = mediaTypeOf(target);
-    if (!type) throw new Error('Tidak ada media yang bisa diproses. Kirim atau reply gambar, video, atau audio.');
+    if (!type) throw new Error('Tidak ada media yang bisa diproses. Kirim atau reply gambar, video, audio, atau sticker.');
     const buffer = await downloadMediaMessage(target, 'buffer', {}, { logger: undefined, reuploadRequest: socket.updateMediaMessage });
     return { buffer, type, message: target };
   }
@@ -127,7 +129,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     isGroup, isOwner, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
     group, newsletter, calculate,
     media: Object.freeze({
-      toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote,
+      toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark,
       download: downloadMedia, send: sendMedia,
     }),
   });
