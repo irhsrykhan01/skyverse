@@ -41,4 +41,31 @@ assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands.`);
+// Regression test: a received WhatsApp Video Note is represented as ptvMessage.
+// The resolver must recognize it as video and preserve the PTV flag before the
+// command layer tries to upload it elsewhere.
+const syntheticPtv = {
+  key: { remoteJid: '120000000000000@g.us', id: 'PTV-SMOKE', fromMe: false },
+  message: {
+    extendedTextMessage: {
+      contextInfo: {
+        stanzaId: 'PTV-QUOTED',
+        participant: '116000000000000@lid',
+        quotedMessage: {
+          ptvMessage: {
+            url: 'https://example.invalid/ptv.mp4',
+            mimetype: 'video/mp4',
+            fileLength: 12345,
+          },
+        },
+      },
+    },
+  },
+};
+
+const ptvDescriptor = resolveMediaTarget(syntheticPtv);
+assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not classified as video.');
+assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
+assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
+
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + PTV resolver regression test.`);
