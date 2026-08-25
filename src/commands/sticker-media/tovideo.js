@@ -1,7 +1,7 @@
 export const command = {
   name: 'tovideo',
   description: 'Mengubah media menjadi video MP4 secara lokal.',
-  category: 'sticker-media',
+  category: 'sticker',
   aliases: ['vid'],
   usage: 'tovideo (reply/kirim media)',
   permission: 'user',
