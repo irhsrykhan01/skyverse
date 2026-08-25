@@ -45,7 +45,7 @@ export async function toMp3(buffer) {
 }
 
 export async function toImage(buffer) {
-  return runFfmpeg(['-i', 'pipe:0', '-frames:v', '1', '-f', 'image/jpeg', 'pipe:1'], buffer);
+  return runFfmpeg(['-i', 'pipe:0', '-frames:v', '1', '-c:v', 'mjpeg', '-f', 'image2pipe', 'pipe:1'], buffer);
 }
 
 export async function toVideo(buffer) {
@@ -75,9 +75,10 @@ export async function toHd(buffer, { scale = 2 } = {}) {
   return runFfmpeg([
     '-i', 'pipe:0',
     '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv420p`,
-    '-q:v', '2',
     '-frames:v', '1',
-    '-f', 'image/jpeg',
+    '-c:v', 'mjpeg',
+    '-q:v', '2',
+    '-f', 'image2pipe',
     'pipe:1',
   ], buffer);
 }
@@ -87,14 +88,16 @@ export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
   if (top) filters.push(`drawtext=text='${escapeDrawtext(top)}':fontcolor=white:fontsize=44:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=24`);
   if (bottom) filters.push(`drawtext=text='${escapeDrawtext(bottom)}':fontcolor=white:fontsize=44:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=h-text_h-24`);
   if (!filters.length) throw new Error('Masukkan teks atas atau bawah untuk smeme.');
-  return runFfmpeg(['-i', 'pipe:0', '-vf', `format=yuv420p,${filters.join(',')}`, '-frames:v', '1', '-q:v', '3', '-f', 'jpeg', 'pipe:1'], buffer);
+  return runFfmpeg(['-i', 'pipe:0', '-vf', `format=yuv420p,${filters.join(',')}`, '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2pipe', 'pipe:1'], buffer);
 }
 
 export async function toStickerWatermark(buffer, { text = 'SkyVerse' } = {}) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Data sticker kosong atau tidak valid.');
   const watermark = String(text).trim().slice(0, 80);
   if (!watermark) throw new Error('Teks watermark tidak boleh kosong.');
   const output = await runFfmpeg([
     '-i', 'pipe:0',
+    '-frames:v', '1',
     '-vf', `drawtext=text='${escapeDrawtext(watermark)}':fontcolor=white@0.9:fontsize=24:box=1:boxcolor=black@0.45:boxborderw=8:x=w-text_w-12:y=h-text_h-12,${scaleFilter()}`,
     '-c:v', 'libwebp', '-lossless', '0', '-q:v', '60', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', 'pipe:1',
   ], buffer);
@@ -102,7 +105,7 @@ export async function toStickerWatermark(buffer, { text = 'SkyVerse' } = {}) {
 }
 
 export async function toSticker(buffer) {
-  const output = await runFfmpeg(['-i', 'pipe:0', '-vf', scaleFilter(), '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', 'pipe:1'], buffer);
+  const output = await runFfmpeg(['-i', 'pipe:0', '-frames:v', '1', '-vf', scaleFilter(), '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', 'pipe:1'], buffer);
   return throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker');
 }
 
