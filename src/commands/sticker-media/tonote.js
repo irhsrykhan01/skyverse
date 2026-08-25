@@ -1,8 +1,8 @@
 export const command = {
   name: 'tonote',
-  description: 'Mengubah video menjadi Video Note (video bulat) WhatsApp.',
+  description: 'Mengubah video menjadi Video Note (PTV) WhatsApp dengan audio asli.',
   category: 'media',
-  aliases: ['videonote'],
+  aliases: ['videonote', 'toptv'],
   usage: 'tonote (reply video)',
   permission: 'user',
   minArgs: 0,
@@ -26,7 +26,7 @@ export const command = {
 
     await ctx.media.send(output, 'video', {
       mimetype: 'video/mp4',
-      videoNote: true,
+      ptv: true,
     });
   },
 };
