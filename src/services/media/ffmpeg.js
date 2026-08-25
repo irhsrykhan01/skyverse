@@ -74,7 +74,7 @@ export async function toHd(buffer, { scale = 2 } = {}) {
   if (![2, 4].includes(multiplier)) throw new Error('HD hanya mendukung scale 2x atau 4x.');
   return runFfmpeg([
     '-i', 'pipe:0',
-    '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv444p`,
+    '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv420p`,
     '-q:v', '2',
     '-frames:v', '1',
     '-f', 'image/jpeg',
