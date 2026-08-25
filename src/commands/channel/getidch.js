@@ -2,6 +2,7 @@ export const command = {
   name: 'getidch',
   description: 'Mengambil ID dan metadata WhatsApp Channel.',
   category: 'system',
+  hidden: true,
   aliases: ['channelid'],
   usage: 'getidch [link/JID]',
   permission: 'user',
