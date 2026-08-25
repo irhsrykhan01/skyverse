@@ -54,18 +54,9 @@ export async function toVideo(buffer) {
 
 export async function toVoiceNote(buffer) {
   return runFfmpeg([
-    '-i', 'pipe:0',
-    '-vn',
-    '-map', '0:a:0',
-    '-ac', '1',
-    '-ar', '48000',
-    '-c:a', 'libopus',
-    '-b:a', '32k',
-    '-vbr', 'on',
-    '-application', 'voip',
-    '-frame_duration', '20',
-    '-f', 'ogg',
-    'pipe:1',
+    '-i', 'pipe:0', '-vn', '-map', '0:a:0', '-ac', '1', '-ar', '48000',
+    '-c:a', 'libopus', '-b:a', '32k', '-vbr', 'on', '-application', 'voip',
+    '-frame_duration', '20', '-f', 'ogg', 'pipe:1',
   ], buffer);
 }
 
@@ -75,20 +66,43 @@ export async function toHd(buffer, { scale = 2 } = {}) {
   return runFfmpeg([
     '-i', 'pipe:0',
     '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv420p`,
-    '-frames:v', '1',
-    '-c:v', 'mjpeg',
-    '-q:v', '2',
-    '-f', 'image2pipe',
-    'pipe:1',
+    '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '2', '-f', 'image2pipe', 'pipe:1',
   ], buffer);
+}
+
+function wrapMemeText(value, maxChars = 20) {
+  const words = String(value).trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && next.length > maxChars) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.join('\\n');
+}
+
+function memeTextFilter(text, position) {
+  const wrapped = escapeDrawtext(wrapMemeText(text));
+  const y = position === 'top' ? '24' : 'h-text_h-24';
+  return `drawtext=font='DejaVu Sans:style=Bold':text='${wrapped}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=${y}:line_spacing=4`;
 }
 
 export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
   const filters = [];
-  if (top) filters.push(`drawtext=text='${escapeDrawtext(top)}':fontcolor=white:fontsize=44:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=24`);
-  if (bottom) filters.push(`drawtext=text='${escapeDrawtext(bottom)}':fontcolor=white:fontsize=44:box=1:boxcolor=black@0.55:boxborderw=12:x=(w-text_w)/2:y=h-text_h-24`);
+  if (top) filters.push(memeTextFilter(top, 'top'));
+  if (bottom) filters.push(memeTextFilter(bottom, 'bottom'));
   if (!filters.length) throw new Error('Masukkan teks atas atau bawah untuk smeme.');
-  return runFfmpeg(['-i', 'pipe:0', '-vf', `format=yuv420p,${filters.join(',')}`, '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2pipe', 'pipe:1'], buffer);
+  return runFfmpeg([
+    '-i', 'pipe:0',
+    '-vf', filters.join(','),
+    '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2pipe', 'pipe:1',
+  ], buffer);
 }
 
 export async function toStickerWatermark(buffer, { text = 'SkyVerse' } = {}) {
@@ -96,8 +110,7 @@ export async function toStickerWatermark(buffer, { text = 'SkyVerse' } = {}) {
   const watermark = String(text).trim().slice(0, 80);
   if (!watermark) throw new Error('Teks watermark tidak boleh kosong.');
   const output = await runFfmpeg([
-    '-i', 'pipe:0',
-    '-frames:v', '1',
+    '-i', 'pipe:0', '-frames:v', '1',
     '-vf', `drawtext=text='${escapeDrawtext(watermark)}':fontcolor=white@0.9:fontsize=24:box=1:boxcolor=black@0.45:boxborderw=8:x=w-text_w-12:y=h-text_h-12,${scaleFilter()}`,
     '-c:v', 'libwebp', '-lossless', '0', '-q:v', '60', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', 'pipe:1',
   ], buffer);
