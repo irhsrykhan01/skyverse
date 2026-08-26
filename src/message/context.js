@@ -22,9 +22,6 @@ function isGroupJid(jid) {
 }
 
 function canQuoteMessage(chatType) {
-  // Newsletter/channel and broadcast messages do not reliably support the
-  // normal quoted-message envelope. Sending without `quoted` keeps commands
-  // usable there while private/group chats retain normal replies.
   return chatType !== 'channel' && chatType !== 'broadcast';
 }
 
@@ -74,9 +71,7 @@ export function createMessageContext({ socket, message, command, registry, ident
 
   async function reply(text, options = {}) {
     const sendOptions = options.sendOptions ?? {};
-    const quote = options.quoted === false || !canQuoteMessage(chatType)
-      ? {}
-      : { quoted: message };
+    const quote = options.quoted === false || !canQuoteMessage(chatType) ? {} : { quoted: message };
     return socket.sendMessage(chatId, { text: String(text) }, { ...quote, ...sendOptions });
   }
 
@@ -108,17 +103,18 @@ export function createMessageContext({ socket, message, command, registry, ident
           : type === 'audio'
             ? { audio: buffer, mimetype: options.mimetype ?? 'audio/mpeg', ptt: Boolean(options.ptt) }
             : { document: buffer, mimetype: options.mimetype ?? 'application/octet-stream', fileName: options.fileName ?? 'SkyVerse.bin' };
-    const quote = options.quoted === false || !canQuoteMessage(chatType)
-      ? {}
-      : { quoted: message };
+    const quote = options.quoted === false || !canQuoteMessage(chatType) ? {} : { quoted: message };
     return socket.sendMessage(chatId, payload, quote);
   }
 
   function getNewsletterReplyTarget() {
-    if (!isChannel || typeof resolveNewsletterMessage !== 'function') return null;
+    if (!isChannel) return null;
     const stanzaId = getQuotedStanzaId(message);
     if (!stanzaId) return null;
-    return resolveNewsletterMessage(chatId, stanzaId);
+    const cached = typeof resolveNewsletterMessage === 'function'
+      ? resolveNewsletterMessage(chatId, stanzaId)
+      : null;
+    return cached ?? { messageId: stanzaId, serverId: null, fromMe: false };
   }
 
   return Object.freeze({
