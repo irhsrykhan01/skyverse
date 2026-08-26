@@ -108,6 +108,42 @@ async function buildQuotedContent(context) {
   return null;
 }
 
+function makeNewsletterMessageId(socket) {
+  return typeof socket.generateMessageTag === 'function'
+    ? socket.generateMessageTag()
+    : `skyverse-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+async function revokeNewsletterMessage(socket, jid, serverId, { ownMessage = false } = {}) {
+  if (!isNewsletterJid(jid)) throw new Error('JID bukan Channel/newsletter.');
+  if (serverId === undefined || serverId === null || String(serverId).trim() === '') {
+    throw new Error('server_id pesan Channel tidak ditemukan.');
+  }
+  if (typeof socket.query !== 'function') {
+    throw new Error('Baileys tidak menyediakan low-level query untuk revoke Channel pada versi ini.');
+  }
+
+  const messageId = makeNewsletterMessageId(socket);
+  const edit = ownMessage ? '7' : '8';
+
+  // Newsletter message revocation uses the newsletter message stanza rather
+  // than the generic `{ delete: key }` chat protocol. The server identifies
+  // the target by server_id and distinguishes sender/admin revoke with edit
+  // attributes 7/8.
+  await socket.query({
+    tag: 'message',
+    attrs: {
+      to: jid,
+      id: messageId,
+      type: 'text',
+      server_id: String(serverId),
+      edit,
+    },
+  });
+
+  return { messageId, serverId: String(serverId), edit };
+}
+
 export function createNewsletterService() {
   async function getCurrentChannel(context) {
     if (!isNewsletterJid(context.chatId)) throw new Error('Gunakan command ini di dalam Channel atau kirim link/JID channel.');
@@ -165,5 +201,14 @@ export function createNewsletterService() {
     return context.socket.sendMessage(latest.id, content);
   }
 
-  return Object.freeze({ getCurrentChannel, resolve, getSaved, setSaved, assertCanPost, upload });
+  async function revoke(context, target) {
+    if (!context.isChannel) throw new Error('Revoke newsletter hanya bisa digunakan di Channel.');
+    const saved = getSaved(context);
+    if (!saved) throw new Error(`Channel belum diatur. Gunakan ${context.config.prefix}setchannel <link/JID>.`);
+    const latest = await resolveReference(context.socket, saved.id);
+    await assertCanPost(context, latest);
+    return revokeNewsletterMessage(context.socket, latest.id, target.serverId, { ownMessage: Boolean(target.fromMe) });
+  }
+
+  return Object.freeze({ getCurrentChannel, resolve, getSaved, setSaved, assertCanPost, upload, revoke });
 }
