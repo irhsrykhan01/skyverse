@@ -28,7 +28,19 @@ function canQuoteMessage(chatType) {
   return chatType !== 'channel' && chatType !== 'broadcast';
 }
 
-export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories }) {
+function getQuotedStanzaId(message) {
+  const normalized = message?.message ?? message;
+  const content = normalized?.extendedTextMessage
+    ?? normalized?.imageMessage
+    ?? normalized?.videoMessage
+    ?? normalized?.ptvMessage
+    ?? normalized?.audioMessage
+    ?? normalized?.stickerMessage
+    ?? normalized?.documentMessage;
+  return content?.contextInfo?.stanzaId ?? null;
+}
+
+export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, resolveNewsletterMessage }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
   const chatType = getChatType(chatId);
@@ -102,11 +114,19 @@ export function createMessageContext({ socket, message, command, registry, ident
     return socket.sendMessage(chatId, payload, quote);
   }
 
+  function getNewsletterReplyTarget() {
+    if (!isChannel || typeof resolveNewsletterMessage !== 'function') return null;
+    const stanzaId = getQuotedStanzaId(message);
+    if (!stanzaId) return null;
+    return resolveNewsletterMessage(chatId, stanzaId);
+  }
+
   return Object.freeze({
     socket, message, config, registry, command, parsed, providers, repositories,
     chatId, chatType, senderJid, senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
     isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
+    getNewsletterReplyTarget,
     group, newsletter, calculate,
     media: Object.freeze({
       toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark,
