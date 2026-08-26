@@ -1,7 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-
 const CATEGORY_META = Object.freeze({
   general: { icon: '✦', label: 'General', order: 1 },
   group: { icon: '◈', label: 'Group', order: 2 },
@@ -11,44 +7,9 @@ const CATEGORY_META = Object.freeze({
   system: { icon: '◇', label: 'System', order: 99 },
 });
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../../');
-const defaultBannerPath = join(repoRoot, 'file_000000007a90720880001aa9bde3c4b7.png');
-
 function titleFor(category) {
   const key = String(category).toLowerCase();
   return CATEGORY_META[key] ?? { icon: '•', label: key.charAt(0).toUpperCase() + key.slice(1), order: 50 };
-}
-
-async function loadBannerThumbnail(config) {
-  const configured = config.menuBannerImage?.trim();
-  const target = configured || defaultBannerPath;
-  if (/^https?:\/\//i.test(target)) return { thumbnailUrl: target };
-
-  const path = target.startsWith('./') ? join(repoRoot, target.slice(2)) : target;
-  return { thumbnail: await readFile(path) };
-}
-
-async function buildExternalAdReply(ctx) {
-  if (!ctx.config.menuBannerEnabled || !ctx.config.menuBannerLink) return null;
-
-  try {
-    const image = await loadBannerThumbnail(ctx.config);
-    const externalAdReply = {
-      title: 'SkyVerse Bot',
-      body: 'Automated WhatsApp Assistant',
-      mediaType: 1,
-      sourceUrl: ctx.config.menuBannerLink,
-      renderLargerThumbnail: true,
-      showAdAttribution: false,
-    };
-
-    if (image.thumbnailUrl) externalAdReply.thumbnailUrl = image.thumbnailUrl;
-    if (image.thumbnail) externalAdReply.thumbnail = image.thumbnail;
-    return externalAdReply;
-  } catch (error) {
-    console.warn('Menu banner unavailable:', error?.message ?? String(error));
-    return null;
-  }
 }
 
 export const command = {
@@ -88,17 +49,6 @@ export const command = {
     }
 
     lines.push('', `Ketik *${ctx.config.prefix}help <command>* untuk detail command.`);
-    const text = lines.join('\n');
-    const externalAdReply = await buildExternalAdReply(ctx);
-
-    if (externalAdReply) {
-      await ctx.reply(text, {
-        sendOptions: {
-          contextInfo: { externalAdReply },
-        },
-      });
-    } else {
-      await ctx.reply(text);
-    }
+    await ctx.reply(lines.join('\n'));
   },
 };
