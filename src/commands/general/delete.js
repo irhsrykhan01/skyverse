@@ -25,13 +25,22 @@ function getQuotedKey(ctx) {
   const quotedParticipant = context.participant ?? null;
   const ownUser = ctx.socket.user?.id ?? null;
   const fromMe = sameUser(quotedParticipant, ownUser);
-
-  return {
+  const key = {
     remoteJid: ctx.chatId,
     id: context.stanzaId,
     participant: quotedParticipant,
     fromMe,
   };
+
+  // Newsletter messages use a server-side message id. In a Channel,
+  // stanzaId is the value exposed by the quoted-message envelope and must
+  // also be carried as server_id; using only a normal chat key is rejected.
+  if (ctx.isChannel) {
+    key.server_id = context.stanzaId;
+    delete key.participant;
+  }
+
+  return key;
 }
 
 export const command = {
