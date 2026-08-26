@@ -3,6 +3,7 @@ import { parseIncomingMessage } from './parser.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
+const NEWSLETTER_META_TTL = 6 * 60 * 60 * 1000;
 
 function displaySender(jid, chatId) {
   if (chatId?.endsWith('@newsletter')) return 'Channel';
@@ -25,6 +26,7 @@ function errorCode(error) {
 export function createMessageEngine({ config, logger, identity, registry, repositories, providers }) {
   const seen = new Map();
   const cooldowns = new Map();
+  const newsletterMessages = new Map();
   const seenTtl = 60_000;
   const slowCommandDelay = 900;
 
@@ -36,6 +38,29 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     for (const [key, until] of cooldowns) {
       if (until <= now) cooldowns.delete(key);
     }
+    for (const [key, value] of newsletterMessages) {
+      if (value.expiresAt <= now) newsletterMessages.delete(key);
+    }
+  }
+
+  function rememberNewsletterMessage(message) {
+    const chatId = message.key?.remoteJid;
+    const messageId = message.key?.id;
+    if (!chatId?.endsWith('@newsletter') || !messageId) return;
+    const serverId = message.key?.server_id;
+    if (!serverId) return;
+    newsletterMessages.set(`${chatId}:${messageId}`, {
+      serverId: String(serverId),
+      participant: message.key?.participant ?? null,
+      fromMe: Boolean(message.key?.fromMe),
+      messageId,
+      expiresAt: Date.now() + NEWSLETTER_META_TTL,
+    });
+  }
+
+  function resolveNewsletterMessage(remoteJid, messageId) {
+    if (!remoteJid?.endsWith('@newsletter') || !messageId) return null;
+    return newsletterMessages.get(`${remoteJid}:${messageId}`) ?? null;
   }
 
   async function safeReact(context, emoji) {
@@ -44,7 +69,11 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   }
 
   async function handleMessage(socket, message) {
-    if (!message?.message || message.key?.fromMe) return;
+    if (!message?.message) return;
+
+    rememberNewsletterMessage(message);
+
+    if (message.key?.fromMe) return;
 
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
@@ -67,7 +96,6 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const parsed = parseIncomingMessage(message, config.prefix);
     if (!parsed) return;
 
-    const type = chatType(chatId);
     logger.info(`Dari ${displaySender(senderJid, chatId)} = ${parsed.raw}`);
 
     const command = registry.resolve(parsed.name);
@@ -81,7 +109,19 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       return;
     }
 
-    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories });
+    const context = createMessageContext({
+      socket,
+      message,
+      command,
+      registry,
+      identity,
+      config,
+      parsed,
+      providers,
+      repositories,
+      resolveNewsletterMessage,
+    });
+
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) {
       await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.');
