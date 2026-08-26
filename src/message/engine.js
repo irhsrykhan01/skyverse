@@ -4,9 +4,11 @@ import { parseIncomingMessage } from './parser.js';
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
 
-function displaySender(jid) {
+function displaySender(jid, chatId) {
+  if (chatId?.endsWith('@newsletter')) return 'Channel';
+  if (chatId?.endsWith('@broadcast')) return 'Broadcast';
   if (!jid) return 'unknown';
-  return String(jid).replace(/@(s\.whatsapp\.net|lid|g\.us|newsletter|broadcast)$/i, '');
+  return `+${String(jid).replace(/@(s\.whatsapp\.net|lid|g\.us|newsletter|broadcast)$/i, '').replace(/^\+/, '')}`;
 }
 
 function chatType(jid) {
@@ -14,6 +16,10 @@ function chatType(jid) {
   if (jid?.endsWith('@newsletter')) return 'channel';
   if (jid?.endsWith('@broadcast')) return 'broadcast';
   return 'private';
+}
+
+function errorCode(error) {
+  return error?.output?.statusCode ?? error?.statusCode ?? error?.status ?? error?.code ?? null;
 }
 
 export function createMessageEngine({ config, logger, identity, registry, repositories, providers }) {
@@ -61,6 +67,9 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const parsed = parseIncomingMessage(message, config.prefix);
     if (!parsed) return;
 
+    const type = chatType(chatId);
+    logger.info(`Dari ${displaySender(senderJid, chatId)} = ${parsed.raw}`);
+
     const command = registry.resolve(parsed.name);
     if (!command) {
       const suggestions = registry.suggest(parsed.name);
@@ -95,8 +104,6 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       cooldowns.set(key, Date.now() + command.cooldown);
     }
 
-    logger.info(`Dari ${displaySender(senderJid)} = ${parsed.raw}`, { type: chatType(chatId) });
-
     let slowReactionTimer = null;
     let slowReactionShown = false;
     try {
@@ -109,11 +116,11 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       await command.execute(context);
 
       if (slowReactionShown) await safeReact(context, '✅');
-      logger.info(`Bot = ${command.name} selesai`, { type: chatType(chatId) });
+      logger.info(`Bot = ${command.name} selesai`);
     } catch (error) {
-      const code = error?.output?.statusCode ?? error?.statusCode ?? error?.status ?? 'ERR';
+      const code = errorCode(error);
       const detail = error?.message ?? String(error);
-      logger.error(`Error ${code} = ${detail}`, { command: command.name, type: chatType(chatId) });
+      logger.error(`Error${code ? ` ${code}` : ''} = ${detail}`);
       if (slowReactionShown) await safeReact(context, '❌');
       try { await context.reply('Terjadi kesalahan saat menjalankan command. Coba lagi nanti.'); }
       catch (replyError) { logger.debug('Failed to send error response', { error: replyError?.message ?? String(replyError) }); }
@@ -127,7 +134,10 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (type && type !== 'notify') return;
       for (const message of messages ?? []) {
         try { await handleMessage(socket, message); }
-        catch (error) { logger.error(`Error MSG = ${error?.message ?? String(error)}`); }
+        catch (error) {
+          const code = errorCode(error);
+          logger.error(`Error${code ? ` ${code}` : ''} = ${error?.message ?? String(error)}`);
+        }
       }
     });
 
