@@ -30,12 +30,13 @@ export const command = {
     try {
       if (ctx.isChannel) {
         const target = ctx.getNewsletterReplyTarget();
-        if (!target?.serverId) {
-          const stanzaId = getQuotedStanzaId(ctx.message);
-          if (!stanzaId) throw new Error('Reply pesan Channel yang ingin dihapus.');
-          throw new Error('server_id pesan Channel tidak tersedia. Reply pesan Channel yang baru diterima setelah bot diperbarui, lalu coba lagi.');
+        if (!target?.messageId && !target?.serverId) {
+          throw new Error('Reply pesan Channel yang ingin dihapus.');
         }
 
+        // The newsletter service resolves server_id from the recent channel
+        // message list when the incoming quoted envelope only exposes the
+        // newsletter message_id.
         await ctx.newsletter.revoke(ctx, target);
         await ctx.react('✅');
         return;
