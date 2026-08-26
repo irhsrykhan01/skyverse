@@ -5,19 +5,22 @@ const levels = Object.freeze({
   error: 40,
 });
 
-function write(level, message, meta = undefined) {
-  const timestamp = new Date().toISOString();
-  const payload = {
-    timestamp,
-    level,
-    message,
-    ...(meta ? { meta } : {}),
-  };
+const ICONS = Object.freeze({ info: 'info', warn: 'warn', error: 'error', debug: 'debug' });
 
-  const output = JSON.stringify(payload);
-  if (level === 'error') console.error(output);
-  else if (level === 'warn') console.warn(output);
-  else console.log(output);
+function write(level, message, meta = undefined) {
+  const prefix = `[${ICONS[level] ?? level}]`;
+  const suffix = meta && Object.keys(meta).length ? ` ${formatMeta(meta)}` : '';
+  const line = `${prefix} ${String(message)}${suffix}`;
+  if (level === 'error') console.error(line);
+  else if (level === 'warn') console.warn(line);
+  else if (level !== 'debug') console.log(line);
+}
+
+function formatMeta(meta) {
+  return Object.entries(meta)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${key}=${typeof value === 'string' ? value : JSON.stringify(value)}`)
+    .join(' | ');
 }
 
 export function createLogger(level = 'info') {
