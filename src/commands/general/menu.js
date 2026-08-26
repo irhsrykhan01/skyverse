@@ -34,8 +34,9 @@ async function buildExternalAdReply(ctx) {
   try {
     const image = await loadBannerThumbnail(ctx.config);
     const externalAdReply = {
-      title: ctx.config.menuBannerTitle || ctx.config.botName || 'SkyVerse',
-      body: ctx.config.menuBannerBody || 'Official Bot System',
+      // Visual-only banner: tapping it still follows sourceUrl.
+      title: '',
+      body: '',
       mediaType: 1,
       sourceUrl: ctx.config.menuBannerLink,
       renderLargerThumbnail: true,
