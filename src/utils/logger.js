@@ -7,8 +7,16 @@ const levels = Object.freeze({
 
 const ICONS = Object.freeze({ info: 'info', warn: 'warn', error: 'error', debug: 'debug' });
 
+function timestamp() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 function write(level, message, meta = undefined) {
-  const prefix = `[${ICONS[level] ?? level}]`;
+  const prefix = `[${timestamp()}] [${ICONS[level] ?? level}]`;
   const suffix = meta && Object.keys(meta).length ? ` ${formatMeta(meta)}` : '';
   const line = `${prefix} ${String(message)}${suffix}`;
   if (level === 'error') console.error(line);
