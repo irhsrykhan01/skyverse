@@ -114,22 +114,58 @@ function makeNewsletterMessageId(socket) {
     : `skyverse-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function revokeNewsletterMessage(socket, jid, serverId, { ownMessage = false } = {}) {
+function flattenNewsletterMessages(result) {
+  const candidates = [
+    result,
+    result?.messages,
+    result?.result,
+    result?.result?.messages,
+    result?.data,
+    result?.data?.messages,
+    result?.items,
+  ];
+  return candidates.flatMap((item) => Array.isArray(item) ? item : item ? [item] : []);
+}
+
+async function resolveServerId(socket, jid, target) {
+  if (target?.serverId !== undefined && target?.serverId !== null && String(target.serverId).trim() !== '') {
+    return String(target.serverId);
+  }
+  if (!target?.messageId || typeof socket.newsletterFetchMessages !== 'function') return null;
+
+  let result;
+  try {
+    result = await socket.newsletterFetchMessages('jid', jid, 50, 0, 0);
+  } catch {
+    try {
+      result = await socket.newsletterFetchMessages(jid, 50, 0, 0);
+    } catch {
+      return null;
+    }
+  }
+
+  const messages = flattenNewsletterMessages(result);
+  const wanted = String(target.messageId);
+  const match = messages.find((item) => {
+    const id = item?.message_id ?? item?.messageId ?? item?.id ?? item?.key?.id;
+    return id !== undefined && String(id) === wanted;
+  });
+  return match?.server_id ?? match?.serverId ?? null;
+}
+
+async function revokeNewsletterMessage(socket, jid, target) {
   if (!isNewsletterJid(jid)) throw new Error('JID bukan Channel/newsletter.');
-  if (serverId === undefined || serverId === null || String(serverId).trim() === '') {
-    throw new Error('server_id pesan Channel tidak ditemukan.');
+  const serverId = await resolveServerId(socket, jid, target);
+  if (serverId === null || serverId === undefined || String(serverId).trim() === '') {
+    throw new Error('server_id pesan Channel tidak ditemukan. Pastikan pesan masih tersedia di Channel lalu coba lagi.');
   }
   if (typeof socket.query !== 'function') {
     throw new Error('Baileys tidak menyediakan low-level query untuk revoke Channel pada versi ini.');
   }
 
   const messageId = makeNewsletterMessageId(socket);
-  const edit = ownMessage ? '7' : '8';
+  const edit = target?.fromMe ? '7' : '8';
 
-  // Newsletter message revocation uses the newsletter message stanza rather
-  // than the generic `{ delete: key }` chat protocol. The server identifies
-  // the target by server_id and distinguishes sender/admin revoke with edit
-  // attributes 7/8.
   await socket.query({
     tag: 'message',
     attrs: {
@@ -207,7 +243,7 @@ export function createNewsletterService() {
     if (!saved) throw new Error(`Channel belum diatur. Gunakan ${context.config.prefix}setchannel <link/JID>.`);
     const latest = await resolveReference(context.socket, saved.id);
     await assertCanPost(context, latest);
-    return revokeNewsletterMessage(context.socket, latest.id, target.serverId, { ownMessage: Boolean(target.fromMe) });
+    return revokeNewsletterMessage(context.socket, latest.id, target);
   }
 
   return Object.freeze({ getCurrentChannel, resolve, getSaved, setSaved, assertCanPost, upload, revoke });
