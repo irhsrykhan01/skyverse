@@ -18,13 +18,9 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
 
   async function resolveWhatsAppVersion() {
     try {
-      const { version, isLatest } = await fetchLatestBaileysVersion();
-      logger.info('Resolved WhatsApp Web version', { version, isLatest });
+      const { version } = await fetchLatestBaileysVersion();
       return version;
-    } catch (error) {
-      logger.warn('Could not resolve latest WhatsApp Web version; using Baileys default', {
-        error: error?.message ?? String(error),
-      });
+    } catch {
       return undefined;
     }
   }
@@ -53,23 +49,22 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
 
     socket.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
       if (qr) {
-        logger.info('Scan the WhatsApp QR code to connect.');
+        logger.info('Scan QR WhatsApp untuk menghubungkan perangkat.');
         qrcode.generate(qr, { small: true });
       }
 
       if (connection === 'open') {
         reconnectAttempt = 0;
-        logger.info('WhatsApp connection opened');
+        logger.info('Terhubung, SkyVerse siap digunakan.');
       }
 
       if (connection === 'close') {
         const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
         const loggedOut = statusCode === DisconnectReason.loggedOut;
-
         socket = null;
 
         if (stopping || loggedOut) {
-          logger.warn('WhatsApp connection closed', { statusCode, reconnect: false });
+          logger.warn(`WhatsApp terputus${statusCode ? ` (kode ${statusCode})` : ''}.`);
           return;
         }
 
@@ -78,31 +73,22 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
     });
 
     if (onSocket) await onSocket(socket);
-
     return socket;
   }
 
   function scheduleReconnect(statusCode) {
     if (reconnectTimer || stopping) return;
-
     reconnectAttempt += 1;
     const delay = Math.min(30_000, 2_000 * 2 ** Math.min(reconnectAttempt - 1, 4));
 
-    logger.warn('WhatsApp connection closed; scheduling reconnect', {
-      statusCode,
-      attempt: reconnectAttempt,
-      delayMs: delay,
-    });
+    logger.warn(`Koneksi WhatsApp terputus. Mencoba terhubung lagi dalam ${Math.ceil(delay / 1000)} detik${statusCode ? ` (kode ${statusCode})` : ''}.`);
 
     reconnectTimer = setTimeout(async () => {
       reconnectTimer = null;
-      try {
-        await connect();
-      } catch (error) {
+      try { await connect(); }
+      catch (error) {
         socket = null;
-        logger.error('WhatsApp reconnect failed', {
-          error: error?.message ?? String(error),
-        });
+        logger.error(`Error reconnect = ${error?.message ?? String(error)}`);
         scheduleReconnect(undefined);
       }
     }, delay);
@@ -115,30 +101,20 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
 
   async function stop() {
     stopping = true;
-
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
-
     if (socket) {
-      try {
-        socket.end(undefined);
-      } catch (error) {
-        logger.warn('WhatsApp socket close failed', {
-          error: error?.message ?? String(error),
-        });
-      }
+      try { socket.end(undefined); }
+      catch (error) { logger.debug('Socket close failed', { error: error?.message ?? String(error) }); }
     }
-
     socket = null;
   }
 
   return Object.freeze({
     start,
     stop,
-    get socket() {
-      return socket;
-    },
+    get socket() { return socket; },
   });
 }
