@@ -1,6 +1,9 @@
 import { createMessageContext } from './context.js';
 import { parseIncomingMessage } from './parser.js';
 
+// status@broadcast is WhatsApp Status, not a normal chat and cannot be used
+// as a command destination. Other special JIDs (broadcast lists/newsletters)
+// are intentionally allowed through the normal command pipeline.
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
 
@@ -55,7 +58,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       try {
         await socket.readMessages([message.key]);
       } catch (error) {
-        logger.warn('Failed to mark message as read', { error: error?.message ?? String(error) });
+        logger.debug('Failed to mark message as read', { error: error?.message ?? String(error) });
       }
     }
 
@@ -72,7 +75,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
             ...suggestions.map((item) => `${config.prefix}${item}`), '',
             `Ketik ${config.prefix}help untuk bantuan.`,
           ].join('\n'),
-        }, { quoted: message });
+        });
       }
       return;
     }
@@ -130,6 +133,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
         command: command.name,
         sender: context.senderJid,
         chat: chatId,
+        chatType: context.chatType,
         error: error?.message ?? String(error),
       });
       if (slowReactionShown) await safeReact(context, '❌');
@@ -147,6 +151,9 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
   function attach(socket) {
     socket.ev.on('messages.upsert', async ({ messages, type }) => {
+      // All normal message sources use messages.upsert. Do not restrict this
+      // to groups/private chats: newsletters, broadcast lists and communities
+      // must enter the same parser/registry pipeline as every other chat.
       if (type && type !== 'notify') return;
       for (const message of messages ?? []) {
         try { await handleMessage(socket, message); }
