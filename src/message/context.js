@@ -5,17 +5,37 @@ import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toS
 import { downloadResolvedMedia } from '../services/media/resolver.js';
 
 function getSenderJid(message) {
-  return message.key?.fromMe ? message.key?.participant ?? message.key?.remoteJid ?? null : message.key?.participant ?? message.key?.remoteJid ?? null;
+  return message.key?.participant ?? message.key?.remoteJid ?? null;
+}
+
+function getChatType(jid) {
+  if (typeof jid !== 'string') return 'unknown';
+  if (jid.endsWith('@g.us')) return 'group';
+  if (jid.endsWith('@newsletter')) return 'channel';
+  if (jid.endsWith('@broadcast')) return 'broadcast';
+  if (jid === 'status@broadcast') return 'status';
+  return 'private';
 }
 
 function isGroupJid(jid) {
-  return typeof jid === 'string' && jid.endsWith('@g.us');
+  return getChatType(jid) === 'group';
+}
+
+function canQuoteMessage(chatType) {
+  // Newsletter/channel and broadcast messages do not reliably support the
+  // normal quoted-message envelope. Sending without `quoted` keeps commands
+  // usable there while private/group chats retain normal replies.
+  return chatType !== 'channel' && chatType !== 'broadcast';
 }
 
 export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
+  const chatType = getChatType(chatId);
   const isGroup = isGroupJid(chatId);
+  const isChannel = chatType === 'channel';
+  const isBroadcast = chatType === 'broadcast';
+  const isPrivate = chatType === 'private';
   const isOwner = identity.isOwner(senderJid);
   let groupMetadataPromise = null;
   const group = createGroupService();
@@ -41,7 +61,11 @@ export function createMessageContext({ socket, message, command, registry, ident
   }
 
   async function reply(text, options = {}) {
-    return socket.sendMessage(chatId, { text: String(text) }, { quoted: options.quoted === false ? undefined : message, ...options.sendOptions });
+    const sendOptions = options.sendOptions ?? {};
+    const quote = options.quoted === false || !canQuoteMessage(chatType)
+      ? {}
+      : { quoted: message };
+    return socket.sendMessage(chatId, { text: String(text) }, { ...quote, ...sendOptions });
   }
 
   async function react(emoji = '👍') {
@@ -72,13 +96,17 @@ export function createMessageContext({ socket, message, command, registry, ident
           : type === 'audio'
             ? { audio: buffer, mimetype: options.mimetype ?? 'audio/mpeg', ptt: Boolean(options.ptt) }
             : { document: buffer, mimetype: options.mimetype ?? 'application/octet-stream', fileName: options.fileName ?? 'SkyVerse.bin' };
-    return socket.sendMessage(chatId, payload, { quoted: options.quoted === false ? undefined : message });
+    const quote = options.quoted === false || !canQuoteMessage(chatType)
+      ? {}
+      : { quoted: message };
+    return socket.sendMessage(chatId, payload, quote);
   }
 
   return Object.freeze({
     socket, message, config, registry, command, parsed, providers, repositories,
-    chatId, senderJid, senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
-    isGroup, isOwner, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
+    chatId, chatType, senderJid, senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
+    isGroup, isChannel, isBroadcast, isPrivate, isOwner,
+    getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
     group, newsletter, calculate,
     media: Object.freeze({
       toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark,
