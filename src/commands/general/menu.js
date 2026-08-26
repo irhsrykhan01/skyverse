@@ -34,9 +34,8 @@ async function buildExternalAdReply(ctx) {
   try {
     const image = await loadBannerThumbnail(ctx.config);
     const externalAdReply = {
-      // Visual-only banner: tapping it still follows sourceUrl.
-      title: '',
-      body: '',
+      title: 'SkyVerse Bot',
+      body: 'Automated WhatsApp Assistant',
       mediaType: 1,
       sourceUrl: ctx.config.menuBannerLink,
       renderLargerThumbnail: true,
