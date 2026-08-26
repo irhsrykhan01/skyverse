@@ -16,16 +16,28 @@ const providers = createProviderManager(config);
 let lifecycle = null;
 
 const ASCII_BANNER = String.raw`
-  ███████╗██╗  ██╗██╗   ██╗██╗   ██╗███████╗██████╗ ███████╗███████╗
-  ██╔════╝██║ ██╔╝╚██╗ ██╔╝██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝
-  ███████╗█████╔╝  ╚████╔╝ ██║   ██║█████╗  ██████╔╝█████╗  █████╗  
-  ╚════██║██╔═██╗   ╚██╔╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗██╔══╝  ██╔══╝  
-  ███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████╗███████╗
-  ╚══════╝╚═╝  ╚═╝   ╚═╝     ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
+███████╗██╗  ██╗██╗   ██╗███████╗██████╗ ██╗   ██╗███████╗██████╗ ███████╗
+██╔════╝██║ ██╔╝╚██╗ ██╔╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗██╔════╝
+███████╗█████╔╝  ╚████╔╝ █████╗  ██████╔╝██║   ██║█████╗  ██████╔╝███████╗
+╚════██║██╔═██╗   ╚██╔╝  ██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║
+███████║██║  ██╗   ██║   ███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║███████║
+╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝
 `;
 
 function clearTerminal() {
   if (process.stdout.isTTY) process.stdout.write('\x1b[2J\x1b[H');
+}
+
+function installNoiseFilter() {
+  const originalConsoleError = console.error.bind(console);
+  console.error = (...args) => {
+    const text = args.map((value) => String(value)).join(' ');
+    if (/Failed to decrypt message with any known session|Bad MAC|Session error:/i.test(text)) {
+      logger.error(`WhatsApp decryption error = ${text.replace(/\s+/g, ' ').trim()}`);
+      return;
+    }
+    originalConsoleError(...args);
+  };
 }
 
 function assertRuntime() {
@@ -37,6 +49,7 @@ function assertRuntime() {
 
 async function main() {
   clearTerminal();
+  installNoiseFilter();
   console.log(ASCII_BANNER);
   logger.info('SkyVerse dimulai!');
 
