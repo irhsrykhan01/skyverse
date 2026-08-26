@@ -15,20 +15,37 @@ const identity = createIdentity({ config });
 const providers = createProviderManager(config);
 let lifecycle = null;
 
+const ASCII_BANNER = String.raw`
+  ███████╗██╗  ██╗██╗   ██╗██╗   ██╗███████╗██████╗ ███████╗███████╗
+  ██╔════╝██║ ██╔╝╚██╗ ██╔╝██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝
+  ███████╗█████╔╝  ╚████╔╝ ██║   ██║█████╗  ██████╔╝█████╗  █████╗  
+  ╚════██║██╔═██╗   ╚██╔╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗██╔══╝  ██╔══╝  
+  ███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████╗███████╗
+  ╚══════╝╚═╝  ╚═╝   ╚═╝     ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
+`;
+
+function clearTerminal() {
+  if (process.stdout.isTTY) process.stdout.write('\x1b[2J\x1b[H');
+}
+
 function assertRuntime() {
   const major = Number(process.versions.node.split('.')[0]);
   if (major < 20) {
-    throw new Error(`SkyVerse requires Node.js 20 or newer. Current version: ${process.versions.node}`);
+    throw new Error(`SkyVerse membutuhkan Node.js 20 atau lebih baru. Versi saat ini: ${process.versions.node}`);
   }
 }
 
 async function main() {
+  clearTerminal();
+  console.log(ASCII_BANNER);
+  logger.info('SkyVerse dimulai!');
+
   assertRuntime();
 
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
   const registry = await createCommandRegistry();
-  logger.info('Command registry loaded', { commands: registry.all().length });
+  logger.info(`Memuat ${registry.all().length} command.`);
 
   let messageEngine;
   const whatsapp = createWhatsAppConnection({
@@ -47,13 +64,7 @@ async function main() {
   });
   lifecycle = createLifecycle({ logger, whatsapp, database });
 
-  logger.info(`${config.botName} starting`, {
-    environment: config.nodeEnv,
-    node: process.versions.node,
-    prefix: config.prefix,
-    providers: ['depay', 'keyra-downloader'],
-  });
-
+  logger.info('Menghubungkan ke WhatsApp...');
   await lifecycle.start();
 }
 
@@ -62,23 +73,24 @@ for (const signal of shutdownSignals) {
   process.once(signal, async () => {
     try {
       await lifecycle?.stop(signal);
+      logger.info('SkyVerse dihentikan.');
       process.exitCode = 0;
     } catch (error) {
-      logger.error('Shutdown failed', { error: getErrorMessage(error) });
+      logger.error(`Error shutdown = ${getErrorMessage(error)}`);
       process.exitCode = 1;
     }
   });
 }
 
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception', { error: getErrorMessage(error) });
+  logger.error(`Error fatal = ${getErrorMessage(error)}`);
 });
 
 process.on('unhandledRejection', (reason) => {
-  logger.error('Unhandled rejection', { error: getErrorMessage(reason) });
+  logger.error(`Error async = ${getErrorMessage(reason)}`);
 });
 
 main().catch((error) => {
-  logger.error('SkyVerse failed to start', { error: getErrorMessage(error) });
+  logger.error(`Error startup = ${getErrorMessage(error)}`);
   process.exitCode = 1;
 });
