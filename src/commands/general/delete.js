@@ -12,35 +12,8 @@ function getContextInfo(message) {
     ?? null;
 }
 
-function sameUser(a, b) {
-  if (!a || !b) return false;
-  const normalize = (value) => String(value).split(':')[0].split('@')[0];
-  return normalize(a) === normalize(b);
-}
-
-function getQuotedKey(ctx) {
-  const context = getContextInfo(ctx.message);
-  if (!context?.stanzaId) return null;
-
-  const quotedParticipant = context.participant ?? null;
-  const ownUser = ctx.socket.user?.id ?? null;
-  const fromMe = sameUser(quotedParticipant, ownUser);
-  const key = {
-    remoteJid: ctx.chatId,
-    id: context.stanzaId,
-    participant: quotedParticipant,
-    fromMe,
-  };
-
-  // Newsletter messages use a server-side message id. In a Channel,
-  // stanzaId is the value exposed by the quoted-message envelope and must
-  // also be carried as server_id; using only a normal chat key is rejected.
-  if (ctx.isChannel) {
-    key.server_id = context.stanzaId;
-    delete key.participant;
-  }
-
-  return key;
+function getQuotedStanzaId(message) {
+  return getContextInfo(message)?.stanzaId ?? null;
 }
 
 export const command = {
@@ -54,11 +27,37 @@ export const command = {
   maxArgs: 0,
   cooldown: 1500,
   async execute(ctx) {
-    const key = getQuotedKey(ctx);
-    if (!key) throw new Error('Reply pesan yang ingin dihapus.');
-
     try {
-      await ctx.socket.sendMessage(ctx.chatId, { delete: key });
+      if (ctx.isChannel) {
+        const target = ctx.getNewsletterReplyTarget();
+        if (!target?.serverId) {
+          const stanzaId = getQuotedStanzaId(ctx.message);
+          if (!stanzaId) throw new Error('Reply pesan Channel yang ingin dihapus.');
+          throw new Error('server_id pesan Channel tidak tersedia. Reply pesan Channel yang baru diterima setelah bot diperbarui, lalu coba lagi.');
+        }
+
+        await ctx.newsletter.revoke(ctx, target);
+        await ctx.react('✅');
+        return;
+      }
+
+      const stanzaId = getQuotedStanzaId(ctx.message);
+      if (!stanzaId) throw new Error('Reply pesan yang ingin dihapus.');
+
+      const context = getContextInfo(ctx.message);
+      const quotedParticipant = context?.participant ?? null;
+      const ownUser = ctx.socket.user?.id ?? null;
+      const normalize = (value) => String(value ?? '').split(':')[0].split('@')[0];
+      const fromMe = Boolean(quotedParticipant && ownUser && normalize(quotedParticipant) === normalize(ownUser));
+
+      await ctx.socket.sendMessage(ctx.chatId, {
+        delete: {
+          remoteJid: ctx.chatId,
+          id: stanzaId,
+          participant: quotedParticipant,
+          fromMe,
+        },
+      });
       await ctx.react('✅');
     } catch (error) {
       const where = ctx.isChannel ? 'channel' : ctx.isGroup ? 'grup' : 'chat';
