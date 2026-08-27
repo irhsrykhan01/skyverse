@@ -28,7 +28,7 @@ export function createRepositories(database) {
     );
   }
 
-  function incrementCommand(command) {
+  function incrementCommand(command, userJid = null) {
     const now = Date.now();
     database.exec(
       `INSERT INTO command_stats (command, usage_count, updated_at)
@@ -36,6 +36,16 @@ export function createRepositories(database) {
        ON CONFLICT(command) DO UPDATE SET usage_count = usage_count + 1, updated_at = excluded.updated_at`,
       [command, now],
     );
+
+    if (userJid) {
+      database.exec(
+        `INSERT INTO user_command_stats (user_jid, command, usage_count, updated_at)
+         VALUES (?, ?, 1, ?)
+         ON CONFLICT(user_jid, command)
+         DO UPDATE SET usage_count = usage_count + 1, updated_at = excluded.updated_at`,
+        [userJid, command, now],
+      );
+    }
   }
 
   function getSetting(scope, scopeId, key, fallback = null) {
@@ -59,10 +69,29 @@ export function createRepositories(database) {
     return database.all('SELECT command, usage_count FROM command_stats ORDER BY usage_count DESC');
   }
 
+  function userStats(limit = 20) {
+    const rows = database.all(
+      `SELECT user_jid, SUM(usage_count) AS usage_count
+       FROM user_command_stats
+       GROUP BY user_jid
+       ORDER BY usage_count DESC
+       LIMIT ?`,
+      [Math.max(1, Math.min(100, Number(limit) || 20))],
+    );
+    return rows;
+  }
+
+  function getUser(jid) {
+    return jid ? database.get(
+      'SELECT jid, number, push_name, is_bot, created_at, updated_at FROM users WHERE jid = ?',
+      [jid],
+    ) : undefined;
+  }
+
   return Object.freeze({
-    users: Object.freeze({ upsert: upsertUser }),
+    users: Object.freeze({ upsert: upsertUser, get: getUser }),
     groups: Object.freeze({ upsert: upsertGroup }),
-    commands: Object.freeze({ increment: incrementCommand, stats }),
+    commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
   });
 }
