@@ -37,6 +37,11 @@ export async function createDatabase(databasePath, logger) {
     CREATE TABLE IF NOT EXISTS command_stats (
       command TEXT PRIMARY KEY, usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS user_command_stats (
+      user_jid TEXT NOT NULL, command TEXT NOT NULL,
+      usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
+      PRIMARY KEY (user_jid, command)
+    );
   `);
 
   let dirty = false;
@@ -101,5 +106,13 @@ export async function createDatabase(databasePath, logger) {
     closed = true;
   }
 
-  return Object.freeze({ exec, get, all, persist, close, markDirty: () => { dirty = true; }, get path() { return databasePath; } });
+  return Object.freeze({
+    exec,
+    get,
+    all,
+    persist,
+    close,
+    markDirty: () => { dirty = true; },
+    get path() { return databasePath; },
+  });
 }
