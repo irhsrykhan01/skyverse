@@ -24,6 +24,8 @@ export const command = {
     const orderedGroups = [...groups.entries()].sort((a, b) => titleFor(a[0]).order - titleFor(b[0]).order || a[0].localeCompare(b[0]));
     const visibleCommands = ctx.registry.all({ includeHidden: false });
     const lines = [
+      'https://saweria.co/irhsrykhn',
+      '',
       '╭━━━〔 *SKYVERSE* 〕━━━╮',
       `┃ ✦ *Bot*      : ${ctx.config.botName}`,
       '┃ ✦ *Status*   : Online',
