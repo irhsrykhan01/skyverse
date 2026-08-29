@@ -7,6 +7,7 @@ import { createMessageEngine } from './message/engine.js';
 import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createIdentity } from './security/identity.js';
 import { createProviderManager } from './services/providers/manager.js';
+import { EconomyManager } from './economy/manager.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
@@ -21,7 +22,7 @@ const ASCII_BANNER = String.raw`
 ███████╗█████╔╝  ╚████╔╝ ██║   ██║█████╗  ██████╔╝███████╗█████╗
 ╚════██║██╔═██╗   ╚██╔╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝
 ███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████║███████╗
-╚══════╝╚═╝  ╚═╝   ╚═╝     ╚═══╝  ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
+╚══════╝╚═╝  ╚═╝   ╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
 `;
 
 function clearTerminal() {
@@ -57,6 +58,7 @@ async function main() {
 
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
+  const economy = new EconomyManager({ repositories });
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
 
@@ -73,6 +75,7 @@ async function main() {
     identity,
     registry,
     repositories,
+    economy,
     providers,
   });
   lifecycle = createLifecycle({ logger, whatsapp, database });
