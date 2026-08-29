@@ -17,27 +17,17 @@ function getChatType(jid) {
   return 'private';
 }
 
-function isGroupJid(jid) {
-  return getChatType(jid) === 'group';
-}
-
-function canQuoteMessage(chatType) {
-  return chatType !== 'channel' && chatType !== 'broadcast';
-}
+function isGroupJid(jid) { return getChatType(jid) === 'group'; }
+function canQuoteMessage(chatType) { return chatType !== 'channel' && chatType !== 'broadcast'; }
 
 function getQuotedStanzaId(message) {
   const normalized = message?.message ?? message;
-  const content = normalized?.extendedTextMessage
-    ?? normalized?.imageMessage
-    ?? normalized?.videoMessage
-    ?? normalized?.ptvMessage
-    ?? normalized?.audioMessage
-    ?? normalized?.stickerMessage
-    ?? normalized?.documentMessage;
+  const content = normalized?.extendedTextMessage ?? normalized?.imageMessage ?? normalized?.videoMessage
+    ?? normalized?.ptvMessage ?? normalized?.audioMessage ?? normalized?.stickerMessage ?? normalized?.documentMessage;
   return content?.contextInfo?.stanzaId ?? null;
 }
 
-export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, resolveNewsletterMessage }) {
+export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
   const chatType = getChatType(chatId);
@@ -46,6 +36,8 @@ export function createMessageContext({ socket, message, command, registry, ident
   const isBroadcast = chatType === 'broadcast';
   const isPrivate = chatType === 'private';
   const isOwner = identity.isOwner(senderJid);
+  const userRecord = repositories.users.get(senderJid);
+  const userNumber = userRecord?.number ?? normalizePhoneNumber(senderJid?.split('@')[0]);
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
@@ -75,59 +67,34 @@ export function createMessageContext({ socket, message, command, registry, ident
     const quote = options.quoted === false || !canQuoteMessage(chatType) ? {} : { quoted: message };
     return socket.sendMessage(chatId, { text: String(text) }, { ...quote, ...sendOptions });
   }
-
-  async function react(emoji = '👍') {
-    return socket.sendMessage(chatId, { react: { text: emoji, key: message.key } });
-  }
-
-  async function read() {
-    if (!message.key?.id) return;
-    return socket.readMessages([message.key]);
-  }
-
-  async function sendPresence(type) {
-    return socket.sendPresenceUpdate(type, chatId);
-  }
-
-  async function downloadMedia() {
-    return downloadResolvedMedia({ socket, message, retries: 2, logger: console });
-  }
-
+  async function react(emoji = '👍') { return socket.sendMessage(chatId, { react: { text: emoji, key: message.key } }); }
+  async function read() { if (message.key?.id) return socket.readMessages([message.key]); }
+  async function sendPresence(type) { return socket.sendPresenceUpdate(type, chatId); }
+  async function downloadMedia() { return downloadResolvedMedia({ socket, message, retries: 2, logger: console }); }
   async function sendMedia(buffer, type, options = {}) {
     if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Media hasil proses kosong atau tidak valid.');
-    const payload = type === 'sticker'
-      ? { sticker: buffer }
-      : type === 'image'
-        ? { image: buffer, mimetype: options.mimetype ?? 'image/jpeg', caption: options.caption }
-        : type === 'video'
-          ? { video: buffer, mimetype: options.mimetype ?? 'video/mp4', caption: options.caption, ptv: Boolean(options.ptv) }
-          : type === 'audio'
-            ? { audio: buffer, mimetype: options.mimetype ?? 'audio/mpeg', ptt: Boolean(options.ptt) }
-            : { document: buffer, mimetype: options.mimetype ?? 'application/octet-stream', fileName: options.fileName ?? 'SkyVerse.bin' };
+    const payload = type === 'sticker' ? { sticker: buffer }
+      : type === 'image' ? { image: buffer, mimetype: options.mimetype ?? 'image/jpeg', caption: options.caption }
+      : type === 'video' ? { video: buffer, mimetype: options.mimetype ?? 'video/mp4', caption: options.caption, ptv: Boolean(options.ptv) }
+      : type === 'audio' ? { audio: buffer, mimetype: options.mimetype ?? 'audio/mpeg', ptt: Boolean(options.ptt) }
+      : { document: buffer, mimetype: options.mimetype ?? 'application/octet-stream', fileName: options.fileName ?? 'SkyVerse.bin' };
     const quote = options.quoted === false || !canQuoteMessage(chatType) ? {} : { quoted: message };
     return socket.sendMessage(chatId, payload, quote);
   }
-
   function getNewsletterReplyTarget() {
     if (!isChannel) return null;
     const stanzaId = getQuotedStanzaId(message);
     if (!stanzaId) return null;
-    const cached = typeof resolveNewsletterMessage === 'function'
-      ? resolveNewsletterMessage(chatId, stanzaId)
-      : null;
+    const cached = typeof resolveNewsletterMessage === 'function' ? resolveNewsletterMessage(chatId, stanzaId) : null;
     return cached ?? { messageId: stanzaId, serverId: null, fromMe: false };
   }
 
   return Object.freeze({
-    socket, message, config, registry, command, parsed, providers, repositories,
-    chatId, chatType, senderJid, senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
-    isGroup, isChannel, isBroadcast, isPrivate, isOwner,
+    socket, message, config, registry, command, parsed, providers, repositories, economy,
+    chatId, chatType, senderJid, senderNumber: userNumber,
+    user: userRecord, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
-    getNewsletterReplyTarget,
-    group, newsletter, calculate,
-    media: Object.freeze({
-      toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark,
-      download: downloadMedia, send: sendMedia,
-    }),
+    getNewsletterReplyTarget, group, newsletter, calculate,
+    media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark, download: downloadMedia, send: sendMedia }),
   });
 }
