@@ -1,3 +1,5 @@
+import { createCapabilityEngine } from './capabilities.js';
+
 function getGroupContext(context) {
   if (!context.isGroup) throw new Error('Command ini hanya dapat digunakan di group.');
   return context;
@@ -54,17 +56,6 @@ async function resolveTargetJids(context) {
   return [...new Set(resolved)];
 }
 
-function getParticipantAdmin(metadata, jid) {
-  const target = String(jid ?? '');
-  const targetDigits = digitsOnly(target);
-  const participants = metadata?.participants ?? [];
-  return participants.find((item) => {
-    const ids = [item?.id, item?.pn, item?.lid].filter(Boolean).map(String);
-    if (ids.includes(target)) return true;
-    return Boolean(targetDigits) && ids.some((id) => digitsOnly(id) === targetDigits);
-  });
-}
-
 function describeGroupOperationError(error, action) {
   const message = String(error?.message ?? error ?? '').toLowerCase();
   if (message.includes('not-authorized') || message.includes('forbidden') || message.includes('401')) {
@@ -83,13 +74,16 @@ export function createGroupService() {
   }
 
   async function assertBotAdmin(ctx, action) {
-    const group = await metadata(ctx);
-    const botJid = ctx.socket.user?.id;
-    const bot = botJid ? getParticipantAdmin(group, botJid) : null;
-    if (!bot?.admin) {
+    const capability = await ctx.capabilities.requireAdmin(ctx.chatId);
+    if (!capability.known) {
+      // Do not reject when WhatsApp returned metadata but the bot identity
+      // cannot be matched. The operation itself is the final authority.
+      return capability.metadata ?? metadata(ctx);
+    }
+    if (!capability.isAdmin) {
       throw new Error(`Bot harus menjadi admin group untuk ${action}.`);
     }
-    return group;
+    return capability.metadata ?? metadata(ctx);
   }
 
   async function add(context) {
@@ -110,8 +104,8 @@ export function createGroupService() {
     const jids = await resolveTargetJids(ctx);
     if (!jids.length) throw new Error(`Tag member atau isi nomor setelah ${ctx.config.prefix}kick.`);
 
-    const botJid = ctx.socket.user?.id;
-    if (jids.some((jid) => [botJid, ctx.senderJid].filter(Boolean).includes(jid))) {
+    const botJids = [ctx.socket.user?.id, ctx.socket.user?.lid, ctx.socket.user?.pn].filter(Boolean).map(String);
+    if (jids.some((jid) => [...botJids, ctx.senderJid].includes(jid))) {
       throw new Error('Target kick tidak boleh merupakan bot atau pengirim command.');
     }
 
@@ -136,9 +130,7 @@ export function createGroupService() {
   async function tagAll(context, text = '') {
     const ctx = getGroupContext(context);
     const group = await metadata(ctx);
-    const participants = (group?.participants ?? [])
-      .map((item) => item.id)
-      .filter(Boolean);
+    const participants = (group?.participants ?? []).map((item) => item.id).filter(Boolean);
     if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
     const body = String(text).trim() || 'Tag all';
     await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: [...new Set(participants)] });
@@ -147,9 +139,7 @@ export function createGroupService() {
   async function hideTag(context, text = '') {
     const ctx = getGroupContext(context);
     const group = await metadata(ctx);
-    const participants = (group?.participants ?? [])
-      .map((item) => item.id)
-      .filter(Boolean);
+    const participants = (group?.participants ?? []).map((item) => item.id).filter(Boolean);
     if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
     const body = String(text).trim() || '\u200e';
     await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: [...new Set(participants)] });
