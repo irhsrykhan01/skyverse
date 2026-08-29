@@ -6,6 +6,22 @@ import { suggestNames } from '../utils/similarity.js';
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const BLOCKED_COMMANDS = new Set(['qc', 'bratvid']);
 
+// Command access groups. Grouping only for now; execution behavior is unchanged.
+export const ACCESS_GROUPS = Object.freeze({
+  owner: 'Owner',
+  admin: 'Admin',
+  premium: 'Premium',
+  npc: 'Npc',
+});
+
+function normalizeAccess(access, permission) {
+  const value = String(access ?? '').trim().toLowerCase();
+  if (Object.hasOwn(ACCESS_GROUPS, value)) return value;
+  if (permission === 'owner') return 'owner';
+  if (permission === 'admin') return 'admin';
+  return 'npc';
+}
+
 async function findCommandFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -28,6 +44,7 @@ function validateCommand(command, file) {
   if (!/^[a-z0-9][a-z0-9_-]*$/.test(name)) throw new Error(`Invalid command name: ${command.name}`);
   const permission = String(command.permission ?? 'user').toLowerCase();
   if (!['user', 'admin', 'owner'].includes(permission)) throw new Error(`Invalid permission for ${name}: ${permission}`);
+  const access = normalizeAccess(command.access, permission);
   const minArgs = Number.isInteger(command.minArgs) && command.minArgs >= 0 ? command.minArgs : 0;
   const maxArgs = Number.isInteger(command.maxArgs) && command.maxArgs >= minArgs ? command.maxArgs : null;
   const cooldown = Number.isFinite(command.cooldown) && command.cooldown > 0 ? command.cooldown : 0;
@@ -41,6 +58,8 @@ function validateCommand(command, file) {
     usage: command.usage ? String(command.usage) : null,
     examples: Array.isArray(command.examples) ? command.examples.map(String) : [],
     permission,
+    access,
+    accessLabel: ACCESS_GROUPS[access],
     minArgs,
     maxArgs,
     cooldown,
@@ -87,9 +106,15 @@ export async function createCommandRegistry() {
     return groups;
   }
 
+  function byAccess({ includeHidden = false } = {}) {
+    const groups = new Map(Object.keys(ACCESS_GROUPS).map((access) => [access, []]));
+    for (const command of all({ includeHidden })) groups.get(command.access).push(command);
+    return groups;
+  }
+
   function suggest(name) {
     return suggestNames(name, all({ includeHidden: false }).flatMap((command) => [command.name, ...command.aliases]));
   }
 
-  return Object.freeze({ resolve, all, byCategory, suggest });
+  return Object.freeze({ resolve, all, byCategory, byAccess, suggest });
 }
