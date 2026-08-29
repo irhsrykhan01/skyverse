@@ -1,8 +1,11 @@
-import { sendA2UICategoryMenu } from '../../platform/whatsapp/a2ui.js';
+function categoryLabel(category) {
+  const value = String(category).trim().toLowerCase();
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 export const command = {
   name: 'categorymenu',
-  description: 'Menampilkan menu command berdasarkan kategori A2UI.',
+  description: 'Menampilkan daftar command dalam kategori yang dipilih.',
   category: 'system',
   permission: 'user',
   hidden: true,
@@ -11,15 +14,26 @@ export const command = {
   usage: 'categorymenu <category>',
   async execute(ctx) {
     const category = String(ctx.parsed.args[0] ?? '').trim().toLowerCase();
+    const groups = ctx.registry.byCategory({ includeHidden: false });
+    const commands = groups.get(category) ?? [];
 
-    try {
-      await sendA2UICategoryMenu(ctx.socket, ctx.chatId, {
-        config: ctx.config,
-        registry: ctx.registry,
-        category,
-      });
-    } catch {
+    if (!commands.length) {
       await ctx.reply(`Kategori tidak tersedia: ${category}`);
+      return;
     }
+
+    const lines = [
+      `*${categoryLabel(category)} Menu!*`,
+      '',
+    ];
+
+    for (const item of commands) {
+      const aliases = item.aliases.length
+        ? ` (${item.aliases.map((alias) => `${ctx.config.prefix}${alias}`).join(', ')})`
+        : '';
+      lines.push(`- ${ctx.config.prefix}${item.name}${aliases} (${item.description})`);
+    }
+
+    await ctx.reply(lines.join('\n'));
   },
 };
