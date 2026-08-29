@@ -25,14 +25,8 @@ export const command = {
     const lines = [
       `*${categoryLabel(category)} Menu!*`,
       '',
+      ...commands.map((item) => `- ${ctx.config.prefix}${item.name}`),
     ];
-
-    for (const item of commands) {
-      const aliases = item.aliases.length
-        ? ` (${item.aliases.map((alias) => `${ctx.config.prefix}${alias}`).join(', ')})`
-        : '';
-      lines.push(`- ${ctx.config.prefix}${item.name}${aliases} (${item.description})`);
-    }
 
     await ctx.reply(lines.join('\n'));
   },
