@@ -24,7 +24,11 @@ export async function createDatabase(databasePath, logger) {
     PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS users (
       jid TEXT PRIMARY KEY, number TEXT, push_name TEXT,
-      is_bot INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      is_bot INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+      coins INTEGER NOT NULL DEFAULT 100,
+      is_premium INTEGER NOT NULL DEFAULT 0,
+      premium_until INTEGER,
+      last_claim_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS groups (
       jid TEXT PRIMARY KEY, subject TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
@@ -42,7 +46,28 @@ export async function createDatabase(databasePath, logger) {
       usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
       PRIMARY KEY (user_jid, command)
     );
+    CREATE TABLE IF NOT EXISTS economy_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_jid TEXT NOT NULL,
+      type TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      reason TEXT,
+      created_at INTEGER NOT NULL
+    );
   `);
+
+  // Migrate databases created before Economy fields existed.
+  const columns = database.all('PRAGMA table_info(users)').map((row) => row.name);
+  const migrations = [
+    ['coins', 'ALTER TABLE users ADD COLUMN coins INTEGER NOT NULL DEFAULT 100'],
+    ['is_premium', 'ALTER TABLE users ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0'],
+    ['premium_until', 'ALTER TABLE users ADD COLUMN premium_until INTEGER'],
+    ['last_claim_at', 'ALTER TABLE users ADD COLUMN last_claim_at INTEGER NOT NULL DEFAULT 0'],
+  ];
+  for (const [name, sql] of migrations) {
+    if (!columns.includes(name)) database.exec(sql);
+  }
 
   let dirty = false;
   let closed = false;
