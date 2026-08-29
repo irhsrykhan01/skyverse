@@ -21,8 +21,7 @@ function buildAllMenu(ctx) {
   for (const [category, commands] of ordered) {
     lines.push('', `┌─〔 *${categoryLabel(category).toUpperCase()} MENU* 〕`);
     for (const item of commands) {
-      const alias = item.aliases[0] ? ` — ${ctx.config.prefix}${item.aliases[0]}` : '';
-      lines.push(`│ ${ctx.config.prefix}${item.name}${alias} — ${item.description}`);
+      lines.push(`│ ${ctx.config.prefix}${item.name}`);
     }
     lines.push('└────────────────────────');
   }
