@@ -35,6 +35,11 @@ function button(name, params) {
   });
 }
 
+function categoryLabel(category) {
+  const normalized = String(category).trim().toLowerCase();
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
@@ -96,7 +101,7 @@ export async function sendA2UIMenu(socket, jid, { config, registry }) {
     header: `${category.charAt(0).toUpperCase()}${category.slice(1)}`,
     title: `${category.charAt(0).toUpperCase()}${category.slice(1)} Menu`,
     description: `${commands.length} command${commands.length === 1 ? '' : 's'} tersedia`,
-    id: `${config.prefix}help ${category}`,
+    id: `!${category.charAt(0).toUpperCase()}${category.slice(1)} Menu!`,
   }));
 
   const buttons = [
@@ -114,6 +119,47 @@ export async function sendA2UIMenu(socket, jid, { config, registry }) {
   return sendInteractive(socket, jid, {
     title: config.botName || 'SkyVerse',
     body: `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
+    footer: 'SkyLabs • SkyVerse',
+    buttons,
+  });
+}
+
+
+export async function sendA2UICategoryMenu(socket, jid, { config, registry, category }) {
+  const normalizedCategory = String(category).trim().toLowerCase();
+  const groups = registry.byCategory({ includeHidden: false });
+  const commands = groups.get(normalizedCategory) ?? [];
+
+  if (!commands.length) {
+    throw new Error(`Kategori tidak ditemukan: ${normalizedCategory}`);
+  }
+
+  const rows = commands.slice(0, 10).map((item) => ({
+    header: item.aliases[0]
+      ? `${config.prefix}${item.aliases[0]}`
+      : `${config.prefix}${item.name}`,
+    title: `${config.prefix}${item.name}`,
+    description: item.description,
+    id: `${config.prefix}${item.name}`,
+  }));
+
+  const buttons = [
+    button('single_select', {
+      title: `${categoryLabel(normalizedCategory)} Commands`,
+      sections: [{
+        title: `${categoryLabel(normalizedCategory)} Menu`,
+        rows,
+      }],
+    }),
+    button('quick_reply', {
+      display_text: 'Kembali ke Menu',
+      id: `${config.prefix}menu`,
+    }),
+  ];
+
+  return sendInteractive(socket, jid, {
+    title: `${categoryLabel(normalizedCategory)} Menu`,
+    body: `SkyVerse • ${categoryLabel(normalizedCategory)}\\n${commands.length} command tersedia.\\n\\nPilih command yang ingin dijalankan.`,
     footer: 'SkyLabs • SkyVerse',
     buttons,
   });
