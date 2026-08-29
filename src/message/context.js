@@ -1,6 +1,6 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
-import { createGroupService, calculate, createNewsletterService } from '../services/index.js';
+import { createGroupService, createCapabilityEngine, calculate, createNewsletterService } from '../services/index.js';
 import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark } from '../services/media/index.js';
 import { downloadResolvedMedia } from '../services/media/resolver.js';
 
@@ -47,6 +47,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   const isPrivate = chatType === 'private';
   const isOwner = identity.isOwner(senderJid);
   let groupMetadataPromise = null;
+  const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
   const newsletter = createNewsletterService();
 
@@ -121,7 +122,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     socket, message, config, registry, command, parsed, providers, repositories,
     chatId, chatType, senderJid, senderNumber: normalizePhoneNumber(senderJid?.split('@')[0]),
     isGroup, isChannel, isBroadcast, isPrivate, isOwner,
-    getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
+    capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
     getNewsletterReplyTarget,
     group, newsletter, calculate,
     media: Object.freeze({
