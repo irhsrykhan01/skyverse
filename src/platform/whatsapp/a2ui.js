@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import {
   generateWAMessageFromContent,
   isJidGroup,
@@ -6,10 +5,7 @@ import {
   proto,
 } from '@whiskeysockets/baileys';
 
-const THUMBNAIL_BASE64 = fs.readFileSync(
-  new URL('../../../assets/skylabs-a2ui.jpg.b64', import.meta.url),
-  'utf8',
-).trim();
+const BANNER_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/banner_skylabs.jpg';
 
 function buildBizNode() {
   const privacyModeTs = (Math.floor(Date.now() / 1000) - 77980457).toString();
@@ -42,9 +38,8 @@ function button(name, params) {
 async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
-  const imageBuffer = Buffer.from(THUMBNAIL_BASE64, 'base64');
   const imageMessage = await prepareWAMessageMedia(
-    { image: imageBuffer },
+    { image: { url: BANNER_URL } },
     { upload: socket.waUploadToServer },
   );
 
