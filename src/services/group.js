@@ -55,10 +55,13 @@ async function resolveTargetJids(context) {
 }
 
 function getParticipantAdmin(metadata, jid) {
+  const target = String(jid ?? '');
+  const targetDigits = digitsOnly(target);
   const participants = metadata?.participants ?? [];
   return participants.find((item) => {
     const ids = [item?.id, item?.pn, item?.lid].filter(Boolean).map(String);
-    return ids.includes(String(jid));
+    if (ids.includes(target)) return true;
+    return Boolean(targetDigits) && ids.some((id) => digitsOnly(id) === targetDigits);
   });
 }
 
