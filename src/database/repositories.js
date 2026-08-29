@@ -2,19 +2,25 @@ import { normalizePhoneNumber } from '../security/identity.js';
 
 export function createRepositories(database) {
   function upsertUser({ jid, pushName = null, isBot = false }) {
-    if (!jid) return;
+    if (!jid) return { created: false, user: undefined };
+    const existing = getUser(jid);
     const now = Date.now();
     const number = normalizePhoneNumber(String(jid).split('@')[0]);
+
+    if (existing) {
+      database.exec(
+        `UPDATE users SET number = ?, push_name = ?, is_bot = ?, updated_at = ? WHERE jid = ?`,
+        [number, pushName, isBot ? 1 : 0, now, jid],
+      );
+      return { created: false, user: getUser(jid) };
+    }
+
     database.exec(
-      `INSERT INTO users (jid, number, push_name, is_bot, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(jid) DO UPDATE SET
-         number = excluded.number,
-         push_name = excluded.push_name,
-         is_bot = excluded.is_bot,
-         updated_at = excluded.updated_at`,
+      `INSERT INTO users (jid, number, push_name, is_bot, created_at, updated_at, coins)
+       VALUES (?, ?, ?, ?, ?, ?, 100)`,
       [jid, number, pushName, isBot ? 1 : 0, now, now],
     );
+    return { created: true, user: getUser(jid) };
   }
 
   function upsertGroup({ jid, subject = null }) {
@@ -70,28 +76,62 @@ export function createRepositories(database) {
   }
 
   function userStats(limit = 20) {
-    const rows = database.all(
+    return database.all(
       `SELECT user_jid, SUM(usage_count) AS usage_count
-       FROM user_command_stats
-       GROUP BY user_jid
-       ORDER BY usage_count DESC
-       LIMIT ?`,
+       FROM user_command_stats GROUP BY user_jid
+       ORDER BY usage_count DESC LIMIT ?`,
       [Math.max(1, Math.min(100, Number(limit) || 20))],
     );
-    return rows;
   }
 
   function getUser(jid) {
     return jid ? database.get(
-      'SELECT jid, number, push_name, is_bot, created_at, updated_at FROM users WHERE jid = ?',
+      `SELECT jid, number, push_name, is_bot, created_at, updated_at,
+              coins, is_premium, premium_until, last_claim_at
+       FROM users WHERE jid = ?`,
       [jid],
     ) : undefined;
   }
 
+  function updateWallet(jid, { coins, isPremium, premiumUntil, lastClaimAt }) {
+    const user = getUser(jid);
+    if (!user) return undefined;
+    database.exec(
+      `UPDATE users SET coins = ?, is_premium = ?, premium_until = ?, last_claim_at = ?, updated_at = ? WHERE jid = ?`,
+      [
+        Math.max(0, Math.floor(Number(coins) || 0)),
+        isPremium ? 1 : 0,
+        premiumUntil == null ? null : Number(premiumUntil),
+        Math.max(0, Math.floor(Number(lastClaimAt) || 0)),
+        Date.now(),
+        jid,
+      ],
+    );
+    return getUser(jid);
+  }
+
+  function logEconomyTransaction({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
+    database.exec(
+      `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userJid, type, Math.floor(Number(amount) || 0), Math.max(0, Math.floor(Number(balanceAfter) || 0)), reason, at],
+    );
+  }
+
+  function economyTransactions(userJid, limit = 50) {
+    return database.all(
+      `SELECT type, amount, balance_after, reason, created_at
+       FROM economy_transactions WHERE user_jid = ?
+       ORDER BY id DESC LIMIT ?`,
+      [userJid, Math.max(1, Math.min(200, Number(limit) || 50))],
+    );
+  }
+
   return Object.freeze({
-    users: Object.freeze({ upsert: upsertUser, get: getUser }),
+    users: Object.freeze({ upsert: upsertUser, get: getUser, updateWallet }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
+    economy: Object.freeze({ transactions: logEconomyTransaction, history: economyTransactions }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
   });
 }
