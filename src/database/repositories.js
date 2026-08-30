@@ -120,18 +120,81 @@ export function createRepositories(database) {
   }
 
   function transferEconomy({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
+    const nextBalance = Math.max(0, Math.floor(Number(balanceAfter) || 0));
     database.transaction(() => {
-      database.exec(
-        `UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?`,
-        [Math.max(0, Math.floor(Number(balanceAfter) || 0)), at, userJid],
-      );
+      const result = database.get('SELECT jid FROM users WHERE jid = ?', [userJid]);
+      if (!result) throw new Error(`Economy user not found: ${userJid}`);
+      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [nextBalance, at, userJid]);
       database.exec(
         `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [userJid, type, Math.floor(Number(amount) || 0), Math.max(0, Math.floor(Number(balanceAfter) || 0)), reason, at],
+        [userJid, type, Math.floor(Number(amount) || 0), nextBalance, reason, at],
       );
     });
     return getUser(userJid);
+  }
+
+  function creditEconomy({ userJid, amount, reason = 'credit', at = Date.now() }) {
+    const value = Math.max(0, Math.floor(Number(amount) || 0));
+    if (!value) return { ok: false, balance: Math.max(0, Number(getUser(userJid)?.coins) || 0) };
+    let balance = 0;
+    database.transaction(() => {
+      const user = getUser(userJid);
+      if (!user) throw new Error(`Economy user not found: ${userJid}`);
+      balance = Math.max(0, Number(user.coins) || 0) + value;
+      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, at, userJid]);
+      database.exec(
+        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
+         VALUES (?, 'credit', ?, ?, ?, ?)`,
+        [userJid, value, balance, reason, at],
+      );
+    });
+    return { ok: true, balance, added: value };
+  }
+
+  function debitEconomy({ userJid, amount, reason = 'debit', at = Date.now() }) {
+    const value = Math.max(0, Math.floor(Number(amount) || 0));
+    let balance = 0;
+    let ok = false;
+    database.transaction(() => {
+      const user = getUser(userJid);
+      if (!user) throw new Error(`Economy user not found: ${userJid}`);
+      balance = Math.max(0, Number(user.coins) || 0);
+      if (balance < value) return;
+      balance -= value;
+      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, at, userJid]);
+      database.exec(
+        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
+         VALUES (?, 'debit', ?, ?, ?, ?)`,
+        [userJid, value, balance, reason, at],
+      );
+      ok = true;
+    });
+    return { ok, balance, spent: ok ? value : 0, required: value };
+  }
+
+  function claimEconomy({ userJid, amount, now, cooldownMs, reason = 'claim' }) {
+    const value = Math.max(0, Math.floor(Number(amount) || 0));
+    let result = null;
+    database.transaction(() => {
+      const user = getUser(userJid);
+      if (!user) throw new Error(`Economy user not found: ${userJid}`);
+      const lastClaimAt = Math.max(0, Number(user.last_claim_at) || 0);
+      const remaining = Math.max(0, cooldownMs - (now - lastClaimAt));
+      if (remaining > 0) {
+        result = { ok: false, remaining, balance: Math.max(0, Number(user.coins) || 0) };
+        return;
+      }
+      const balance = Math.max(0, Number(user.coins) || 0) + value;
+      database.exec('UPDATE users SET coins = ?, last_claim_at = ?, updated_at = ? WHERE jid = ?', [balance, now, now, userJid]);
+      database.exec(
+        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
+         VALUES (?, 'credit', ?, ?, ?, ?)`,
+        [userJid, value, balance, reason, now],
+      );
+      result = { ok: true, amount: value, balance, nextClaimAt: now + cooldownMs };
+    });
+    return result;
   }
 
   function logEconomyTransaction({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
@@ -155,7 +218,14 @@ export function createRepositories(database) {
     users: Object.freeze({ upsert: upsertUser, get: getUser, updateWallet }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
-    economy: Object.freeze({ transactions: logEconomyTransaction, transfer: transferEconomy, history: economyTransactions }),
+    economy: Object.freeze({
+      transactions: logEconomyTransaction,
+      transfer: transferEconomy,
+      credit: creditEconomy,
+      debit: debitEconomy,
+      claim: claimEconomy,
+      history: economyTransactions,
+    }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
   });
 }
