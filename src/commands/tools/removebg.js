@@ -10,8 +10,22 @@ export const command = {
   maxArgs: 0,
   cooldown: 5000,
   async execute(ctx) {
-    const media = await ctx.media.download();
-    if (media.type !== 'image') throw new Error('RemoveBG hanya mendukung gambar.');
+    let media;
+    try {
+      media = await ctx.media.download();
+    } catch (error) {
+      const message = String(error?.message ?? '').toLowerCase();
+      if (message.includes('tidak ada media') || message.includes('reply atau kirim') || message.includes('pesan media tidak valid')) {
+        await ctx.reply('Reply/Kirimkan gambarnya terlebih dahulu!');
+        return;
+      }
+      throw error;
+    }
+
+    if (media.type !== 'image') {
+      await ctx.reply('Reply/Kirimkan gambarnya terlebih dahulu!');
+      return;
+    }
 
     const result = await ctx.providers.removebg.remove(media.buffer, {
       filename: 'skyverse-input.jpg',
