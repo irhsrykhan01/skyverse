@@ -1,16 +1,25 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 
+function phoneFromJid(phoneJid) {
+  if (!phoneJid) return null;
+  const raw = String(phoneJid).trim();
+  if (raw.includes('@lid') || raw.includes('@hosted.lid')) return null;
+  const digits = normalizePhoneNumber(raw.split('@')[0]);
+  return digits || null;
+}
+
 export function createRepositories(database) {
   function upsertUser({ jid, phoneJid = null, pushName = null, isBot = false }) {
     if (!jid) return { created: false, user: undefined };
     const existing = getUser(jid);
     const now = Date.now();
-    const number = normalizePhoneNumber(String(phoneJid || jid).split('@')[0]);
+    const incomingNumber = phoneFromJid(phoneJid);
+    const number = incomingNumber ?? existing?.number ?? null;
 
     if (existing) {
       database.exec(
         `UPDATE users SET number = ?, push_name = ?, is_bot = ?, updated_at = ? WHERE jid = ?`,
-        [number, pushName, isBot ? 1 : 0, now, jid],
+        [number, pushName ?? existing.push_name ?? null, isBot ? 1 : 0, now, jid],
       );
       return { created: false, user: getUser(jid) };
     }
