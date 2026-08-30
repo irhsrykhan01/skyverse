@@ -7,9 +7,17 @@ export function createProviderManager(config) {
     baseUrl: config.depayBaseUrl,
   });
 
-  const downloader = createKeyraDownloaderProvider({
+  const keyraDownloader = createKeyraDownloaderProvider({
     apiKey: config.keyraApiKey,
     baseUrl: config.keyraBaseUrl,
+  });
+
+  // Keyra is the primary downloader provider. Facebook is intentionally
+  // routed to Depay because Keyra's current public catalog does not expose
+  // a Facebook downloader endpoint.
+  const downloader = Object.freeze({
+    ...keyraDownloader,
+    facebook: depay.facebook,
   });
 
   const removebg = createRemoveBgProvider({
