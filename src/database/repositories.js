@@ -1,11 +1,11 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 
 export function createRepositories(database) {
-  function upsertUser({ jid, pushName = null, isBot = false }) {
+  function upsertUser({ jid, phoneJid = null, pushName = null, isBot = false }) {
     if (!jid) return { created: false, user: undefined };
     const existing = getUser(jid);
     const now = Date.now();
-    const number = normalizePhoneNumber(String(jid).split('@')[0]);
+    const number = normalizePhoneNumber(String(phoneJid || jid).split('@')[0]);
 
     if (existing) {
       database.exec(
