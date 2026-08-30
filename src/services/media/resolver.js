@@ -1,5 +1,7 @@
 import { downloadMediaMessage, getContentType, normalizeMessageContent } from '@whiskeysockets/baileys';
 
+export const USER_INPUT_MEDIA_ERROR_PREFIX = 'USER_INPUT_MEDIA:';
+
 function unwrapContextInfo(content) {
   return content?.extendedTextMessage?.contextInfo ??
     content?.imageMessage?.contextInfo ??
@@ -34,12 +36,7 @@ function normalizedMessage(message) {
 }
 
 function normalizePtvMessage(message, node) {
-  return {
-    ...message,
-    message: {
-      videoMessage: node,
-    },
-  };
+  return { ...message, message: { videoMessage: node } };
 }
 
 function describeMedia(message) {
@@ -74,10 +71,8 @@ function isValidWebp(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 20) return false;
   if (buffer.subarray(0, 4).toString('ascii') !== 'RIFF') return false;
   if (buffer.subarray(8, 12).toString('ascii') !== 'WEBP') return false;
-
   const riffSize = buffer.readUInt32LE(4);
   if (riffSize + 8 !== buffer.length) return false;
-
   const chunkType = buffer.subarray(12, 16).toString('ascii');
   return chunkType === 'VP8 ' || chunkType === 'VP8L' || chunkType === 'VP8X';
 }
@@ -117,14 +112,14 @@ export function resolveMediaTarget(message) {
 
 export async function downloadResolvedMedia({ socket, message, retries = 2, logger = console }) {
   const originalTarget = getQuotedMessage(message) ?? normalizedMessage(message);
-  if (!originalTarget) throw new Error('Pesan media tidak valid.');
+  if (!originalTarget) throw new Error(`${USER_INPUT_MEDIA_ERROR_PREFIX}Reply/Kirimkan medianya terlebih dahulu!`);
 
   let target = originalTarget;
   let lastError = null;
 
   for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
     const descriptor = describeMedia(target);
-    if (!descriptor) throw new Error('Tidak ada media yang bisa diproses. Reply atau kirim gambar, video, audio, sticker, atau dokumen media.');
+    if (!descriptor) throw new Error(`${USER_INPUT_MEDIA_ERROR_PREFIX}Reply/Kirimkan gambar, video, audio, sticker, atau dokumen media terlebih dahulu!`);
 
     try {
       const buffer = await downloadMediaMessage(
