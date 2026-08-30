@@ -10,7 +10,7 @@ function buildUrl(baseUrl, path, params = {}) {
 
 async function requestMedia(url) {
   const response = await fetch(url, {
-    headers: { accept: 'application/json, image/*, video/*' },
+    headers: { accept: 'application/json, image/*, video/*, audio/*' },
     signal: AbortSignal.timeout(30_000),
   });
 
@@ -25,19 +25,12 @@ async function requestMedia(url) {
     throw new Error(String(message));
   }
 
-  if (contentType.startsWith('image/') || contentType.startsWith('video/')) {
-    return {
-      media: Buffer.from(await response.arrayBuffer()),
-      mimeType: contentType.split(';', 1)[0],
-    };
+  if (contentType.startsWith('image/') || contentType.startsWith('video/') || contentType.startsWith('audio/')) {
+    return { media: Buffer.from(await response.arrayBuffer()), mimeType: contentType.split(';', 1)[0] };
   }
 
   const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return text;
-  }
+  try { return text ? JSON.parse(text) : null; } catch { return text; }
 }
 
 export function createDepayProvider({ baseUrl = DEFAULT_BASE_URL } = {}) {
@@ -48,5 +41,8 @@ export function createDepayProvider({ baseUrl = DEFAULT_BASE_URL } = {}) {
   return Object.freeze({
     brat: (text) => generator('/api/generator/brat', { text }),
     iqc: (prompt) => generator('/api/generator/iqc', { prompt }),
+    tiktok: (url) => generator('/api/downloader/tiktok', { url }),
+    facebook: (url) => generator('/api/downloader/facebook', { url }),
+    youtube: (url, type = 'video') => generator('/api/downloader/ytdl', { url, type }),
   });
 }
