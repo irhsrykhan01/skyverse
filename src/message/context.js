@@ -36,7 +36,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   const isBroadcast = chatType === 'broadcast';
   const isPrivate = chatType === 'private';
   const isOwner = identity.isOwner(senderJid);
-  const userRecord = repositories.users.get(senderJid);
+  const userRecord = repositories.users.get(senderJid) ?? economy?.ensureUser(senderJid, { pushName: message.pushName ?? null });
   const userNumber = userRecord?.number ?? normalizePhoneNumber(senderJid?.split('@')[0]);
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
