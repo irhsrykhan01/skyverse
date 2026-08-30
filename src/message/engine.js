@@ -168,6 +168,14 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) {
       await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.'); return;
     }
+    if (command.cost > 0 && !context.isOwner) {
+      const wallet = economy.getWallet(senderJid);
+      if (wallet.coins < command.cost) {
+        await context.reply(`Coin tidak cukup. Butuh ${command.cost} 🪙, saldo kamu ${wallet.coins} 🪙.`);
+        return;
+      }
+    }
+
     if (parsed.args.length < command.minArgs || (command.maxArgs !== null && parsed.args.length > command.maxArgs)) {
       const usage = command.usage ? `${config.prefix}${command.usage}` : `${config.prefix}${command.name}`;
       await context.reply(`Format penggunaan tidak sesuai.\n\nUsage: ${usage}`); return;
@@ -182,6 +190,14 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     let slowReactionTimer = null;
     let slowReactionShown = false;
     try {
+      if (command.cost > 0 && !context.isOwner) {
+        const payment = economy.spendCoins(senderJid, command.cost, `command:${command.name}`);
+        if (!payment.ok) {
+          await context.reply(`Coin tidak cukup. Butuh ${payment.required} 🪙, saldo kamu ${payment.balance} 🪙.`);
+          return;
+        }
+      }
+
       repositories.commands.increment(command.name, senderJid);
       slowReactionTimer = setTimeout(async () => { slowReactionShown = true; await safeReact(context, '⏳'); }, slowCommandDelay);
       await command.execute(context);
