@@ -12,11 +12,30 @@ export const command = {
   maxArgs: null,
   cooldown: 3000,
   async execute(ctx) {
-    const media = await ctx.media.download();
-    if (media.type !== 'image') throw new Error('smeme membutuhkan gambar.');
+    let media;
+    try {
+      media = await ctx.media.download();
+    } catch (error) {
+      const message = String(error?.message ?? '').toLowerCase();
+      if (message.includes('tidak ada media') || message.includes('reply atau kirim') || message.includes('pesan media tidak valid')) {
+        await ctx.reply('Reply/Kirimkan gambarnya terlebih dahulu!');
+        return;
+      }
+      throw error;
+    }
+
+    if (media.type !== 'image') {
+      await ctx.reply('Reply/Kirimkan gambarnya terlebih dahulu!');
+      return;
+    }
+
     const raw = ctx.parsed.args.join(' ');
     const [top = '', bottom = ''] = raw.split('|', 2).map((value) => value.trim());
-    if (!top && !bottom) throw new Error('Gunakan format: smeme teks atas | teks bawah.');
+    if (!top && !bottom) {
+      await ctx.reply('Gunakan format: .smeme teks atas | teks bawah');
+      return;
+    }
+
     const output = await toSmeme(media.buffer, { top, bottom });
     await ctx.media.send(output, 'image', { mimetype: 'image/jpeg' });
   },
