@@ -53,7 +53,8 @@ export function createMessageContext({ socket, message, command, registry, ident
     });
   }
   const refreshedUser = repositories.users.get(senderJid) ?? userRecord;
-  const userNumber = refreshedUser?.number ?? normalizePhoneNumber(String(directPhoneJid || '').split('@')[0]) || null;
+  const directPhoneNumber = directPhoneJid ? normalizePhoneNumber(String(directPhoneJid).split('@')[0]) : null;
+  const userNumber = refreshedUser?.number ?? directPhoneNumber ?? null;
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
