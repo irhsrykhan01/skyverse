@@ -43,35 +43,16 @@ export class EconomyManager {
   }
 
   addCoins(id, amount, reason = 'unknown', options = {}) {
-    const user = this.ensureUser(id, options);
+    this.ensureUser(id, options);
     const value = validAmount(amount);
-    if (!value) return user.coins;
-    const balance = Math.max(0, Number(user.coins) || 0) + value;
-    this.repositories.economy.transfer({
-      userJid: id,
-      type: 'credit',
-      amount: value,
-      balanceAfter: balance,
-      reason,
-    });
-    return balance;
+    if (!value) return this.getCoins(id);
+    return this.repositories.economy.credit({ userJid: id, amount: value, reason }).balance;
   }
 
   spendCoins(id, amount, reason = 'feature', options = {}) {
-    const user = this.ensureUser(id, options);
+    this.ensureUser(id, options);
     const value = validAmount(amount);
-    const balance = Math.max(0, Number(user.coins) || 0);
-    if (balance < value) return { ok: false, balance, required: value };
-
-    const nextBalance = balance - value;
-    this.repositories.economy.transfer({
-      userJid: id,
-      type: 'debit',
-      amount: value,
-      balanceAfter: nextBalance,
-      reason,
-    });
-    return { ok: true, balance: nextBalance, spent: value };
+    return this.repositories.economy.debit({ userJid: id, amount: value, reason });
   }
 
   canClaim(id, now = Date.now(), options = {}) {
@@ -86,29 +67,15 @@ export class EconomyManager {
   }
 
   claim(id, now = Date.now(), options = {}) {
-    const user = this.ensureUser(id, options);
-    const status = this.canClaim(id, now, options);
-    const balance = Math.max(0, Number(user.coins) || 0);
-    if (!status.ok) return { ok: false, remaining: status.remaining, balance };
-
+    this.ensureUser(id, options);
     const amount = Math.floor(Math.random() * (MAX_CLAIM_COINS - MIN_CLAIM_COINS + 1)) + MIN_CLAIM_COINS;
-    const nextBalance = balance + amount;
-
-    this.repositories.users.updateWallet(id, {
-      coins: nextBalance,
-      isPremium: Boolean(user.is_premium),
-      premiumUntil: user.premium_until,
-      lastClaimAt: now,
-    });
-    this.repositories.economy.transactions({
+    return this.repositories.economy.claim({
       userJid: id,
-      type: 'credit',
       amount,
-      balanceAfter: nextBalance,
+      now,
+      cooldownMs: CLAIM_COOLDOWN_MS,
       reason: 'claim',
-      at: now,
     });
-    return { ok: true, amount, balance: nextBalance, nextClaimAt: now + CLAIM_COOLDOWN_MS };
   }
 
   history(id, limit = 20) {
