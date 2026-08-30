@@ -90,6 +90,19 @@ export async function createDatabase(databasePath, logger) {
   }, 10_000);
   flushTimer.unref?.();
 
+  function transaction(callback) {
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      const result = callback();
+      database.exec('COMMIT');
+      dirty = true;
+      return result;
+    } catch (error) {
+      try { database.exec('ROLLBACK'); } catch {}
+      throw error;
+    }
+  }
+
   function exec(sql, params = []) {
     const statement = database.prepare(sql);
     try {
@@ -133,6 +146,7 @@ export async function createDatabase(databasePath, logger) {
 
   return Object.freeze({
     exec,
+    transaction,
     get,
     all,
     persist,
