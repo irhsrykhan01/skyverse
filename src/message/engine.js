@@ -9,11 +9,15 @@ const NEWSLETTER_META_TTL = 6 * 60 * 60 * 1000;
 const GROUP_MESSAGE_TTL = 30 * 60 * 1000;
 const MAX_GROUP_CACHED_MESSAGES = 250;
 
-function displaySender(jid, chatId) {
+function displaySender(jid, phoneJid, chatId) {
   if (chatId?.endsWith('@newsletter')) return 'Channel';
   if (chatId?.endsWith('@broadcast')) return 'Broadcast';
+  const rawPhone = String(phoneJid || '').split('@')[0].replace(/^\+/, '').replace(/\D/g, '');
+  if (rawPhone) return `+${rawPhone}`;
   if (!jid) return 'unknown';
-  return `+${String(jid).replace(/@(s\\.whatsapp\\.net|lid|g\\.us|newsletter|broadcast)$/i, '').replace(/^\\+/, '')}`;
+  const rawJid = String(jid);
+  if (rawJid.endsWith('@lid') || rawJid.endsWith('@hosted.lid')) return '[LID]';
+  return `+${rawJid.replace(/@(s\.whatsapp\.net|g\.us|newsletter|broadcast)$/i, '').replace(/^\+/, '')}`;
 }
 
 function chatType(jid) {
@@ -53,6 +57,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   const cooldowns = new Map();
   const newsletterMessages = new Map();
   const groupMessages = new Map();
+  const lidToPn = new Map();
   const seenTtl = 60_000;
   const slowCommandDelay = 900;
   const afk = createAfkService(repositories);
@@ -147,7 +152,8 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (seen.has(dedupKey)) return;
     seen.set(dedupKey, Date.now());
 
-    const user = repositories.users.upsert({ jid: senderJid, pushName: message.pushName ?? null, isBot: false });
+    const senderPhoneJid = message.key?.participantAlt ?? message.key?.remoteJidAlt ?? lidToPn.get(senderJid) ?? null;
+    repositories.users.upsert({ jid: senderJid, phoneJid: senderPhoneJid, pushName: message.pushName ?? null, isBot: false });
     if (chatId.endsWith('@g.us')) repositories.groups.upsert({ jid: chatId });
     try { await handleAfkState(socket, message, chatId, senderJid); }
     catch (error) { logger.debug('AFK handler failed', { error: error?.message ?? String(error) }); }
@@ -155,7 +161,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
     const parsed = parseIncomingMessage(message, config.prefix);
     if (!parsed) return;
-    logger.info(`Dari ${displaySender(senderJid, chatId)} = ${parsed.raw}`);
+    logger.info(`Dari ${displaySender(senderJid, senderPhoneJid, chatId)} = ${parsed.raw}`);
     const command = registry.resolve(parsed.name);
     if (!command) return;
 
@@ -248,6 +254,16 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   }
 
   function attach(socket) {
+    socket.ev.on('lid-mapping.update', async (mapping) => {
+      const lid = mapping?.lid;
+      const pn = mapping?.pn;
+      if (!lid || !pn || !String(lid).endsWith('@lid') || !String(pn).endsWith('@s.whatsapp.net')) return;
+      lidToPn.set(lid, pn);
+      const existing = repositories.users.get(lid);
+      if (existing) {
+        repositories.users.upsert({ jid: lid, phoneJid: pn, pushName: existing.push_name, isBot: Boolean(existing.is_bot) });
+      }
+    });
     socket.ev.on('messages.upsert', async ({ messages, type }) => {
       if (type && type !== 'notify') return;
       for (const message of messages ?? []) try { await handleMessage(socket, message); } catch (error) { logger.error(`Error = ${error?.message ?? String(error)}`); }
