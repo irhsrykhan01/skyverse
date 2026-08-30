@@ -8,6 +8,10 @@ function getSenderJid(message) {
   return message.key?.participant ?? message.key?.remoteJid ?? null;
 }
 
+function getSenderPhoneJid(message) {
+  return message.key?.participantAlt ?? message.key?.remoteJidAlt ?? null;
+}
+
 function getChatType(jid) {
   if (typeof jid !== 'string') return 'unknown';
   if (jid.endsWith('@g.us')) return 'group';
@@ -30,14 +34,27 @@ function getQuotedStanzaId(message) {
 export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
+  const senderPhoneJid = getSenderPhoneJid(message);
   const chatType = getChatType(chatId);
   const isGroup = isGroupJid(chatId);
   const isChannel = chatType === 'channel';
   const isBroadcast = chatType === 'broadcast';
   const isPrivate = chatType === 'private';
-  const isOwner = identity.isOwner(senderJid);
-  const userRecord = repositories.users.get(senderJid) ?? economy?.ensureUser(senderJid, { pushName: message.pushName ?? null });
-  const userNumber = userRecord?.number ?? normalizePhoneNumber(senderJid?.split('@')[0]);
+  const isOwner = identity.isOwner(senderPhoneJid || senderJid);
+  const existingUser = repositories.users.get(senderJid);
+  const userRecord = existingUser ?? economy?.ensureUser(senderJid, { pushName: message.pushName ?? null });
+  // Baileys uses participantAlt/remoteJidAlt for the PN when the primary JID is a LID.
+  // Persist the PN as the human-facing phone number while keeping the LID as the stable DB key.
+  if (userRecord && senderPhoneJid) {
+    repositories.users.upsert({
+      jid: senderJid,
+      phoneJid: senderPhoneJid,
+      pushName: message.pushName ?? userRecord.push_name ?? null,
+      isBot: Boolean(userRecord.is_bot),
+    });
+  }
+  const refreshedUser = repositories.users.get(senderJid) ?? userRecord;
+  const userNumber = refreshedUser?.number ?? normalizePhoneNumber(String(senderPhoneJid || senderJid).split('@')[0]);
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
@@ -52,7 +69,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   async function isAdmin() {
     if (!isGroup || !senderJid) return false;
     const metadata = await getGroupMetadata();
-    const participant = metadata.participants?.find((item) => [item.id, item.pn, item.lid].filter(Boolean).includes(senderJid));
+    const participant = metadata.participants?.find((item) => [item.id, item.pn, item.lid].filter(Boolean).some((id) => id === senderJid || id === senderPhoneJid));
     return Boolean(participant?.admin);
   }
 
@@ -91,8 +108,8 @@ export function createMessageContext({ socket, message, command, registry, ident
 
   return Object.freeze({
     socket, message, config, registry, command, parsed, providers, repositories, economy,
-    chatId, chatType, senderJid, senderNumber: userNumber,
-    user: userRecord, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
+    chatId, chatType, senderJid, senderPhoneJid, senderNumber: userNumber,
+    user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
     getNewsletterReplyTarget, group, newsletter, calculate,
     media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark, download: downloadMedia, send: sendMedia }),
