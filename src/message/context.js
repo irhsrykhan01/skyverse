@@ -34,27 +34,26 @@ function getQuotedStanzaId(message) {
 export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
-  const senderPhoneJid = getSenderPhoneJid(message);
+  const directPhoneJid = getSenderPhoneJid(message);
   const chatType = getChatType(chatId);
   const isGroup = isGroupJid(chatId);
   const isChannel = chatType === 'channel';
   const isBroadcast = chatType === 'broadcast';
   const isPrivate = chatType === 'private';
-  const isOwner = identity.isOwner(senderPhoneJid || senderJid);
   const existingUser = repositories.users.get(senderJid);
+  const senderPhoneJid = directPhoneJid || (existingUser?.number ? `${existingUser.number}@s.whatsapp.net` : null);
+  const isOwner = identity.isOwner(senderPhoneJid || senderJid);
   const userRecord = existingUser ?? economy?.ensureUser(senderJid, { pushName: message.pushName ?? null });
-  // Baileys uses participantAlt/remoteJidAlt for the PN when the primary JID is a LID.
-  // Persist the PN as the human-facing phone number while keeping the LID as the stable DB key.
-  if (userRecord && senderPhoneJid) {
+  if (userRecord && directPhoneJid) {
     repositories.users.upsert({
       jid: senderJid,
-      phoneJid: senderPhoneJid,
+      phoneJid: directPhoneJid,
       pushName: message.pushName ?? userRecord.push_name ?? null,
       isBot: Boolean(userRecord.is_bot),
     });
   }
   const refreshedUser = repositories.users.get(senderJid) ?? userRecord;
-  const userNumber = refreshedUser?.number ?? normalizePhoneNumber(String(senderPhoneJid || senderJid).split('@')[0]);
+  const userNumber = refreshedUser?.number ?? normalizePhoneNumber(String(directPhoneJid || '').split('@')[0]) || null;
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
