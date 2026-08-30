@@ -110,6 +110,21 @@ export function createRepositories(database) {
     return getUser(jid);
   }
 
+  function transferEconomy({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
+    database.transaction(() => {
+      database.exec(
+        `UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?`,
+        [Math.max(0, Math.floor(Number(balanceAfter) || 0)), at, userJid],
+      );
+      database.exec(
+        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [userJid, type, Math.floor(Number(amount) || 0), Math.max(0, Math.floor(Number(balanceAfter) || 0)), reason, at],
+      );
+    });
+    return getUser(userJid);
+  }
+
   function logEconomyTransaction({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
     database.exec(
       `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
@@ -131,7 +146,7 @@ export function createRepositories(database) {
     users: Object.freeze({ upsert: upsertUser, get: getUser, updateWallet }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
-    economy: Object.freeze({ transactions: logEconomyTransaction, history: economyTransactions }),
+    economy: Object.freeze({ transactions: logEconomyTransaction, transfer: transferEconomy, history: economyTransactions }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
   });
 }
