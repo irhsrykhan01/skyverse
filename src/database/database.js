@@ -58,7 +58,14 @@ export async function createDatabase(databasePath, logger) {
   `);
 
   // Migrate databases created before Economy fields existed.
-  const columns = database.all('PRAGMA table_info(users)').map((row) => row.name);
+  const migrationStatement = database.prepare('PRAGMA table_info(users)');
+  const columns = [];
+  try {
+    while (migrationStatement.step()) columns.push(migrationStatement.getAsObject().name);
+  } finally {
+    migrationStatement.free();
+  }
+
   const migrations = [
     ['coins', 'ALTER TABLE users ADD COLUMN coins INTEGER NOT NULL DEFAULT 100'],
     ['is_premium', 'ALTER TABLE users ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0'],
