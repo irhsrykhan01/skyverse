@@ -2,6 +2,8 @@ import { createMessageContext } from './context.js';
 import { parseIncomingMessage } from './parser.js';
 import { createAfkService } from '../services/afk.js';
 import { createAntideleteService } from '../services/antidelete.js';
+import { getMessageText } from './parser.js';
+import { isBombReply, guessBomb, updateBombMessage } from '../games/' + 'bomb.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
@@ -127,6 +129,30 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (chatId.endsWith('@g.us')) repositories.groups.upsert({ jid: chatId });
     try { await handleAfkState(socket, message, chatId, senderJid); } catch (error) { logger.debug('AFK handler failed', { error: error?.message ?? String(error) }); }
     if (config.autoRead) try { await socket.readMessages([message.key]); } catch (error) { logger.debug('Read receipt failed', { error: error?.message ?? String(error) }); }
+
+    const plainText = getMessageText(message);
+    const quotedContext = getContextInfo(message);
+    const quotedStanzaId = quotedContext?.stanzaId ?? null;
+    const activeGame = quotedStanzaId ? isBombReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
+    if (!plainText.startsWith(config.prefix) && quotedStanzaId && /^\d+$/.test(plainText) && activeGame) {
+      const result = guessBomb(senderJid, plainText);
+      if (!result.ok) {
+        const text = result.reason === 'already_opened' ? 'Angka itu sudah dibuka! Pilih angka lain.' : 'Pilih angka 1 sampai 9.';
+        await socket.sendMessage(chatId, { text }, { quoted: message });
+        return;
+      }
+      if (result.result === 'safe') {
+        economy.addCoins(senderJid, result.reward, 'game:board:win');
+        const sent = await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → ✅', '+' + result.reward + ' 🪙', '', 'Pilih angka berikutnya!', '', result.board, '', 'Ketikkan angka dan Reply pesan ini.'].join('\n') }, { quoted: message });
+        updateBombMessage(senderJid, sent?.key?.id ?? null);
+      } else {
+        const wallet = economy.getWallet(senderJid);
+        const penalty = Math.min(wallet.coins, result.penalty);
+        if (penalty > 0) economy.spendCoins(senderJid, penalty, 'game:board:loss');
+        await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → 💣', '', 'BOOM!! 💥💥', '', '- ' + penalty + ' 🪙', 'Game selesai!'].join('\n') }, { quoted: message });
+      }
+      return;
+    }
 
     const parsed = parseIncomingMessage(message, config.prefix);
     if (!parsed) return;
