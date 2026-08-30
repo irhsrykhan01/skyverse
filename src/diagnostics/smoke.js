@@ -3,6 +3,9 @@ import { loadConfig } from '../config/env.js';
 import { createProviderManager } from '../services/providers/manager.js';
 import * as media from '../services/media/index.js';
 import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
+import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
+import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
+import { economyDefaults, EconomyManager } from '../economy/manager.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -16,13 +19,19 @@ const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
 for (const required of [
-  'menu', 'help', 'ping', 'info', 'owner',
+  'menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim',
   'sticker', 'smeme', 'stickerwatermark',
   'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn',
   'texttoqr', 'hd', 'removebg',
   'warn', 'unwarn', 'warnings', 'delete',
 ]) {
   assert(visibleNames.has(required), `Missing visible command: ${required}`);
+}
+
+for (const command of visibleCommands) {
+  assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`);
+  assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`);
+  assert(Number.isInteger(command.cost) && command.cost >= 0, `Invalid coin cost: ${command.name}`);
 }
 
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -41,9 +50,51 @@ assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
 
+// Economy contract regression checks. These use an in-memory fake repository
+// so the smoke test remains independent of a real WhatsApp account/database.
+let fakeUser = { jid: 'smoke@lid', number: '628000000000', coins: economyDefaults.newUserCoins, is_premium: 0, premium_until: null, last_claim_at: 0 };
+const fakeRepositories = {
+  users: {
+    get: () => fakeUser,
+    upsert: () => ({ created: false, user: fakeUser }),
+  },
+  economy: {
+    credit: ({ amount }) => { fakeUser.coins += amount; return { ok: true, balance: fakeUser.coins, added: amount }; },
+    debit: ({ amount }) => {
+      if (fakeUser.coins < amount) return { ok: false, balance: fakeUser.coins, required: amount };
+      fakeUser.coins -= amount; return { ok: true, balance: fakeUser.coins, spent: amount, required: amount };
+    },
+    claim: ({ amount, now }) => {
+      if (now - fakeUser.last_claim_at < economyDefaults.claimCooldownMs) return { ok: false, remaining: economyDefaults.claimCooldownMs - (now - fakeUser.last_claim_at), balance: fakeUser.coins };
+      fakeUser.coins += amount; fakeUser.last_claim_at = now; return { ok: true, amount, balance: fakeUser.coins, nextClaimAt: now + economyDefaults.claimCooldownMs };
+    },
+    history: () => [],
+  },
+};
+const economy = new EconomyManager({ repositories: fakeRepositories });
+assert(economy.getCoins('smoke@lid') === 100, 'Economy default wallet is not 100 coins.');
+const spent = economy.spendCoins('smoke@lid', 10, 'smoke');
+assert(spent.ok && spent.balance === 90, 'Economy debit contract failed.');
+const credited = economy.addCoins('smoke@lid', 10, 'smoke');
+assert(credited === 100, 'Economy credit contract failed.');
+const claim = economy.claim('smoke@lid', Date.now());
+assert(claim.ok && claim.amount >= 2 && claim.amount <= 7, 'Economy claim reward contract failed.');
+
+// Game engines are pure/local and must not require an API.
+startBombGame('smoke');
+assert(getBombGame('smoke')?.maxAttempts === 5, 'Bomb game session contract failed.');
+const bombResult = guessBomb('smoke', 0);
+assert(bombResult.reason === 'invalid', 'Bomb game invalid-input contract failed.');
+stopBombGame('smoke');
+
+const mathSession = startMathQuiz('smoke');
+assert(getMathQuiz('smoke')?.answer === mathSession.answer, 'Math quiz session contract failed.');
+assert(formatMathQuestion(mathSession).includes('='), 'Math quiz formatter contract failed.');
+const mathResult = answerMathQuiz('smoke', mathSession.answer);
+assert(mathResult.ok && mathResult.result === 'win', 'Math quiz answer contract failed.');
+stopMathQuiz('smoke');
+
 // Regression test: a received WhatsApp Video Note is represented as ptvMessage.
-// The resolver must recognize it as video and preserve the PTV flag before the
-// command layer tries to upload it elsewhere.
 const syntheticPtv = {
   key: { remoteJid: '120000000000000@g.us', id: 'PTV-SMOKE', fromMe: false },
   message: {
@@ -68,4 +119,4 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + PTV resolver regression test.`);
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + economy + games + PTV resolver tests.`);
