@@ -1,8 +1,8 @@
 import { startBombGame, getBombGame } from '../../games/bomb.js';
 
-const BOARD = '1️⃣ 2️⃣ 3️⃣
+const BOARD = `1️⃣ 2️⃣ 3️⃣
 4️⃣ 5️⃣ 6️⃣
-7️⃣ 8️⃣ 9️⃣';
+7️⃣ 8️⃣ 9️⃣`;
 
 export const command = {
   name: 'bomb',
