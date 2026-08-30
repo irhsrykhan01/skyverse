@@ -1,4 +1,4 @@
-import { replyWithProviderSticker } from '../../services/providers/media-response.js';
+import { replyWithProviderMedia } from '../../services/providers/media-response.js';
 
 export const command = {
   name: 'iqc',
@@ -9,8 +9,11 @@ export const command = {
   permission: 'user',
   minArgs: 1,
   cooldown: 3000,
+  cost: 10,
   async execute(ctx) {
     const response = await ctx.providers.depay.iqc(ctx.parsed.args.join(' '));
-    await replyWithProviderSticker(ctx, response);
+    // IQC is an image generator; send the generated image directly instead
+    // of forcing it through sticker conversion, which can fail on large PNGs.
+    await replyWithProviderMedia(ctx, response, 'image');
   },
 };
