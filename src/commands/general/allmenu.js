@@ -10,20 +10,24 @@ function buildAllMenu(ctx) {
   const lines = [
     'https://saweria.co/irhsrykhn',
     '',
-    '╭━━━〔 *SKYVERSE ALL MENU* 〕━━━╮',
-    `┃ Bot      : ${ctx.config.botName}`,
-    `┃ Prefix   : ${ctx.config.prefix}`,
-    `┃ Commands : ${total}`,
-    `┃ Category : ${ordered.length}`,
-    '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯',
+    '╭── ＳＫＹＶＥＲＳＥ ──',
+    `│ Halo, @${ctx.senderJid?.split('@')[0] ?? 'User'}!`,
+    `│ Koin: ${Number(ctx.user?.coins ?? 0)}`,
+    `│ Limit: ${Number(ctx.user?.limit ?? 20)}`,
+    `│ Tier: ${ctx.user?.is_premium ? 'Premium User' : 'Free User'}`,
+    '╰───────────────',
+    'Selamat datang di Skyverse Bot!. ☁',
+    '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
+    '',
+    `Total Command: ${total}`,
   ];
 
   for (const [category, commands] of ordered) {
-    lines.push('', `┌─〔 *${categoryLabel(category).toUpperCase()} MENU* 〕`);
-    for (const item of commands) {
-      lines.push(`│ ${ctx.config.prefix}${item.name}`);
-    }
-    lines.push('└────────────────────────');
+    lines.push('', ` ❏ *${categoryLabel(category)}*`);
+    commands.forEach((item, index) => {
+      const branch = index === commands.length - 1 ? '└' : '├';
+      lines.push(`${branch} ${ctx.config.prefix}${item.name}`);
+    });
   }
 
   return lines.join('\n');
