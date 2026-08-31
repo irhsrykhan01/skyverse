@@ -9,20 +9,11 @@ const BANNER_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main
 
 function buildBizNode() {
   const privacyModeTs = (Math.floor(Date.now() / 1000) - 77980457).toString();
-
   return {
     tag: 'biz',
-    attrs: {
-      actual_actors: '2',
-      host_storage: '2',
-      privacy_mode_ts: privacyModeTs,
-    },
+    attrs: { actual_actors: '2', host_storage: '2', privacy_mode_ts: privacyModeTs },
     content: [
-      {
-        tag: 'interactive',
-        attrs: { type: 'native_flow', v: '1' },
-        content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
-      },
+      { tag: 'interactive', attrs: { type: 'native_flow', v: '1' }, content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }] },
       { tag: 'quality_control', attrs: { source_type: 'third_party' } },
     ],
   };
@@ -64,44 +55,36 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
     }),
   });
 
-  const waMessage = generateWAMessageFromContent(
-    jid,
-    {
-      viewOnceMessage: {
-        message: {
-          messageContextInfo: {
-            deviceListMetadata: {},
-            deviceListMetadataVersion: 2,
-          },
-          interactiveMessage,
-        },
+  const waMessage = generateWAMessageFromContent(jid, {
+    viewOnceMessage: {
+      message: {
+        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+        interactiveMessage,
       },
     },
-    { userJid: socket.user.id },
-  );
+  }, { userJid: socket.user.id });
 
   const bizNode = buildBizNode();
-  const botNode = { tag: 'bot', attrs: { biz_bot: '1' } };
-  const additionalNodes = isJidGroup(jid) ? [bizNode] : [botNode, bizNode];
+  const additionalNodes = isJidGroup(jid)
+    ? [bizNode]
+    : [{ tag: 'bot', attrs: { biz_bot: '1' } }, bizNode];
 
   await socket.relayMessage(jid, waMessage.message, {
     messageId: waMessage.key.id,
     additionalNodes,
   });
-
   return waMessage.key;
 }
 
-export async function sendA2UIMenu(socket, jid, { config, registry }) {
+export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
   const groups = registry.byCategory({ includeHidden: false });
-  const ordered = [...groups.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  const ordered = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
   const rows = ordered.map(([category, commands]) => ({
-    header: `${category.charAt(0).toUpperCase()}${category.slice(1)}`,
-    title: `${category.charAt(0).toUpperCase()}${category.slice(1)} Menu`,
+    header: categoryLabel(category),
+    title: `${categoryLabel(category)} Menu`,
     description: `${commands.length} command${commands.length === 1 ? '' : 's'} tersedia`,
-    id: `!${category.charAt(0).toUpperCase()}${category.slice(1)} Menu!`,
+    id: `!${categoryLabel(category)} Menu!`,
   }));
 
   const buttons = [
@@ -118,50 +101,33 @@ export async function sendA2UIMenu(socket, jid, { config, registry }) {
 
   return sendInteractive(socket, jid, {
     title: config.botName || 'SkyVerse',
-    body: `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
+    body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
     footer: 'SkyLabs • SkyVerse',
     buttons,
   });
 }
 
-
 export async function sendA2UICategoryMenu(socket, jid, { config, registry, category }) {
   const normalizedCategory = String(category).trim().toLowerCase();
   const groups = registry.byCategory({ includeHidden: false });
   const commands = groups.get(normalizedCategory) ?? [];
-
-  if (!commands.length) {
-    throw new Error(`Kategori tidak ditemukan: ${normalizedCategory}`);
-  }
+  if (!commands.length) throw new Error(`Kategori tidak ditemukan: ${normalizedCategory}`);
 
   const rows = commands.slice(0, 10).map((item) => ({
-    header: item.aliases[0]
-      ? `${config.prefix}${item.aliases[0]}`
-      : `${config.prefix}${item.name}`,
+    header: item.aliases?.[0] ? `${config.prefix}${item.aliases[0]}` : `${config.prefix}${item.name}`,
     title: `${config.prefix}${item.name}`,
     description: item.description,
     id: `${config.prefix}${item.name}`,
   }));
 
-  const buttons = [
-    button('single_select', {
-      title: `${categoryLabel(normalizedCategory)} Commands`,
-      sections: [{
-        title: `${categoryLabel(normalizedCategory)} Menu`,
-        rows,
-      }],
-    }),
-    button('quick_reply', {
-      display_text: 'Kembali ke Menu',
-      id: `${config.prefix}menu`,
-    }),
-  ];
-
   return sendInteractive(socket, jid, {
     title: `${categoryLabel(normalizedCategory)} Menu`,
-    body: `SkyVerse • ${categoryLabel(normalizedCategory)}\\n${commands.length} command tersedia.\\n\\nPilih command yang ingin dijalankan.`,
+    body: `SkyVerse • ${categoryLabel(normalizedCategory)}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
     footer: 'SkyLabs • SkyVerse',
-    buttons,
+    buttons: [
+      button('single_select', { title: `${categoryLabel(normalizedCategory)} Commands`, sections: [{ title: `${categoryLabel(normalizedCategory)} Menu`, rows }] }),
+      button('quick_reply', { display_text: 'Kembali ke Menu', id: `${config.prefix}menu` }),
+    ],
   });
 }
 
@@ -171,25 +137,15 @@ export async function sendA2UITest(socket, jid) {
     body: 'Interactive message test untuk SkyVerse. Coba tombol dan pilihan di bawah.',
     footer: 'SkyLabs • SkyVerse',
     buttons: [
-      button('quick_reply', {
-        display_text: 'Tes Quick Reply',
-        id: 'skyverse_a2ui_quick_reply',
-      }),
+      button('quick_reply', { display_text: 'Tes Quick Reply', id: 'skyverse_a2ui_quick_reply' }),
       button('single_select', {
         title: 'Pilih Fitur',
-        sections: [{
-          title: 'SkyVerse A2UI',
-          rows: [
-            { header: 'General', title: 'Menu SkyVerse', description: 'Buka menu utama SkyVerse', id: '.menu' },
-            { header: 'System', title: 'Bot Info', description: 'Lihat informasi bot', id: '.info' },
-          ],
-        }],
+        sections: [{ title: 'SkyVerse A2UI', rows: [
+          { header: 'General', title: 'Menu SkyVerse', description: 'Buka menu utama SkyVerse', id: '.menu' },
+          { header: 'System', title: 'Bot Info', description: 'Lihat informasi bot', id: '.info' },
+        ] }],
       }),
-      button('cta_url', {
-        display_text: 'Support SkyVerse',
-        url: 'https://saweria.co/irhsrykhn',
-        merchant_url: 'https://saweria.co/irhsrykhn',
-      }),
+      button('cta_url', { display_text: 'Support SkyVerse', url: 'https://saweria.co/irhsrykhn', merchant_url: 'https://saweria.co/irhsrykhn' }),
     ],
   });
 }
