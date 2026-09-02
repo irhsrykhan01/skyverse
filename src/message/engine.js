@@ -4,6 +4,7 @@ import { createAfkService } from '../services/afk.js';
 import { createAntideleteService } from '../services/antidelete.js';
 import { getMessageText } from './parser.js';
 import { isBombReply, guessBomb, updateBombMessage } from '../games/bomb.js';
+import { isTicTacToeReply, playTicTacToe, updateTicTacToeMessage } from '../games/tictactoe.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
@@ -133,6 +134,25 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const quotedContext = getContextInfo(message);
     const quotedStanzaId = quotedContext?.stanzaId ?? null;
     const activeGame = quotedStanzaId ? isBombReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
+    const richGameId = /^tictactoe:(\\d+)$/.exec(plainText);
+    const tttReply = quotedStanzaId ? isTicTacToeReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
+    if ((richGameId || (tttReply && /^\\d+$/.test(plainText))) && (richGameId || tttReply)) {
+      const result = playTicTacToe(senderJid, richGameId ? richGameId[1] : plainText);
+      if (!result.ok) {
+        const text = result.reason === 'occupied' ? 'Kotak itu sudah terisi. Pilih kotak lain.' : result.reason === 'invalid' ? 'Pilih kotak 1 sampai 9.' : 'Game Tic-Tac-Toe sudah tidak aktif.';
+        await socket.sendMessage(chatId, { text }, { quoted: message });
+        return;
+      }
+      const status = result.result === '❌' ? '🎉 Kamu menang!' : result.result === '⭕' ? '🤖 SkyVerse menang!' : result.result === 'draw' ? '🤝 Seri!' : 'Giliran kamu: ❌';
+      if (result.result) {
+        await socket.sendMessage(chatId, { text: ['🎮 *TIC-TAC-TOE*', '', result.board, '', status].join('\\n') }, { quoted: message });
+      } else {
+        const sent = await socket.sendMessage(chatId, { text: ['🎮 *TIC-TAC-TOE*', '', result.board, '', status, '', 'Pilih kotak lagi: reply pesan ini dengan angka 1-9.'].join('\\n') }, { quoted: message });
+        updateTicTacToeMessage(senderJid, sent?.key?.id ?? null);
+      }
+      return;
+    }
+
     if (!plainText.startsWith(config.prefix) && quotedStanzaId && /^\d+$/.test(plainText) && activeGame) {
       const result = guessBomb(senderJid, plainText);
       if (!result.ok) {
