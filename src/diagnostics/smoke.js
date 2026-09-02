@@ -6,6 +6,7 @@ import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/res
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
 import { economyDefaults, EconomyManager } from '../economy/manager.js';
+import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -81,8 +82,13 @@ const claim = economy.claim('smoke@lid', Date.now());
 assert(claim.ok && claim.amount >= 2 && claim.amount <= 7, 'Economy claim reward contract failed.');
 
 // Game engines are pure/local and must not require an API.
-startBombGame('smoke');
-assert(getBombGame('smoke')?.maxAttempts === 5, 'Bomb game session contract failed.');
+const bombSession = startBombGame('smoke');
+const visibleBomb = getBombGame('smoke');
+assert(visibleBomb?.userId === 'smoke', 'Bomb game session contract failed.');
+assert(visibleBomb?.gameMessageId === null, 'Bomb game message-id contract failed.');
+assert(visibleBomb?.bomb === undefined, 'Bomb location leaked from public session contract.');
+assert(Array.isArray(visibleBomb?.opened), 'Bomb game opened-state contract failed.');
+assert(Number.isInteger(bombSession?.bomb) && bombSession.bomb >= 1 && bombSession.bomb <= 9, 'Bomb game internal bomb contract failed.');
 const bombResult = guessBomb('smoke', 0);
 assert(bombResult.reason === 'invalid', 'Bomb game invalid-input contract failed.');
 stopBombGame('smoke');
@@ -93,6 +99,18 @@ assert(formatMathQuestion(mathSession).includes('='), 'Math quiz formatter contr
 const mathResult = answerMathQuiz('smoke', mathSession.answer);
 assert(mathResult.ok && mathResult.result === 'win', 'Math quiz answer contract failed.');
 stopMathQuiz('smoke');
+
+// SkyVerse Rich contract: htmlPayload is source markup owned by SkyVerse;
+// WhatsApp receives the resulting native interactive message, not arbitrary JS/HTML execution.
+const rich = createRichMessage({
+  htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>',
+  actions: [{ text: 'Play', id: 'rich:play' }],
+  trustedSources: ['https://github.com/irhsrykhan01/skyverse'],
+});
+assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
+assert(rich.text.includes('SkyVerse') && rich.text.includes('Hello World'), 'Rich HTML-to-text contract failed.');
+assert(rich.actions[0]?.id === 'rich:play', 'Rich action contract failed.');
+assert(htmlToText('<p>A</p><p>B</p>') === 'A\nB', 'Rich HTML formatter regression failed.');
 
 // Regression test: a received WhatsApp Video Note is represented as ptvMessage.
 const syntheticPtv = {
@@ -119,4 +137,4 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + economy + games + PTV resolver tests.`);
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + economy + games + Rich + PTV resolver tests.`);
