@@ -25,8 +25,8 @@ async function sendBoard(ctx, game, { result = null } = {}) {
     '',
     statusText(game, result),
     '',
-    result ? 'Game selesai.' : 'Pilih kotak dengan *.tt 1* sampai *.tt 9*',
-    result ? '' : 'Menyerah: *.tt menyerah*',
+    result ? 'Game selesai.' : 'Pilih kotak dengan *.tictactoe 1* sampai *.tictactoe 9*',
+    result ? '' : 'Menyerah: *.tictactoe menyerah*',
   ].join('\n');
   return ctx.socket.sendMessage(ctx.chatId, { image, caption, mentions: [game.player1, game.player2] }, { quoted: ctx.message });
 }
@@ -35,7 +35,7 @@ export const command = {
   name: 'tictactoe',
   description: 'Tic-Tac-Toe multiplayer dengan papan Node-Canvas.',
   category: 'games',
-  aliases: ['tt', 'pasang', 'surrender'],
+  aliases: ['ttt', 'pasang', 'surrender'],
   usage: 'tictactoe @user | tictactoe <1-9> | tictactoe menyerah',
   permission: 'user',
   minArgs: 0,
@@ -60,7 +60,7 @@ export const command = {
     if (!current) {
       const opponent = getMentions(ctx.message).find((jid) => jid !== ctx.senderJid) ?? null;
       if (!opponent) {
-        await ctx.reply('Untuk memulai game, gunakan *.tictactoe @user* atau *.tt @user*.');
+        await ctx.reply('Untuk memulai game, gunakan *.tictactoe @user* atau *.ttt @user*.');
         return;
       }
       const game = startTicTacToe(ctx.chatId, { player1: ctx.senderJid, player2: opponent });
@@ -69,7 +69,7 @@ export const command = {
     }
 
     if (!/^[1-9]$/.test(action)) {
-      await ctx.reply('Game sedang berlangsung. Pilih posisi dengan *.tt 1* sampai *.tt 9*, atau *.tt menyerah*.');
+      await ctx.reply('Game sedang berlangsung. Pilih posisi dengan *.tictactoe 1* sampai *.tictactoe 9*, atau *.tictactoe menyerah*.');
       return;
     }
 
