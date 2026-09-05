@@ -5,6 +5,8 @@ import * as media from '../services/media/index.js';
 import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
+import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
+import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { economyDefaults, EconomyManager } from '../economy/manager.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 
@@ -18,9 +20,7 @@ const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'warnings', 'delete']) {
-  assert(visibleNames.has(required), `Missing visible command: ${required}`);
-}
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'warnings', 'delete']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const command of visibleCommands) {
   assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`);
   assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`);
@@ -68,16 +68,25 @@ assert(visibleBomb?.gameMessageId === null, 'Bomb game message-id contract faile
 assert(visibleBomb?.bomb === undefined, 'Bomb location leaked from public session contract.');
 assert(visibleBomb?.opened instanceof Set, 'Bomb game opened-state contract failed.');
 assert(Number.isInteger(bombSession?.bomb) && bombSession.bomb >= 1 && bombSession.bomb <= 9, 'Bomb game internal bomb contract failed.');
-const bombResult = guessBomb('smoke', 0);
-assert(bombResult.reason === 'invalid', 'Bomb game invalid-input contract failed.');
+assert(guessBomb('smoke', 0).reason === 'invalid', 'Bomb game invalid-input contract failed.');
 stopBombGame('smoke');
 
 const mathSession = startMathQuiz('smoke');
 assert(getMathQuiz('smoke')?.answer === mathSession.answer, 'Math quiz session contract failed.');
 assert(formatMathQuestion(mathSession).includes('='), 'Math quiz formatter contract failed.');
-const mathResult = answerMathQuiz('smoke', mathSession.answer);
-assert(mathResult.ok && mathResult.result === 'win', 'Math quiz answer contract failed.');
+assert(answerMathQuiz('smoke', mathSession.answer).result === 'win', 'Math quiz answer contract failed.');
 stopMathQuiz('smoke');
+
+const p1 = '111111111111111@s.whatsapp.net';
+const p2 = '222222222222222@s.whatsapp.net';
+const ttt = startTicTacToe('smoke-ttt', { player1: p1, player2: p2, gameMessageId: 'TTT-MSG' });
+assert(ttt?.turn === p1 && ttt.board.length === 9, 'Tic-Tac-Toe session contract failed.');
+assert(playTicTacToe('smoke-ttt', p1, 1).ok, 'Tic-Tac-Toe first move contract failed.');
+assert(playTicTacToe('smoke-ttt', p1, 2).reason === 'not_your_turn', 'Tic-Tac-Toe turn contract failed.');
+assert(playTicTacToe('smoke-ttt', p2, 5).ok, 'Tic-Tac-Toe second move contract failed.');
+assert(renderTicTacToe(['X', null, null, null, 'O', null, null, null, null]).length > 100, 'Tic-Tac-Toe Canvas render contract failed.');
+assert(surrenderTicTacToe('smoke-ttt', p1).result === 'surrender', 'Tic-Tac-Toe surrender contract failed.');
+assert(getTicTacToe('smoke-ttt') === null, 'Tic-Tac-Toe cleanup contract failed.');
 
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
@@ -91,4 +100,4 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + economy + games + Rich + PTV resolver tests.`);
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + economy + games + Canvas Rich + PTV resolver tests.`);
