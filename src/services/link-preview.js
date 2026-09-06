@@ -2,9 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import axios from 'axios';
 
-// Replace this file with the final 1:1 JPEG thumbnail when ready.
-const DEFAULT_IMAGE_PATH = path.resolve(process.cwd(), 'banner_skylabs.jpg');
-const DEFAULT_IMAGE_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/banner_skylabs.jpg';
+const CUSTOM_IMAGE_PATH = path.resolve(process.cwd(), 'assets', 'link-preview', 'saweria.jpg');
+const CUSTOM_IMAGE_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/assets/link-preview/saweria.jpg';
 
 function assertJpeg(buffer, source) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
@@ -22,11 +21,11 @@ function assertJpeg(buffer, source) {
   return buffer;
 }
 
-export function loadLocalJpeg(filePath = DEFAULT_IMAGE_PATH) {
+export function loadLocalJpeg(filePath = CUSTOM_IMAGE_PATH) {
   return assertJpeg(fs.readFileSync(filePath), filePath);
 }
 
-export async function loadRemoteJpeg(url = DEFAULT_IMAGE_URL) {
+export async function loadRemoteJpeg(url = CUSTOM_IMAGE_URL) {
   const response = await axios.get(url, {
     responseType: 'arraybuffer',
     timeout: 15_000,
@@ -36,14 +35,12 @@ export async function loadRemoteJpeg(url = DEFAULT_IMAGE_URL) {
   return assertJpeg(Buffer.from(response.data), url);
 }
 
-export async function getLinkPreviewThumbnail({ filePath = DEFAULT_IMAGE_PATH, url = DEFAULT_IMAGE_URL } = {}) {
-  try {
-    if (fs.existsSync(filePath)) return loadLocalJpeg(filePath);
-  } catch (error) {
-    console.warn(`[link-preview] Local thumbnail gagal: ${error.message}`);
+export async function getLinkPreviewThumbnail({ filePath = CUSTOM_IMAGE_PATH, url = CUSTOM_IMAGE_URL } = {}) {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Thumbnail belum ditemukan: ${filePath}`);
   }
 
-  return loadRemoteJpeg(url);
+  return loadLocalJpeg(filePath);
 }
 
 export async function sendLinkPreview(sock, jid, {
