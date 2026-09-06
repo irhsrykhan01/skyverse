@@ -8,6 +8,8 @@ export const defaults = Object.freeze({
   depayBaseUrl: 'https://depay.cloud',
   keyraBaseUrl: 'https://www.keyrafara.com',
   keyraApiKey: null,
+  bratBaseUrl: 'https://aqul-brat.hf.space',
+  nexrayBaseUrl: 'https://api.nexray.web.id',
   removeBgBaseUrl: 'https://clearbackdrop.com/api/v1',
   whatsappLogLevel: 'silent',
   autoRead: true,
