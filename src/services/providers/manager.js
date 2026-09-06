@@ -1,5 +1,6 @@
 import { createDepayProvider } from './depay.js';
 import { createKeyraDownloaderProvider } from './keyra-downloaders.js';
+import { createMakerProvider } from './makers.js';
 import { createRemoveBgProvider } from './removebg.js';
 
 async function withFallback(primary, fallback) {
@@ -24,6 +25,11 @@ export function createProviderManager(config) {
   const keyraDownloader = createKeyraDownloaderProvider({
     apiKey: config.keyraApiKey,
     baseUrl: config.keyraBaseUrl,
+  });
+
+  const makers = createMakerProvider({
+    bratBaseUrl: config.bratBaseUrl,
+    nexrayBaseUrl: config.nexrayBaseUrl,
   });
 
   // Keyra remains primary for TikTok/YouTube. Depay is used as an automatic
@@ -51,6 +57,7 @@ export function createProviderManager(config) {
 
   return Object.freeze({
     depay,
+    makers,
     downloader,
     removebg,
   });
