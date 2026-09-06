@@ -1,8 +1,6 @@
-import { replyWithProviderSticker } from '../../services/providers/media-response.js';
-
 export const command = {
   name: 'bratvid',
-  description: 'Membuat stiker animasi Brat dari teks.',
+  description: 'Membuat stiker animasi Brat dari beberapa frame gambar.',
   category: 'sticker',
   aliases: [],
   usage: 'bratvid <teks>',
@@ -10,7 +8,9 @@ export const command = {
   minArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.keyra.bratVideo(ctx.parsed.args.join(' '));
-    await replyWithProviderSticker(ctx, response, { animated: true });
+    const text = ctx.parsed.args.join(' ').trim();
+    const frames = await ctx.providers.makers.bratFrames(text);
+    const animated = await ctx.media.toAnimatedStickerFromFrames(frames);
+    await ctx.socket.sendMessage(ctx.chatId, { sticker: animated }, { quoted: ctx.message });
   },
 };
