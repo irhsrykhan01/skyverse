@@ -1,11 +1,11 @@
 import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
 
 export const command = {
-  name: 'yt',
+  name: 'youtube',
   description: 'Download video YouTube.',
   category: 'downloader',
-  aliases: ['youtube'],
-  usage: 'yt <url>',
+  aliases: ['yt'],
+  usage: 'youtube <url>',
   permission: 'user',
   minArgs: 1,
   cooldown: 5000,
