@@ -18,6 +18,8 @@ export function loadConfig(env = process.env) {
     depayBaseUrl: clean(env.DEPAY_BASE_URL) ?? defaults.depayBaseUrl,
     keyraBaseUrl: clean(env.KEYRA_BASE_URL) ?? defaults.keyraBaseUrl,
     keyraApiKey: clean(env.KEYRA_API_KEY) ?? defaults.keyraApiKey,
+    bratBaseUrl: clean(env.BRAT_BASE_URL) ?? defaults.bratBaseUrl,
+    nexrayBaseUrl: clean(env.NEXRAY_BASE_URL) ?? defaults.nexrayBaseUrl,
     removeBgBaseUrl: clean(env.REMOVE_BG_BASE_URL) ?? defaults.removeBgBaseUrl,
     whatsappLogLevel: clean(env.WHATSAPP_LOG_LEVEL) ?? defaults.whatsappLogLevel,
     autoRead: toBoolean(env.AUTO_READ, defaults.autoRead),
