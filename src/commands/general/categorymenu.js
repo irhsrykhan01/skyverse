@@ -1,7 +1,4 @@
-function categoryLabel(category) {
-  const value = String(category).trim().toLowerCase();
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
+import { getMenuCategoryLabel, resolveMenuCategory } from '../../core/menu-categories.js';
 
 export const command = {
   name: 'categorymenu',
@@ -13,17 +10,19 @@ export const command = {
   maxArgs: 1,
   usage: 'categorymenu <category>',
   async execute(ctx) {
-    const category = String(ctx.parsed.args[0] ?? '').trim().toLowerCase();
+    const requested = String(ctx.parsed.args[0] ?? '').trim();
+    const category = resolveMenuCategory(requested);
     const groups = ctx.registry.byCategory({ includeHidden: false });
-    const commands = groups.get(category) ?? [];
+    const commands = category ? groups.get(category) ?? [] : [];
 
     if (!commands.length) {
-      await ctx.reply(`Kategori tidak tersedia: ${category}`);
+      await ctx.reply(`Kategori tidak tersedia: ${requested}`);
       return;
     }
 
+    const label = getMenuCategoryLabel(category);
     const lines = [
-      `*${categoryLabel(category)} Menu!*`,
+      `*${label} Menu!*`,
       '',
       ...commands.map((item) => `- ${ctx.config.prefix}${item.name}`),
     ];
