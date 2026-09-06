@@ -7,9 +7,8 @@ Taruh thumbnail khusus link preview Saweria di folder ini dengan nama:
 Ketentuan:
 - JPEG/JPG (`image/jpeg`)
 - Rasio 1:1
-- Disarankan 600x600 px
 - Ukuran di bawah 100 KB
 
-Bot membaca file ini dengan `fs.readFileSync()` dan mengirimkannya sebagai `jpegThumbnail` pada `linkPreview` Baileys.
+Bot membaca file ini langsung dengan `fs.readFileSync()` dan mengirimkannya sebagai `thumbnail` pada `contextInfo.externalAdReply` Baileys.
 
-Jika file belum ada, command `allmenu` akan gagal saat mengirim preview agar thumbnail default website tidak dipakai diam-diam.
+Tidak ada proses kompresi, resize, download URL, `sharp`, atau `axios` untuk sistem thumbnail ini.
