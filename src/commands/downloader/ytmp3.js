@@ -1,4 +1,4 @@
-import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
+import { replyWithDownloaderAudio } from '../../services/providers/downloader-response.js';
 
 export const command = {
   name: 'ytmp3',
@@ -8,9 +8,10 @@ export const command = {
   usage: 'ytmp3 <url>',
   permission: 'user',
   minArgs: 1,
+  maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
     const response = await ctx.providers.downloader.youtubeMp3(ctx.parsed.args[0]);
-    await replyWithDownloaderMedia(ctx, response, { kind: 'audio', filename: 'skyverse-youtube.mp3' });
+    await replyWithDownloaderAudio(ctx, response, { filename: 'skyverse-youtube.mp3' });
   },
 };
