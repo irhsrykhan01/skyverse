@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
 
 const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
-const SUPPORT_THUMBNAIL_PATH = './assets/link-preview/saweria.jpg';
+const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/saweria.jpg', import.meta.url);
 
 function commandMap(commands) {
   return new Map(commands.map((command) => [command.name, command]));
@@ -72,9 +72,9 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL_PATH);
+    const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL);
     if (!Buffer.isBuffer(thumbnail) || thumbnail.length === 0) {
-      throw new Error(`Thumbnail allmenu tidak valid: ${SUPPORT_THUMBNAIL_PATH}`);
+      throw new Error('Thumbnail allmenu tidak valid atau kosong.');
     }
 
     const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${SUPPORT_URL}`;
@@ -94,8 +94,8 @@ export const command = {
       },
     });
 
-    // Jangan biarkan handler mencatat command sebagai sukses kalau Baileys
-    // tidak mengembalikan message key dari sendMessage().
+    // Handler hanya boleh menganggap command sukses jika Baileys benar-benar
+    // mengembalikan message key hasil sendMessage().
     if (!sent?.key?.id) {
       throw new Error('Baileys tidak mengembalikan message key untuk allmenu.');
     }
