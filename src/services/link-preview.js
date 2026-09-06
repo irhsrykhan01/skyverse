@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-const DEFAULT_IMAGE_PATH = './saweria.jpg';
+const DEFAULT_IMAGE_PATH = './assets/link-preview/saweria.jpg';
 
 function readThumbnail(filePath = DEFAULT_IMAGE_PATH) {
   const imageBuffer = fs.readFileSync(filePath);
