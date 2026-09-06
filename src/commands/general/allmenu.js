@@ -3,25 +3,24 @@ function categoryLabel(category) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function commandMap(groups) {
-  return new Map(groups.flatMap(([, commands]) => commands.map((command) => [command.name, command])));
+function commandMap(commands) {
+  return new Map(commands.map((command) => [command.name, command]));
 }
 
 function buildDownloaderMenu(prefix, commands) {
   const byName = commandMap(commands);
   const main = [
-    { name: 'fb', label: 'fb', children: ['fbmp3'] },
-    { name: 'ig', label: 'instagram', children: [] },
-    { name: 'tt', label: 'tiktok', children: ['ttmp3'] },
-    { name: 'yt', label: 'youtube', children: ['ytmp3'] },
+    { name: 'facebook', label: 'facebook', children: ['fbmp3'] },
+    { name: 'instagram', label: 'instagram', children: [] },
+    { name: 'tiktok', label: 'tiktok', children: ['ttmp3'] },
+    { name: 'youtube', label: 'youtube', children: ['ytmp3'] },
   ];
 
   const lines = [' ❏ *Downloader*'];
   const visibleMain = main.filter((entry) => byName.has(entry.name));
   visibleMain.forEach((entry, index) => {
     const isLast = index === visibleMain.length - 1;
-    const branch = isLast ? '└' : '├';
-    lines.push(`${branch} ${prefix}${entry.label}`);
+    lines.push(`${isLast ? '└' : '├'} ${prefix}${entry.label}`);
     const children = entry.children.filter((name) => byName.has(name));
     children.forEach((name, childIndex) => {
       const childBranch = childIndex === children.length - 1 ? '└' : '├';
@@ -56,7 +55,7 @@ function buildAllMenu(ctx) {
 
   for (const [category, commands] of ordered) {
     if (category === 'downloader') {
-      lines.push('', ...buildDownloaderMenu(ctx.config.prefix, [[category, commands]]));
+      lines.push('', ...buildDownloaderMenu(ctx.config.prefix, commands));
       continue;
     }
 
