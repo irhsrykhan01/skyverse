@@ -6,8 +6,8 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function joinUrl(baseUrl, path = '') {
-  return new URL(path.replace(/^\//, ''), `${baseUrl.replace(/\/$/, '')}/`).toString();
+function baseUrl(baseUrl) {
+  return String(baseUrl).replace(/\/+$/, '');
 }
 
 function retryable(status) {
@@ -52,16 +52,11 @@ async function requestMedia(url, { maxBytes = 12 * 1024 * 1024 } = {}) {
 
       const text = await response.text();
       if (!text) throw new Error('Maker mengembalikan response kosong.');
-      try {
-        const body = JSON.parse(text);
-        if (body && typeof body === 'object' && body.status === false) {
-          throw new Error(String(body.error?.message ?? body.error ?? body.message ?? 'Maker menolak request.'));
-        }
-        return body;
-      } catch (parseError) {
-        if (parseError instanceof Error && parseError.message.includes('Maker menolak request')) throw parseError;
-        throw new Error('Response maker bukan media atau JSON yang valid.');
+      const body = JSON.parse(text);
+      if (body && typeof body === 'object' && body.status === false) {
+        throw new Error(String(body.error?.message ?? body.error ?? body.message ?? 'Maker menolak request.'));
       }
+      return body;
     } catch (error) {
       lastError = error;
       const status = Number(error?.status ?? 0);
@@ -86,7 +81,7 @@ export function createMakerProvider({
   nexrayBaseUrl = DEFAULT_NEXRAY_BASE_URL,
 } = {}) {
   const brat = (text) => requestMedia(
-    `${joinUrl(bratBaseUrl)}/?text=${encodeURIComponent(String(text).trim())}`,
+    `${baseUrl(bratBaseUrl)}/?text=${encodeURIComponent(String(text).trim())}`,
   );
 
   const bratFrames = async (text) => {
@@ -104,7 +99,7 @@ export function createMakerProvider({
   };
 
   const iqc = (text) => requestMedia(
-    `${joinUrl(nexrayBaseUrl, '/maker/iqc')}?text=${encodeURIComponent(String(text).trim())}`,
+    `${baseUrl(nexrayBaseUrl)}/maker/iqc?text=${encodeURIComponent(String(text).trim())}`,
   );
 
   return Object.freeze({ brat, bratFrames, iqc });
