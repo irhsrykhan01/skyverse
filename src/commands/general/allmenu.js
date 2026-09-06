@@ -77,25 +77,28 @@ export const command = {
       throw new Error('Thumbnail allmenu tidak valid atau kosong.');
     }
 
-    const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${SUPPORT_URL}`;
+    // Tambahkan cache-buster khusus saat testing agar WhatsApp tidak memakai
+    // hasil preview lama untuk URL Saweria yang sama.
+    const previewUrl = `${SUPPORT_URL}?v=${Date.now()}`;
+    const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${previewUrl}`;
+
     const sent = await ctx.reply(text, {
       sendOptions: {
         contextInfo: {
           externalAdReply: {
             title: 'Support SkyVerse',
-            body: 'Dukung pengembangan SkyVerse melalui Saweria.',
+            body: 'yang mau request tinggal tulis disini aja',
             mediaType: 1,
-            previewType: 'NONE',
+            previewType: 'PHOTO',
             thumbnail,
             renderLargerThumbnail: true,
-            sourceUrl: SUPPORT_URL,
+            sourceUrl: previewUrl,
+            mediaUrl: previewUrl,
           },
         },
       },
     });
 
-    // Handler hanya boleh menganggap command sukses jika Baileys benar-benar
-    // mengembalikan message key hasil sendMessage().
     if (!sent?.key?.id) {
       throw new Error('Baileys tidak mengembalikan message key untuk allmenu.');
     }
