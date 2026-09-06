@@ -4,6 +4,7 @@ import {
   prepareWAMessageMedia,
   proto,
 } from '@whiskeysockets/baileys';
+import { getMenuCategoryLabel, orderMenuCategories, resolveMenuCategory } from '../../core/menu-categories.js';
 
 const BANNER_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/banner_skylabs.jpg';
 
@@ -24,11 +25,6 @@ function button(name, params) {
     name,
     buttonParamsJson: JSON.stringify(params),
   });
-}
-
-function categoryLabel(category) {
-  const normalized = String(category).trim().toLowerCase();
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
@@ -78,13 +74,13 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
 
 export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
   const groups = registry.byCategory({ includeHidden: false });
-  const ordered = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const ordered = orderMenuCategories(groups);
 
   const rows = ordered.map(([category, commands]) => ({
-    header: categoryLabel(category),
-    title: `${categoryLabel(category)} Menu`,
+    header: getMenuCategoryLabel(category),
+    title: `${getMenuCategoryLabel(category)} Menu`,
     description: `${commands.length} command${commands.length === 1 ? '' : 's'} tersedia`,
-    id: `!${categoryLabel(category)} Menu!`,
+    id: `${config.prefix}categorymenu ${category}`,
   }));
 
   const buttons = [
@@ -108,11 +104,12 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
 }
 
 export async function sendA2UICategoryMenu(socket, jid, { config, registry, category }) {
-  const normalizedCategory = String(category).trim().toLowerCase();
+  const normalizedCategory = resolveMenuCategory(category);
   const groups = registry.byCategory({ includeHidden: false });
-  const commands = groups.get(normalizedCategory) ?? [];
-  if (!commands.length) throw new Error(`Kategori tidak ditemukan: ${normalizedCategory}`);
+  const commands = normalizedCategory ? groups.get(normalizedCategory) ?? [] : [];
+  if (!commands.length) throw new Error(`Kategori tidak ditemukan: ${category}`);
 
+  const label = getMenuCategoryLabel(normalizedCategory);
   const rows = commands.slice(0, 10).map((item) => ({
     header: item.aliases?.[0] ? `${config.prefix}${item.aliases[0]}` : `${config.prefix}${item.name}`,
     title: `${config.prefix}${item.name}`,
@@ -121,11 +118,11 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
   }));
 
   return sendInteractive(socket, jid, {
-    title: `${categoryLabel(normalizedCategory)} Menu`,
-    body: `SkyVerse • ${categoryLabel(normalizedCategory)}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
+    title: `${label} Menu`,
+    body: `SkyVerse • ${label}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
     footer: 'SkyLabs • SkyVerse',
     buttons: [
-      button('single_select', { title: `${categoryLabel(normalizedCategory)} Commands`, sections: [{ title: `${categoryLabel(normalizedCategory)} Menu`, rows }] }),
+      button('single_select', { title: `${label} Commands`, sections: [{ title: `${label} Menu`, rows }] }),
       button('quick_reply', { display_text: 'Kembali ke Menu', id: `${config.prefix}menu` }),
     ],
   });
@@ -141,7 +138,7 @@ export async function sendA2UITest(socket, jid) {
       button('single_select', {
         title: 'Pilih Fitur',
         sections: [{ title: 'SkyVerse A2UI', rows: [
-          { header: 'General', title: 'Menu SkyVerse', description: 'Buka menu utama SkyVerse', id: '.menu' },
+          { header: 'General Menu', title: 'Menu SkyVerse', description: 'Buka menu utama SkyVerse', id: '.menu' },
           { header: 'System', title: 'Bot Info', description: 'Lihat informasi bot', id: '.info' },
         ] }],
       }),
