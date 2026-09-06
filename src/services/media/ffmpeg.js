@@ -123,6 +123,37 @@ async function animatedWebpToFirstFrame(buffer) {
   }
 }
 
+async function framesToAnimatedWebp(frames) {
+  if (!Array.isArray(frames) || frames.length < 2) throw new Error('Minimal 2 frame diperlukan untuk BratVid.');
+  if (frames.length > MAX_ANIMATED_FRAMES) throw new Error(`Frame animasi terlalu banyak (maksimal ${MAX_ANIMATED_FRAMES}).`);
+
+  const dir = await mkdtemp(join(tmpdir(), 'skyverse-bratvid-'));
+  try {
+    for (let index = 0; index < frames.length; index += 1) {
+      const frame = frames[index];
+      if (!Buffer.isBuffer(frame) || frame.length < 16) throw new Error(`Frame ${index + 1} tidak valid.`);
+      await writeFile(join(dir, `frame-${String(index + 1).padStart(4, '0')}.webp`), frame);
+    }
+
+    const outputPath = join(dir, 'bratvid.webp');
+    await runProcess('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+      '-framerate', '3',
+      '-i', join(dir, 'frame-%04d.webp'),
+      '-vf', `${scaleFilter()},format=rgba`,
+      '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
+      '-compression_level', '6', '-loop', '0', '-an', '-f', 'webp', outputPath,
+    ]);
+
+    const output = await readFile(outputPath);
+    if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan BratVid yang valid.');
+    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
+    return throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function videoToVideoNote(buffer, { maxDuration = 60 } = {}) {
   const duration = Math.max(1, Math.min(60, Number(maxDuration) || 60));
   return withTempMedia(buffer, '.mp4', (input, output) => [
@@ -151,3 +182,4 @@ export function toSmeme(buffer, { top = '', bottom = '' } = {}) { const filters 
 export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = 'SkyVerse Bot' } = {}) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-vf', `${scaleFilter()},format=rgba`, '-frames:v', '1', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-preset', 'picture', '-metadata', `comment=${pack} | ${author}`, '-f', 'webp', output]); }
 export function toSticker(buffer) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', scaleFilter(), '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker')); }
 export function toAnimatedSticker(buffer) { return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()}`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi')); }
+export { framesToAnimatedWebp as toAnimatedStickerFromFrames };
