@@ -2,15 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import axios from 'axios';
 
-const DEFAULT_IMAGE_PATH = path.resolve(process.cwd(), 'assets', 'link-preview', 'saweria.jpg');
-const DEFAULT_IMAGE_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/assets/link-preview/saweria.jpg';
+// Replace this file with the final 1:1 JPEG thumbnail when ready.
+const DEFAULT_IMAGE_PATH = path.resolve(process.cwd(), 'banner_skylabs.jpg');
+const DEFAULT_IMAGE_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/banner_skylabs.jpg';
 
 function assertJpeg(buffer, source) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new Error(`Thumbnail dari ${source} bukan Buffer yang valid.`);
   }
 
-  // JPEG files start with FF D8 and end with FF D9.
   if (buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[buffer.length - 2] !== 0xff || buffer[buffer.length - 1] !== 0xd9) {
     throw new Error(`Thumbnail dari ${source} bukan file JPEG/JPG yang valid.`);
   }
@@ -53,16 +53,20 @@ export async function sendLinkPreview(sock, jid, {
   imageBuffer,
   text,
 }) {
-  const thumbnail = imageBuffer ?? await getLinkPreviewThumbnail();
+  try {
+    const thumbnail = imageBuffer ?? await getLinkPreviewThumbnail();
 
-  return sock.sendMessage(jid, {
-    text: text ?? `${title}\n${url}`,
-    linkPreview: {
-      'canonical-url': url,
-      'matched-url': url,
-      title,
-      description,
-      jpegThumbnail: thumbnail,
-    },
-  });
+    return await sock.sendMessage(jid, {
+      text: text ?? `${title}\n${url}`,
+      linkPreview: {
+        'canonical-url': url,
+        'matched-url': url,
+        title,
+        description,
+        jpegThumbnail: thumbnail,
+      },
+    });
+  } catch (error) {
+    throw new Error(`Gagal mengirim link preview: ${error?.message ?? String(error)}`);
+  }
 }
