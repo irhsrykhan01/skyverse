@@ -32,8 +32,14 @@ for (const command of visibleCommands) {
 }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
 assert(registry.resolve('bratvid')?.name === 'bratvid', 'Rebuilt bratvid command is not enabled.');
-assert(registry.resolve('tt')?.name === 'tt', 'TikTok command alias regression.');
-assert(registry.resolve('tiktok')?.name === 'tt', 'TikTok command resolution regression.');
+assert(registry.resolve('fb')?.name === 'facebook', 'Facebook command alias regression.');
+assert(registry.resolve('facebook')?.name === 'facebook', 'Facebook command name regression.');
+assert(registry.resolve('tt')?.name === 'tiktok', 'TikTok command alias regression.');
+assert(registry.resolve('tiktok')?.name === 'tiktok', 'TikTok command name regression.');
+assert(registry.resolve('ig')?.name === 'instagram', 'Instagram command alias regression.');
+assert(registry.resolve('instagram')?.name === 'instagram', 'Instagram command name regression.');
+assert(registry.resolve('yt')?.name === 'youtube', 'YouTube command alias regression.');
+assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name regression.');
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
@@ -94,7 +100,7 @@ assert(ttt?.turn === p1 && ttt.board.length === 9, 'Tic-Tac-Toe session contract
 assert(playTicTacToe('smoke-ttt', p1, 1).ok, 'Tic-Tac-Toe first move contract failed.');
 assert(playTicTacToe('smoke-ttt', p1, 2).reason === 'not_your_turn', 'Tic-Tac-Toe turn contract failed.');
 assert(playTicTacToe('smoke-ttt', p2, 5).ok, 'Tic-Tac-Toe second move contract failed.');
-assert(renderTicTacToe(['X', null, null, null, 'O', null, null, null]).length > 100, 'Tic-Tac-Toe Canvas render contract failed.');
+assert(renderTicTacToe(['X', null, null, null, 'O', null, null, null, null]).length > 100, 'Tic-Tac-Toe Canvas render contract failed.');
 assert(surrenderTicTacToe('smoke-ttt', p1).result === 'surrender', 'Tic-Tac-Toe surrender contract failed.');
 assert(getTicTacToe('smoke-ttt') === null, 'Tic-Tac-Toe cleanup contract failed.');
 
@@ -110,4 +116,4 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + economy + games + Canvas Rich + PTV resolver tests.`);
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + downloader aliases + economy + games + Canvas Rich + PTV resolver tests.`);
