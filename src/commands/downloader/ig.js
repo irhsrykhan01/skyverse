@@ -1,11 +1,11 @@
 import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
 
 export const command = {
-  name: 'ig',
+  name: 'instagram',
   description: 'Download media Instagram.',
   category: 'downloader',
-  aliases: ['instagram'],
-  usage: 'ig <url>',
+  aliases: ['ig'],
+  usage: 'instagram <url>',
   permission: 'user',
   minArgs: 1,
   cooldown: 5000,
