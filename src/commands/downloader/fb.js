@@ -1,11 +1,11 @@
 import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
 
 export const command = {
-  name: 'fb',
+  name: 'facebook',
   description: 'Download media Facebook.',
   category: 'downloader',
-  aliases: ['facebook'],
-  usage: 'fb <url>',
+  aliases: ['fb'],
+  usage: 'facebook <url>',
   permission: 'user',
   minArgs: 1,
   cooldown: 5000,
