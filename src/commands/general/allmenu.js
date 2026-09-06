@@ -1,7 +1,8 @@
+import fs from 'node:fs';
 import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
-import { sendLinkPreview } from '../../services/link-preview.js';
 
 const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
+const SUPPORT_THUMBNAIL_PATH = './assets/link-preview/saweria.jpg';
 
 function commandMap(commands) {
   return new Map(commands.map((command) => [command.name, command]));
@@ -71,11 +72,32 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    await sendLinkPreview(ctx.socket, ctx.chatId, {
-      url: SUPPORT_URL,
-      title: 'Support SkyVerse',
-      description: 'Dukung pengembangan SkyVerse melalui Saweria.',
-      text: `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${SUPPORT_URL}`,
+    const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL_PATH);
+    if (!Buffer.isBuffer(thumbnail) || thumbnail.length === 0) {
+      throw new Error(`Thumbnail allmenu tidak valid: ${SUPPORT_THUMBNAIL_PATH}`);
+    }
+
+    const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${SUPPORT_URL}`;
+    const sent = await ctx.reply(text, {
+      sendOptions: {
+        contextInfo: {
+          externalAdReply: {
+            title: 'Support SkyVerse',
+            body: 'Dukung pengembangan SkyVerse melalui Saweria.',
+            mediaType: 1,
+            previewType: 'NONE',
+            thumbnail,
+            renderLargerThumbnail: true,
+            sourceUrl: SUPPORT_URL,
+          },
+        },
+      },
     });
+
+    // Jangan biarkan handler mencatat command sebagai sukses kalau Baileys
+    // tidak mengembalikan message key dari sendMessage().
+    if (!sent?.key?.id) {
+      throw new Error('Baileys tidak mengembalikan message key untuk allmenu.');
+    }
   },
 };
