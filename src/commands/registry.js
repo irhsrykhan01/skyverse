@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { suggestNames } from '../utils/similarity.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const BLOCKED_COMMANDS = new Set(['qc', 'bratvid']);
+const BLOCKED_COMMANDS = new Set(['qc']);
 
 // Command access groups. Grouping only for now; execution behavior is unchanged.
 export const ACCESS_GROUPS = Object.freeze({
