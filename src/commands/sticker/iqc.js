@@ -2,7 +2,7 @@ import { replyWithProviderMedia } from '../../services/providers/media-response.
 
 export const command = {
   name: 'iqc',
-  description: 'Membuat IQC dari teks menggunakan Depay.',
+  description: 'Membuat IQC dari teks menggunakan Nexray.',
   category: 'sticker',
   aliases: [],
   usage: 'iqc <teks>',
@@ -11,9 +11,7 @@ export const command = {
   cooldown: 3000,
   cost: 10,
   async execute(ctx) {
-    const response = await ctx.providers.depay.iqc(ctx.parsed.args.join(' '));
-    // IQC is an image generator; send the generated image directly instead
-    // of forcing it through sticker conversion, which can fail on large PNGs.
-    await replyWithProviderMedia(ctx, response, 'image');
+    const response = await ctx.providers.makers.iqc(ctx.parsed.args.join(' '));
+    await replyWithProviderMedia(ctx, response, 'image', null, { baseUrl: ctx.config.nexrayBaseUrl });
   },
 };
