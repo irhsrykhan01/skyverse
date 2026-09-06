@@ -4,6 +4,7 @@ export {
   toVideo,
   toSticker,
   toAnimatedSticker,
+  toAnimatedStickerFromFrames,
   toVoiceNote,
   toHd,
   toSmeme,
