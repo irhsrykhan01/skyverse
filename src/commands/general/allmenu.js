@@ -1,4 +1,7 @@
 import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
+import { sendLinkPreview } from '../../services/link-preview.js';
+
+const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
 
 function commandMap(commands) {
   return new Map(commands.map((command) => [command.name, command]));
@@ -32,8 +35,6 @@ function buildAllMenu(ctx) {
   const ordered = orderMenuCategories(groups);
   const total = ctx.registry.all({ includeHidden: false }).length;
   const lines = [
-    'https://saweria.co/irhsrykhn',
-    '',
     '╭── ＳＫＹＶＥＲＳＥ ──',
     `│ Halo, @${ctx.senderJid?.split('@')[0] ?? 'User'}!`,
     `│ Koin: ${Number(ctx.user?.coins ?? 0)}`,
@@ -70,6 +71,11 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    await ctx.reply(buildAllMenu(ctx));
+    await sendLinkPreview(ctx.socket, ctx.chatId, {
+      url: SUPPORT_URL,
+      title: 'Support SkyVerse',
+      description: 'Dukung pengembangan SkyVerse melalui Saweria.',
+      text: `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${SUPPORT_URL}`,
+    });
   },
 };
