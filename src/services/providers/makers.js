@@ -1,6 +1,8 @@
 const DEFAULT_BRAT_BASE_URL = 'https://aqul-brat.hf.space';
 const DEFAULT_NEXRAY_BASE_URL = 'https://api.nexray.web.id';
 const RETRIES = 2;
+const MAX_BRAT_TEXT_LENGTH = 250;
+const MAX_BRATVID_FRAMES = 24;
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,24 +71,33 @@ async function requestMedia(url, { maxBytes = 12 * 1024 * 1024 } = {}) {
   throw lastError ?? new Error('Maker request failed.');
 }
 
+function validateBratText(text) {
+  const value = String(text).trim();
+  if (!value) throw new Error('Teks Brat tidak boleh kosong.');
+  if (value.length > MAX_BRAT_TEXT_LENGTH) throw new Error(`Teks Brat maksimal ${MAX_BRAT_TEXT_LENGTH} karakter.`);
+  return value;
+}
+
 function progressivePhrases(text) {
-  const words = String(text).trim().split(/\s+/).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean);
   if (!words.length) return [];
-  if (words.length === 1) return [words[0], words[0]];
-  return words.map((_, index) => words.slice(0, index + 1).join(' '));
+  const limited = words.slice(0, MAX_BRATVID_FRAMES);
+  if (limited.length === 1) return [limited[0], limited[0]];
+  return limited.map((_, index) => limited.slice(0, index + 1).join(' '));
 }
 
 export function createMakerProvider({
   bratBaseUrl = DEFAULT_BRAT_BASE_URL,
   nexrayBaseUrl = DEFAULT_NEXRAY_BASE_URL,
 } = {}) {
-  const brat = (text) => requestMedia(
-    `${baseUrl(bratBaseUrl)}/?text=${encodeURIComponent(String(text).trim())}`,
-  );
+  const brat = (text) => {
+    const value = validateBratText(text);
+    return requestMedia(`${baseUrl(bratBaseUrl)}/?text=${encodeURIComponent(value)}`);
+  };
 
   const bratFrames = async (text) => {
-    const phrases = progressivePhrases(text);
-    if (!phrases.length) throw new Error('Teks Brat tidak boleh kosong.');
+    const value = validateBratText(text);
+    const phrases = progressivePhrases(value);
     const frames = [];
     for (const phrase of phrases) {
       const result = await brat(phrase);
@@ -98,9 +109,11 @@ export function createMakerProvider({
     return frames;
   };
 
-  const iqc = (text) => requestMedia(
-    `${baseUrl(nexrayBaseUrl)}/maker/iqc?text=${encodeURIComponent(String(text).trim())}`,
-  );
+  const iqc = (text) => {
+    const value = String(text).trim();
+    if (!value) throw new Error('Teks IQC tidak boleh kosong.');
+    return requestMedia(`${baseUrl(nexrayBaseUrl)}/maker/iqc?text=${encodeURIComponent(value)}`);
+  };
 
   return Object.freeze({ brat, bratFrames, iqc });
 }
