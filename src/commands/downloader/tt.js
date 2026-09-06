@@ -1,11 +1,11 @@
 import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
 
 export const command = {
-  name: 'tt',
+  name: 'tiktok',
   description: 'Download video TikTok tanpa watermark.',
   category: 'downloader',
-  aliases: ['tiktok'],
-  usage: 'tt <url>',
+  aliases: ['tt'],
+  usage: 'tiktok <url>',
   permission: 'user',
   minArgs: 1,
   cooldown: 5000,
