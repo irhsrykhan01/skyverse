@@ -1,7 +1,4 @@
-function categoryLabel(category) {
-  const value = String(category).trim().toLowerCase();
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
+import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
 
 function commandMap(commands) {
   return new Map(commands.map((command) => [command.name, command]));
@@ -32,11 +29,7 @@ function buildDownloaderMenu(prefix, commands) {
 
 function buildAllMenu(ctx) {
   const groups = ctx.registry.byCategory({ includeHidden: false });
-  const ordered = [...groups.entries()].sort((a, b) => {
-    if (a[0] === 'downloader') return -1;
-    if (b[0] === 'downloader') return 1;
-    return a[0].localeCompare(b[0]);
-  });
+  const ordered = orderMenuCategories(groups);
   const total = ctx.registry.all({ includeHidden: false }).length;
   const lines = [
     'https://saweria.co/irhsrykhn',
@@ -59,7 +52,7 @@ function buildAllMenu(ctx) {
       continue;
     }
 
-    lines.push('', ` ❏ *${categoryLabel(category)}*`);
+    lines.push('', ` ❏ *${getMenuCategoryLabel(category)}*`);
     commands.forEach((item, index) => {
       const branch = index === commands.length - 1 ? '└' : '├';
       lines.push(`${branch} ${ctx.config.prefix}${item.name}`);
