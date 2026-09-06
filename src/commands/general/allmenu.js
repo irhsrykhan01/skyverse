@@ -10,10 +10,10 @@ function commandMap(groups) {
 function buildDownloaderMenu(prefix, commands) {
   const byName = commandMap(commands);
   const main = [
-    { name: 'fb', children: ['fbmp3'] },
-    { name: 'ig', children: [] },
-    { name: 'tt', children: ['ttmp3'] },
-    { name: 'yt', children: ['ytmp3'] },
+    { name: 'fb', label: 'fb', children: ['fbmp3'] },
+    { name: 'ig', label: 'instagram', children: [] },
+    { name: 'tt', label: 'tiktok', children: ['ttmp3'] },
+    { name: 'yt', label: 'youtube', children: ['ytmp3'] },
   ];
 
   const lines = [' ❏ *Downloader*'];
@@ -21,7 +21,7 @@ function buildDownloaderMenu(prefix, commands) {
   visibleMain.forEach((entry, index) => {
     const isLast = index === visibleMain.length - 1;
     const branch = isLast ? '└' : '├';
-    lines.push(`${branch} ${prefix}${entry.name}`);
+    lines.push(`${branch} ${prefix}${entry.label}`);
     const children = entry.children.filter((name) => byName.has(name));
     children.forEach((name, childIndex) => {
       const childBranch = childIndex === children.length - 1 ? '└' : '├';
