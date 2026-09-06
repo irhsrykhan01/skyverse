@@ -2,7 +2,7 @@ import { replyWithProviderSticker } from '../../services/providers/media-respons
 
 export const command = {
   name: 'brat',
-  description: 'Membuat stiker Brat dari teks menggunakan Depay.',
+  description: 'Membuat stiker Brat dari teks menggunakan aqul-brat.',
   category: 'sticker',
   aliases: [],
   usage: 'brat <teks>',
@@ -10,7 +10,7 @@ export const command = {
   minArgs: 1,
   cooldown: 3000,
   async execute(ctx) {
-    const response = await ctx.providers.depay.brat(ctx.parsed.args.join(' '));
-    await replyWithProviderSticker(ctx, response);
+    const response = await ctx.providers.makers.brat(ctx.parsed.args.join(' '));
+    await replyWithProviderSticker(ctx, response, { baseUrl: ctx.config.bratBaseUrl });
   },
 };
