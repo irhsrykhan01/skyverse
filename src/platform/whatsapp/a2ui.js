@@ -1,12 +1,9 @@
 import {
   generateWAMessageFromContent,
   isJidGroup,
-  prepareWAMessageMedia,
   proto,
 } from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories, resolveMenuCategory } from '../../core/menu-categories.js';
-
-const BANNER_URL = 'https://raw.githubusercontent.com/irhsrykhan01/skyverse/main/banner_skylabs.jpg';
 
 function buildBizNode() {
   const privacyModeTs = (Math.floor(Date.now() / 1000) - 77980457).toString();
@@ -30,17 +27,11 @@ function button(name, params) {
 async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
-  const imageMessage = await prepareWAMessageMedia(
-    { image: { url: BANNER_URL } },
-    { upload: socket.waUploadToServer },
-  );
-
   const interactiveMessage = proto.Message.InteractiveMessage.create({
     header: proto.Message.InteractiveMessage.Header.create({
       title,
       subtitle: 'SkyLabs • SkyVerse',
-      hasMediaAttachment: true,
-      ...imageMessage,
+      hasMediaAttachment: false,
     }),
     body: proto.Message.InteractiveMessage.Body.create({ text: body }),
     footer: proto.Message.InteractiveMessage.Footer.create({ text: footer }),
