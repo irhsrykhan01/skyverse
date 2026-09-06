@@ -98,3 +98,23 @@ export async function replyWithDownloaderMedia(ctx, response, { kind = 'video', 
 
   return ctx.socket.sendMessage(ctx.chatId, content, { quoted: ctx.message });
 }
+
+export async function replyWithDownloaderAudio(ctx, response, { caption = null, filename = 'skyverse-audio.mp3' } = {}) {
+  const url = findDownloaderUrl(response, { kind: 'audio' });
+  if (!url) {
+    const errorMessage = response?.error?.message ?? response?.error ?? 'Downloader tidak mengembalikan audio yang dapat digunakan.';
+    throw new Error(String(errorMessage));
+  }
+
+  const source = await downloadUrl(url, { maxBytes: 50 * 1024 * 1024 });
+  const audio = await ctx.media.toMp3(source);
+  if (!Buffer.isBuffer(audio) || audio.length < 1024 || audio.subarray(0, 3).toString('ascii') !== 'ID3') {
+    throw new Error('Audio hasil konversi MP3 tidak valid.');
+  }
+
+  return ctx.media.send(audio, 'audio', {
+    mimetype: 'audio/mpeg',
+    fileName: filename,
+    caption,
+  });
+}
