@@ -1,5 +1,5 @@
 function digitsOnly(value) {
-  return String(value ?? '').replace(/\D/g, '');
+  return String(value ?? '').trim().split('@')[0].split(':')[0].replace(/\D/g, '');
 }
 
 function valuesOf(...values) {
