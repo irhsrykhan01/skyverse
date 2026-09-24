@@ -161,7 +161,9 @@ export async function createDatabase(databasePath, logger) {
   async function close() {
     if (closed) return;
     clearInterval(flushTimer);
-    await persist();
+    do {
+      await persist();
+    } while (dirty);
     database.close();
     closed = true;
   }
