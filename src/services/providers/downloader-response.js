@@ -51,7 +51,21 @@ export function findDownloaderUrl(response, { kind = 'video' } = {}) {
   return chooseUrl(result, preferred, extensions);
 }
 
-async function downloadUrl(url, { maxBytes = 30 * 1024 * 1024, retries = 2 } = {}) {
+function isLikelyMediaBuffer(buffer, kind, contentType = '') {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 16) return false;
+  const mime = String(contentType).toLowerCase();
+  if (/text\\/(html|plain)|application\\/(json|javascript)/i.test(mime)) return false;
+  if (kind === 'audio') {
+    return buffer.subarray(0, 4).toString('ascii') === 'OggS'
+      || buffer.subarray(0, 3).toString('ascii') === 'ID3'
+      || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)
+      || buffer.subarray(0, 4).toString('ascii') === 'RIFF';
+  }
+  return buffer.subarray(4, 8).toString('ascii') === 'ftyp'
+    || buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+    || mime.startsWith('video/');
+}
+async function downloadUrl(url, { maxBytes = 30 * 1024 * 1024, retries = 2, kind = 'video' } = {}) {
   let lastError = null;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
@@ -70,9 +84,13 @@ async function downloadUrl(url, { maxBytes = 30 * 1024 * 1024, retries = 2 } = {
       const length = Number(response.headers.get('content-length') ?? 0);
       if (length > maxBytes) throw new Error('Media provider terlalu besar untuk dikirim.');
 
+      const contentType = response.headers.get('content-type') ?? '';
       const buffer = Buffer.from(await response.arrayBuffer());
       if (!buffer.length) throw new Error('Provider mengembalikan media kosong.');
       if (buffer.length > maxBytes) throw new Error('Media provider terlalu besar untuk dikirim.');
+      if (!isLikelyMediaBuffer(buffer, kind, contentType)) {
+        throw new Error('Provider tidak mengembalikan file media yang valid.');
+      }
       return buffer;
     } catch (error) {
       lastError = error;
@@ -91,7 +109,7 @@ export async function replyWithDownloaderMedia(ctx, response, { kind = 'video', 
     throw new Error(String(errorMessage));
   }
 
-  const media = await downloadUrl(url);
+  const media = await downloadUrl(url, { kind });
   const content = kind === 'audio'
     ? { audio: media, mimetype: 'audio/mpeg', ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) }
     : { video: media, ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) };
@@ -106,7 +124,7 @@ export async function replyWithDownloaderAudio(ctx, response, { caption = null, 
     throw new Error(String(errorMessage));
   }
 
-  const source = await downloadUrl(url, { maxBytes: 50 * 1024 * 1024 });
+  const source = await downloadUrl(url, { maxBytes: 50 * 1024 * 1024, kind: 'audio' });
   const audio = await ctx.media.toMp3(source);
   if (!Buffer.isBuffer(audio) || audio.length < 1024 || audio.subarray(0, 3).toString('ascii') !== 'ID3') {
     throw new Error('Audio hasil konversi MP3 tidak valid.');
