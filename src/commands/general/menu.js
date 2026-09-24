@@ -15,8 +15,7 @@ function buildMenuBody(ctx) {
     'Selamat datang di Skyverse Bot!. ☁',
     '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
     '',
-    '⚠️ *Limit habis atau pengen fitur eksklusif?*',
-    'Yuk, upgrade ke Premium biar bebas limit! Ketik *.owner* untuk menghubungi admin.',
+    'Butuh bantuan atau ingin request fitur? Ketik *.owner* untuk menghubungi admin.',
   ].join('\n');
 }
 
