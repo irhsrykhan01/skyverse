@@ -63,15 +63,13 @@ function likelyMediaBuffer(buffer, expectedType, contentType = '') {
   if (expectedType === 'image') {
     return buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
       || buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-      || (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP')
-      || mime.startsWith('image/');
+      || (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP');
   }
 
   if (expectedType === 'video') {
     return buffer.subarray(4, 8).toString('ascii') === 'ftyp'
       || buffer.subarray(0, 4).toString('ascii') === 'RIFF'
-      || buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
-      || mime.startsWith('video/');
+      || buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
   }
 
   return true;
