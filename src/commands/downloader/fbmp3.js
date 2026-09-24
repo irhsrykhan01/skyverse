@@ -21,7 +21,7 @@ export const command = {
 
     const videoUrl = findDownloaderUrl(response, { kind: 'video' });
     if (!videoUrl) throw new Error(response?.error?.message ?? 'Facebook tidak mengembalikan media yang dapat diunduh.');
-    const buffer = await downloadMediaSource({ kind: 'url', value: videoUrl });
+    const buffer = await downloadMediaSource({ kind: 'url', value: videoUrl, expectedType: 'video' });
     const audio = await ctx.media.toMp3(buffer);
     await ctx.media.send(audio, 'audio', { mimetype: 'audio/mpeg', fileName: 'skyverse-facebook.mp3' });
   },
