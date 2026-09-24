@@ -4,7 +4,8 @@ function phoneFromJid(phoneJid) {
   if (!phoneJid) return null;
   const raw = String(phoneJid).trim();
   if (raw.includes('@lid') || raw.includes('@hosted.lid')) return null;
-  const digits = normalizePhoneNumber(raw.split('@')[0]);
+  const base = raw.split('@')[0].split(':')[0];
+  const digits = normalizePhoneNumber(base);
   return digits || null;
 }
 
