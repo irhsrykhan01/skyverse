@@ -55,9 +55,32 @@ function decodeDataUrl(value) {
   return match ? Buffer.from(match[1], 'base64') : null;
 }
 
-export async function downloadMediaSource(source, { maxBytes = 12 * 1024 * 1024 } = {}) {
+function likelyMediaBuffer(buffer, expectedType, contentType = '') {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 16) return false;
+  const mime = String(contentType).toLowerCase();
+  if (/text\\/(html|plain)|application\\/(json|javascript)/i.test(mime)) return false;
+
+  if (expectedType === 'image') {
+    return buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
+      || buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      || (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP')
+      || mime.startsWith('image/');
+  }
+
+  if (expectedType === 'video') {
+    return buffer.subarray(4, 8).toString('ascii') === 'ftyp'
+      || buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+      || buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+      || mime.startsWith('video/');
+  }
+
+  return true;
+}
+
+export async function downloadMediaSource(source, { maxBytes = 12 * 1024 * 1024, expectedType = null } = {}) {
   if (source.kind === 'buffer') {
     if (source.value.length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
+    if (!likelyMediaBuffer(source.value, expectedType)) throw new Error('Provider mengembalikan media yang tidak valid.');
     return source.value;
   }
 
@@ -65,20 +88,27 @@ export async function downloadMediaSource(source, { maxBytes = 12 * 1024 * 1024 
     const buffer = decodeDataUrl(source.value);
     if (!buffer) throw new Error('Provider mengembalikan data media yang tidak valid.');
     if (buffer.length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
+    const mime = String(source.value).match(/^data:([^;]+);/i)?.[1] ?? '';
+    if (!likelyMediaBuffer(buffer, expectedType, mime)) throw new Error('Provider mengembalikan media yang tidak valid.');
     return buffer;
   }
 
   const response = await fetch(source.value, {
     headers: { accept: 'image/*, video/*, audio/*, */*' },
     signal: AbortSignal.timeout(30_000),
+    redirect: 'follow',
   });
   if (!response.ok) throw new Error(`Gagal mengambil media provider (${response.status}).`);
 
+  const contentType = response.headers.get('content-type') ?? '';
   const length = Number(response.headers.get('content-length') ?? 0);
   if (length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
 
   const buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.length > maxBytes) throw new Error('Media dari provider terlalu besar untuk diproses.');
+  if (!likelyMediaBuffer(buffer, expectedType, contentType)) {
+    throw new Error('Provider tidak mengembalikan file media yang valid.');
+  }
   return buffer;
 }
 
@@ -101,7 +131,7 @@ export async function replyWithProviderMedia(ctx, response, type = 'image', capt
     throw new Error(String(errorMessage));
   }
 
-  const media = await downloadMediaSource(source);
+  const media = await downloadMediaSource(source, { expectedType: type });
   const content = type === 'video'
     ? { video: media, ...(caption ? { caption } : {}) }
     : { image: media, ...(caption ? { caption } : {}) };
@@ -125,6 +155,7 @@ export async function replyWithProviderSticker(ctx, response, { animated = false
 
   const input = await downloadMediaSource(source, {
     maxBytes: animated ? 20 * 1024 * 1024 : 12 * 1024 * 1024,
+    expectedType: 'image',
   });
   const sticker = animated
     ? await ctx.media.toAnimatedSticker(input)
