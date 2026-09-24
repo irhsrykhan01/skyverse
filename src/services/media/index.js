@@ -1,5 +1,6 @@
 export {
   toMp3,
+  toMp4,
   toImage,
   toVideo,
   toSticker,
