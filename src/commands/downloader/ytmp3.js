@@ -18,7 +18,7 @@ export const command = {
     const sourceUrl = audioUrl ?? videoUrl;
     if (!sourceUrl) throw new Error(response?.error?.message ?? 'YouTube tidak mengembalikan media audio/video yang dapat diproses.');
 
-    const source = await downloadMediaSource({ kind: 'url', value: sourceUrl });
+    const source = await downloadMediaSource({ kind: 'url', value: sourceUrl, expectedType: audioUrl ? 'audio' : 'video' });
     const audio = await ctx.media.toMp3(source);
     await ctx.media.send(audio, 'audio', { mimetype: 'audio/mpeg', fileName: 'skyverse-youtube.mp3' });
   },
