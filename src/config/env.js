@@ -24,5 +24,7 @@ export function loadConfig(env = process.env) {
     whatsappLogLevel: clean(env.WHATSAPP_LOG_LEVEL) ?? defaults.whatsappLogLevel,
     autoRead: toBoolean(env.AUTO_READ, defaults.autoRead),
     autoOnline: toBoolean(env.AUTO_ONLINE, defaults.autoOnline),
+    usePairingCode: toBoolean(env.USE_PAIRING_CODE, defaults.usePairingCode),
+    pairingNumber: clean(env.PAIRING_NUMBER) ?? defaults.pairingNumber,
   });
 }
