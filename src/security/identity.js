@@ -1,6 +1,10 @@
+function stripJidDevice(value) {
+  return String(value ?? '').trim().split('@')[0].split(':')[0];
+}
+
 export function normalizePhoneNumber(value) {
   if (!value) return null;
-  const digits = String(value).replace(/\D/g, '');
+  const digits = stripJidDevice(value).replace(/\D/g, '');
   return digits || null;
 }
 
@@ -9,8 +13,7 @@ export function createIdentity({ config }) {
 
   function isOwner(jidOrNumber) {
     if (!ownerNumber || !jidOrNumber) return false;
-    const number = normalizePhoneNumber(String(jidOrNumber).split('@')[0]);
-    return number === ownerNumber;
+    return normalizePhoneNumber(jidOrNumber) === ownerNumber;
   }
 
   return Object.freeze({
