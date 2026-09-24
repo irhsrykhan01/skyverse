@@ -58,7 +58,9 @@ function decodeDataUrl(value) {
 function likelyMediaBuffer(buffer, expectedType, contentType = '') {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) return false;
   const mime = String(contentType).toLowerCase();
-  if (/text\/(html|plain)|application\/(json|javascript)/i.test(mime)) return false;
+  const isHtmlOrJson = mime.startsWith('text/html') || mime.startsWith('text/plain')
+    || mime.startsWith('application/json') || mime.startsWith('application/javascript');
+  if (isHtmlOrJson) return false;
 
   if (expectedType === 'image') {
     return buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
