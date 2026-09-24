@@ -9,6 +9,16 @@ import qrcode from 'qrcode-terminal';
 import { loadAuthState } from './auth.js';
 import { createWhatsAppLogger } from './logger.js';
 
+function normalizePairingNumber(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.length >= 8 ? digits : null;
+}
+
+function formatPairingCode(value) {
+  const compact = String(value ?? '').replace(/\s+/g, '');
+  return compact.match(/.{1,4}/g)?.join('-') ?? compact;
+}
+
 export function createWhatsAppConnection({ config, logger, onSocket }) {
   let socket = null;
   let stopping = false;
@@ -30,6 +40,8 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
 
     const { state, saveCreds } = await loadAuthState(config.authPath);
     const version = await resolveWhatsAppVersion();
+    const pairingEnabled = Boolean(config.usePairingCode) && !state.creds.registered;
+    let pairingRequested = false;
 
     socket = makeWASocket({
       ...(version ? { version } : {}),
@@ -47,10 +59,31 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
 
     socket.ev.on('creds.update', saveCreds);
 
-    socket.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+    socket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (qr) {
-        logger.info('Scan QR WhatsApp untuk menghubungkan perangkat.');
-        qrcode.generate(qr, { small: true });
+        if (pairingEnabled && !pairingRequested) {
+          pairingRequested = true;
+          const phoneNumber = normalizePairingNumber(config.pairingNumber);
+
+          if (!phoneNumber) {
+            logger.warn('USE_PAIRING_CODE aktif tetapi PAIRING_NUMBER kosong/tidak valid. Menampilkan QR sebagai fallback.');
+            qrcode.generate(qr, { small: true });
+          } else {
+            logger.info('Meminta pairing code WhatsApp...');
+            try {
+              const code = await socket.requestPairingCode(phoneNumber);
+              logger.info(`Kode pairing WhatsApp: ${formatPairingCode(code)}`);
+              logger.info('Masukkan kode tersebut dari WhatsApp → Perangkat tertaut → Tautkan perangkat → Tautkan dengan nomor telepon.');
+            } catch (error) {
+              logger.error(`Gagal meminta pairing code = ${error?.message ?? String(error)}`);
+              logger.info('Pairing code gagal, QR ditampilkan sebagai fallback.');
+              qrcode.generate(qr, { small: true });
+            }
+          }
+        } else if (!pairingEnabled) {
+          logger.info('Scan QR WhatsApp untuk menghubungkan perangkat.');
+          qrcode.generate(qr, { small: true });
+        }
       }
 
       if (connection === 'open') {
