@@ -3,7 +3,6 @@ import { sendA2UIMenu } from '../../platform/whatsapp/a2ui.js';
 function buildMenuBody(ctx) {
   const user = ctx.user ?? {};
   const coin = Number(user.coins ?? 0);
-  const limit = Number(user.limit ?? 20);
   const tier = user.is_premium ? 'Premium User' : 'Free User';
   const tag = ctx.senderJid?.split('@')[0] ?? 'User';
 
@@ -11,7 +10,6 @@ function buildMenuBody(ctx) {
     '╭── ＳＫＹＶＥＲＳＥ ──',
     `│ Halo, @${tag}!`,
     `│ Koin: ${coin}`,
-    `│ Limit: ${limit}`,
     `│ Tier: ${tier}`,
     '╰───────────────',
     'Selamat datang di Skyverse Bot!. ☁',
