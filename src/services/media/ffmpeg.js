@@ -171,6 +171,37 @@ function scaleFilter() { return 'scale=512:512:force_original_aspect_ratio=decre
 function throwOversize(buffer, limit, kind) { if (buffer.length > limit) throw new Error(`${kind} terlalu besar (${Math.ceil(buffer.length / 1024)} KB).`); return buffer; }
 function escapeDrawtext(text) { return String(text).replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'").replace(/%/g, '\\%'); }
 
+function videoToMp4(buffer, { maxDuration = 60 } = {}) {
+  const duration = Math.max(1, Math.min(60, Number(maxDuration) || 60));
+  return withTempMedia(buffer, '.mp4', (input, output) => [
+    '-i', input,
+    '-t', String(duration),
+    '-map', '0:v:0',
+    '-map', '0:a:0?',
+    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,setsar=1,format=yuv420p',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-r', '30',
+    '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2',
+    '-movflags', '+faststart', '-pix_fmt', 'yuv420p', '-f', 'mp4', output,
+  ]);
+}
+
+function imageToMp4(buffer, { duration = 3 } = {}) {
+  const seconds = Math.max(1, Math.min(15, Number(duration) || 3));
+  return withTempMedia(buffer, '.mp4', (input, output) => [
+    '-loop', '1',
+    '-i', input,
+    '-t', String(seconds),
+    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,format=yuv420p',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'stillimage', '-crf', '23',
+    '-r', '30', '-an', '-movflags', '+faststart', '-pix_fmt', 'yuv420p', '-f', 'mp4', output,
+  ]);
+}
+
+export function toMp4(buffer, { sourceType = 'video', maxDuration = 60, imageDuration = 3 } = {}) {
+  if (sourceType === 'image') return imageToMp4(buffer, { duration: imageDuration });
+  if (sourceType === 'video') return videoToMp4(buffer, { maxDuration });
+  throw new Error('toMp4 hanya mendukung input gambar atau video.');
+}
 export function toMp3(buffer) { return withTempMedia(buffer, '.mp3', (input, output) => ['-i', input, '-map', '0:a:0', '-vn', '-map_metadata', '-1', '-c:a', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '192k', '-id3v2_version', '3', '-write_xing', '0', '-f', 'mp3', output]); }
 export async function toImage(buffer) { const source = isAnimatedWebp(buffer) ? await animatedWebpToFirstFrame(buffer) : buffer; return withTempMedia(source, '.jpg', (input, output) => ['-i', input, '-frames:v', '1', '-map_metadata', '-1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output]); }
 export async function toVideo(buffer, { sourceType = 'sticker', animated = false, videoNote = false, maxDuration = 60 } = {}) { if (videoNote) return videoToVideoNote(buffer, { maxDuration }); if (sourceType !== 'sticker') throw new Error('tovideo hanya mendukung sticker bergerak.'); if (!isAnimatedWebp(buffer)) { if (!animated) throw new Error('tovideo hanya menerima sticker bergerak.'); throw new Error('Sticker ditandai bergerak tetapi WebP tidak berisi frame animasi yang valid.'); } return animatedWebpToVideo(buffer); }
