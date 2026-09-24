@@ -9,6 +9,7 @@ export function createRemoveBgProvider({ baseUrl = 'https://clearbackdrop.com/ap
       const response = await fetch(`${baseUrl.replace(/\/$/, '')}/remove-background`, {
         method: 'POST',
         body: form,
+        signal: AbortSignal.timeout(45_000),
       });
 
       if (!response.ok) {
@@ -23,6 +24,7 @@ export function createRemoveBgProvider({ baseUrl = 'https://clearbackdrop.com/ap
 
       const output = Buffer.from(await response.arrayBuffer());
       if (output.length === 0) throw new Error('ClearBackdrop mengembalikan file kosong.');
+      if (output.length > 20 * 1024 * 1024) throw new Error('Hasil ClearBackdrop terlalu besar untuk dikirim.');
       return output;
     },
   });
