@@ -8,6 +8,7 @@ import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQue
 import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { economyDefaults, EconomyManager } from '../economy/manager.js';
+import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 
 function assert(condition, message) {
@@ -49,6 +50,8 @@ assert(typeof providers.downloader?.tiktok === 'function', 'Keyra TikTok provide
 assert(typeof providers.downloader?.youtube === 'function', 'Keyra YouTube provider is missing.');
 assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Keyra YouTube MP3 provider is missing.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
+assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
+assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
 assert(typeof media.toVideo === 'function', 'Media toVideo export is missing.');
 assert(typeof media.toVoiceNote === 'function', 'Media toVoiceNote export is missing.');
 assert(typeof media.toHd === 'function', 'Media toHd export is missing.');
