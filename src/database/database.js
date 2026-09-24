@@ -57,7 +57,6 @@ export async function createDatabase(databasePath, logger) {
     );
   `);
 
-  // Migrate databases created before Economy fields existed.
   const migrationStatement = database.prepare('PRAGMA table_info(users)');
   const columns = [];
   try {
@@ -72,21 +71,32 @@ export async function createDatabase(databasePath, logger) {
     ['premium_until', 'ALTER TABLE users ADD COLUMN premium_until INTEGER'],
     ['last_claim_at', 'ALTER TABLE users ADD COLUMN last_claim_at INTEGER NOT NULL DEFAULT 0'],
   ];
+
+  let migrated = false;
   for (const [name, sql] of migrations) {
-    if (!columns.includes(name)) database.exec(sql);
+    if (!columns.includes(name)) {
+      database.exec(sql);
+      migrated = true;
+    }
   }
 
-  let dirty = false;
+  let dirty = true;
+  let dirtyVersion = 1;
   let closed = false;
   let flushPromise = null;
 
   async function persist() {
     if (closed || !dirty) return;
     if (flushPromise) return flushPromise;
+
+    const writeVersion = dirtyVersion;
+    const exported = Buffer.from(database.export());
+
     flushPromise = (async () => {
-      await writeFile(databasePath, Buffer.from(database.export()));
-      dirty = false;
+      await writeFile(databasePath, exported);
+      if (dirtyVersion === writeVersion) dirty = false;
     })().finally(() => { flushPromise = null; });
+
     return flushPromise;
   }
 
@@ -97,12 +107,17 @@ export async function createDatabase(databasePath, logger) {
   }, 10_000);
   flushTimer.unref?.();
 
+  function markDirty() {
+    dirty = true;
+    dirtyVersion += 1;
+  }
+
   function transaction(callback) {
     database.exec('BEGIN IMMEDIATE');
     try {
       const result = callback();
       database.exec('COMMIT');
-      dirty = true;
+      markDirty();
       return result;
     } catch (error) {
       try { database.exec('ROLLBACK'); } catch {}
@@ -118,7 +133,7 @@ export async function createDatabase(databasePath, logger) {
     } finally {
       statement.free();
     }
-    dirty = true;
+    markDirty();
   }
 
   function get(sql, params = []) {
@@ -151,6 +166,8 @@ export async function createDatabase(databasePath, logger) {
     closed = true;
   }
 
+  if (migrated) logger.info('SQLite schema migrated.');
+
   return Object.freeze({
     exec,
     transaction,
@@ -158,7 +175,7 @@ export async function createDatabase(databasePath, logger) {
     all,
     persist,
     close,
-    markDirty: () => { dirty = true; },
+    markDirty,
     get path() { return databasePath; },
   });
 }
