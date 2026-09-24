@@ -70,7 +70,9 @@ export function createMessageContext({ socket, message, command, registry, ident
   async function isAdmin() {
     if (!isGroup || !senderJid) return false;
     const metadata = await getGroupMetadata();
-    const participant = metadata.participants?.find((item) => [item.id, item.pn, item.lid].filter(Boolean).some((id) => id === senderJid || id === senderPhoneJid));
+    const normalizeAccount = (value) => String(value ?? '').trim().split('@')[0].split(':')[0].replace(/\D/g, '');
+    const senderAccounts = new Set([senderJid, senderPhoneJid].map(normalizeAccount).filter(Boolean));
+    const participant = metadata.participants?.find((item) => [item.id, item.pn, item.lid].map(normalizeAccount).some((id) => id && senderAccounts.has(id)));
     return Boolean(participant?.admin);
   }
 
