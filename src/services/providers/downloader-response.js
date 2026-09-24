@@ -63,7 +63,7 @@ function isLikelyMediaBuffer(buffer, kind, contentType = '') {
   }
   return buffer.subarray(4, 8).toString('ascii') === 'ftyp'
     || buffer.subarray(0, 4).toString('ascii') === 'RIFF'
-    || mime.startsWith('video/');
+    || buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
 }
 async function downloadUrl(url, { maxBytes = 30 * 1024 * 1024, retries = 2, kind = 'video' } = {}) {
   let lastError = null;
