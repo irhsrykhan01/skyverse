@@ -2,7 +2,7 @@ name: SkyVerse Checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, upgrade/economy-core-v2]
   workflow_dispatch:
 
 jobs:
