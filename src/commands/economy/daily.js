@@ -24,11 +24,15 @@ export const command = {
       return;
     }
 
+    const xp = ctx.profile?.addXp(ctx.senderJid, 15, 'economy:daily');
+
     await ctx.reply([
       '🎁 *DAILY REWARD*',
       `+${formatCoins(result.amount)} 🪙`,
+      `+${xp?.added ?? 0} XP ✨`,
       `🔥 Streak: ${result.streak} hari`,
       `🪙 Saldo: ${formatCoins(result.balance)}`,
-    ].join('\n'));
+      xp?.leveledUp ? `🎉 *LEVEL UP!* Sekarang Level ${xp.level} — ${xp.title}` : '',
+    ].filter(Boolean).join('\n'));
   },
 };
