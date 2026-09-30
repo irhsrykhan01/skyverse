@@ -122,6 +122,18 @@ export function createRepositories(database) {
     ) : undefined;
   }
 
+  function findUserByNumber(number) {
+    const normalized = phoneFromJid(number);
+    if (!normalized) return undefined;
+    return database.get(
+      `SELECT jid, number, push_name, is_bot, created_at, updated_at,
+              coins, is_premium, premium_until, last_claim_at,
+              daily_streak, last_daily_at
+       FROM users WHERE number = ? LIMIT 1`,
+      [normalized],
+    );
+  }
+
   function updateWallet(jid, { coins, isPremium, premiumUntil, lastClaimAt, dailyStreak, lastDailyAt } = {}) {
     const user = getUser(jid);
     if (!user) return undefined;
@@ -529,7 +541,7 @@ export function createRepositories(database) {
   }
 
   return Object.freeze({
-    users: Object.freeze({ upsert: upsertUser, get: getUser, updateWallet }),
+    users: Object.freeze({ upsert: upsertUser, get: getUser, findByNumber: findUserByNumber, updateWallet }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     economy: Object.freeze({
