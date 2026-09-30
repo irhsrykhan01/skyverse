@@ -42,7 +42,7 @@ export function levelProgress(xp) {
   const safeXp = Math.max(0, Math.floor(Number(xp) || 0));
   const level = levelFromXp(safeXp);
   const currentFloor = xpForLevel(level);
-  const nextFloor = xpForLevel(level + 1);
+  const nextFloor = level === 20 ? xpForLevel(22) : xpForLevel(level + 1);
   const needed = Math.max(0, nextFloor - currentFloor);
   const progress = Math.max(0, Math.min(needed, safeXp - currentFloor));
 
