@@ -1,3 +1,4 @@
+import { economyConfig } from '../economy/config.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 
 function phoneFromJid(phoneJid) {
@@ -7,6 +8,15 @@ function phoneFromJid(phoneJid) {
   const base = raw.split('@')[0].split(':')[0];
   const digits = normalizePhoneNumber(base);
   return digits || null;
+}
+
+function safeInteger(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && Number.isInteger(number) ? number : fallback;
+}
+
+function clampBalance(value) {
+  return Math.max(0, Math.min(economyConfig.limits.maxBalance, safeInteger(value)));
 }
 
 export function createRepositories(database) {
@@ -19,16 +29,19 @@ export function createRepositories(database) {
 
     if (existing) {
       database.exec(
-        `UPDATE users SET number = ?, push_name = ?, is_bot = ?, updated_at = ? WHERE jid = ?`,
+        `UPDATE users
+         SET number = ?, push_name = ?, is_bot = ?, updated_at = ?
+         WHERE jid = ?`,
         [number, pushName ?? existing.push_name ?? null, isBot ? 1 : 0, now, jid],
       );
       return { created: false, user: getUser(jid) };
     }
 
     database.exec(
-      `INSERT INTO users (jid, number, push_name, is_bot, created_at, updated_at, coins)
-       VALUES (?, ?, ?, ?, ?, ?, 100)`,
-      [jid, number, pushName, isBot ? 1 : 0, now, now],
+      `INSERT INTO users
+       (jid, number, push_name, is_bot, created_at, updated_at, coins)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [jid, number, pushName, isBot ? 1 : 0, now, now, economyConfig.startingCoins],
     );
     return { created: true, user: getUser(jid) };
   }
@@ -39,7 +52,8 @@ export function createRepositories(database) {
     database.exec(
       `INSERT INTO groups (jid, subject, created_at, updated_at)
        VALUES (?, ?, ?, ?)
-       ON CONFLICT(jid) DO UPDATE SET subject = excluded.subject, updated_at = excluded.updated_at`,
+       ON CONFLICT(jid) DO UPDATE
+       SET subject = excluded.subject, updated_at = excluded.updated_at`,
       [jid, subject, now, now],
     );
   }
@@ -49,7 +63,8 @@ export function createRepositories(database) {
     database.exec(
       `INSERT INTO command_stats (command, usage_count, updated_at)
        VALUES (?, 1, ?)
-       ON CONFLICT(command) DO UPDATE SET usage_count = usage_count + 1, updated_at = excluded.updated_at`,
+       ON CONFLICT(command) DO UPDATE
+       SET usage_count = usage_count + 1, updated_at = excluded.updated_at`,
       [command, now],
     );
 
@@ -76,7 +91,8 @@ export function createRepositories(database) {
     database.exec(
       `INSERT INTO settings (scope, scope_id, key, value, updated_at)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(scope, scope_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+       ON CONFLICT(scope, scope_id, key)
+       DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
       [scope, scopeId, key, String(value), Date.now()],
     );
   }
@@ -88,31 +104,39 @@ export function createRepositories(database) {
   function userStats(limit = 20) {
     return database.all(
       `SELECT user_jid, SUM(usage_count) AS usage_count
-       FROM user_command_stats GROUP BY user_jid
-       ORDER BY usage_count DESC LIMIT ?`,
-      [Math.max(1, Math.min(100, Number(limit) || 20))],
+       FROM user_command_stats
+       GROUP BY user_jid
+       ORDER BY usage_count DESC
+       LIMIT ?`,
+      [Math.max(1, Math.min(100, safeInteger(limit, 20)))],
     );
   }
 
   function getUser(jid) {
     return jid ? database.get(
       `SELECT jid, number, push_name, is_bot, created_at, updated_at,
-              coins, is_premium, premium_until, last_claim_at
+              coins, is_premium, premium_until, last_claim_at,
+              daily_streak, last_daily_at
        FROM users WHERE jid = ?`,
       [jid],
     ) : undefined;
   }
 
-  function updateWallet(jid, { coins, isPremium, premiumUntil, lastClaimAt }) {
+  function updateWallet(jid, { coins, isPremium, premiumUntil, lastClaimAt, dailyStreak, lastDailyAt }) {
     const user = getUser(jid);
     if (!user) return undefined;
     database.exec(
-      `UPDATE users SET coins = ?, is_premium = ?, premium_until = ?, last_claim_at = ?, updated_at = ? WHERE jid = ?`,
+      `UPDATE users
+       SET coins = ?, is_premium = ?, premium_until = ?,
+           last_claim_at = ?, daily_streak = ?, last_daily_at = ?, updated_at = ?
+       WHERE jid = ?`,
       [
-        Math.max(0, Math.floor(Number(coins) || 0)),
+        clampBalance(coins),
         isPremium ? 1 : 0,
-        premiumUntil == null ? null : Number(premiumUntil),
-        Math.max(0, Math.floor(Number(lastClaimAt) || 0)),
+        premiumUntil == null ? null : safeInteger(premiumUntil),
+        Math.max(0, safeInteger(lastClaimAt)),
+        Math.max(0, safeInteger(dailyStreak)),
+        Math.max(0, safeInteger(lastDailyAt)),
         Date.now(),
         jid,
       ],
@@ -120,99 +144,372 @@ export function createRepositories(database) {
     return getUser(jid);
   }
 
-  function transferEconomy({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
-    const nextBalance = Math.max(0, Math.floor(Number(balanceAfter) || 0));
-    database.transaction(() => {
-      const result = database.get('SELECT jid FROM users WHERE jid = ?', [userJid]);
-      if (!result) throw new Error(`Economy user not found: ${userJid}`);
-      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [nextBalance, at, userJid]);
-      database.exec(
-        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userJid, type, Math.floor(Number(amount) || 0), nextBalance, reason, at],
-      );
-    });
-    return getUser(userJid);
+  function insertEconomyTransaction({
+    userJid,
+    type,
+    amount,
+    balanceAfter,
+    counterpartyJid = null,
+    reason = null,
+    at = Date.now(),
+  }) {
+    database.exec(
+      `INSERT INTO economy_transactions
+       (user_jid, type, amount, balance_after, counterparty_jid, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userJid,
+        type,
+        Math.max(0, safeInteger(amount)),
+        clampBalance(balanceAfter),
+        counterpartyJid,
+        reason,
+        at,
+      ],
+    );
   }
 
   function creditEconomy({ userJid, amount, reason = 'credit', at = Date.now() }) {
-    const value = Math.max(0, Math.floor(Number(amount) || 0));
-    if (!value) return { ok: false, balance: Math.max(0, Number(getUser(userJid)?.coins) || 0) };
-    let balance = 0;
-    database.transaction(() => {
-      const user = getUser(userJid);
-      if (!user) throw new Error(`Economy user not found: ${userJid}`);
-      balance = Math.max(0, Number(user.coins) || 0) + value;
-      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, at, userJid]);
-      database.exec(
-        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
-         VALUES (?, 'credit', ?, ?, ?, ?)`,
-        [userJid, value, balance, reason, at],
-      );
-    });
-    return { ok: true, balance, added: value };
-  }
+    const value = Math.max(0, safeInteger(amount));
+    if (!value) {
+      return {
+        ok: false,
+        balance: clampBalance(getUser(userJid)?.coins),
+        added: 0,
+        reason: 'invalid_amount',
+      };
+    }
 
-  function debitEconomy({ userJid, amount, reason = 'debit', at = Date.now() }) {
-    const value = Math.max(0, Math.floor(Number(amount) || 0));
-    let balance = 0;
-    let ok = false;
-    database.transaction(() => {
-      const user = getUser(userJid);
-      if (!user) throw new Error(`Economy user not found: ${userJid}`);
-      balance = Math.max(0, Number(user.coins) || 0);
-      if (balance < value) return;
-      balance -= value;
-      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, at, userJid]);
-      database.exec(
-        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
-         VALUES (?, 'debit', ?, ?, ?, ?)`,
-        [userJid, value, balance, reason, at],
-      );
-      ok = true;
-    });
-    return { ok, balance, spent: ok ? value : 0, required: value };
-  }
-
-  function claimEconomy({ userJid, amount, now, cooldownMs, reason = 'claim' }) {
-    const value = Math.max(0, Math.floor(Number(amount) || 0));
     let result = null;
     database.transaction(() => {
       const user = getUser(userJid);
       if (!user) throw new Error(`Economy user not found: ${userJid}`);
-      const lastClaimAt = Math.max(0, Number(user.last_claim_at) || 0);
-      const remaining = Math.max(0, cooldownMs - (now - lastClaimAt));
-      if (remaining > 0) {
-        result = { ok: false, remaining, balance: Math.max(0, Number(user.coins) || 0) };
+
+      const current = clampBalance(user.coins);
+      const nextBalance = current + value;
+      if (nextBalance > economyConfig.limits.maxBalance) {
+        result = { ok: false, balance: current, added: 0, reason: 'balance_limit' };
         return;
       }
-      const balance = Math.max(0, Number(user.coins) || 0) + value;
-      database.exec('UPDATE users SET coins = ?, last_claim_at = ?, updated_at = ? WHERE jid = ?', [balance, now, now, userJid]);
+
       database.exec(
-        `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
-         VALUES (?, 'credit', ?, ?, ?, ?)`,
-        [userJid, value, balance, reason, now],
+        'UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?',
+        [nextBalance, at, userJid],
       );
-      result = { ok: true, amount: value, balance, nextClaimAt: now + cooldownMs };
+      insertEconomyTransaction({
+        userJid,
+        type: 'credit',
+        amount: value,
+        balanceAfter: nextBalance,
+        reason,
+        at,
+      });
+      result = { ok: true, balance: nextBalance, added: value };
     });
+
     return result;
   }
 
-  function logEconomyTransaction({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
-    database.exec(
-      `INSERT INTO economy_transactions (user_jid, type, amount, balance_after, reason, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userJid, type, Math.floor(Number(amount) || 0), Math.max(0, Math.floor(Number(balanceAfter) || 0)), reason, at],
+  function debitEconomy({ userJid, amount, reason = 'debit', at = Date.now() }) {
+    const value = Math.max(0, safeInteger(amount));
+    let result = null;
+
+    database.transaction(() => {
+      const user = getUser(userJid);
+      if (!user) throw new Error(`Economy user not found: ${userJid}`);
+
+      const balance = clampBalance(user.coins);
+      if (!value) {
+        result = { ok: false, balance, spent: 0, required: 0, reason: 'invalid_amount' };
+        return;
+      }
+      if (balance < value) {
+        result = { ok: false, balance, spent: 0, required: value, reason: 'insufficient_funds' };
+        return;
+      }
+
+      const nextBalance = balance - value;
+      database.exec(
+        'UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?',
+        [nextBalance, at, userJid],
+      );
+      insertEconomyTransaction({
+        userJid,
+        type: 'debit',
+        amount: value,
+        balanceAfter: nextBalance,
+        reason,
+        at,
+      });
+      result = { ok: true, balance: nextBalance, spent: value, required: value };
+    });
+
+    return result;
+  }
+
+  function claimEconomy({ userJid, amount, now, cooldownMs, reason = 'claim' }) {
+    const value = Math.max(0, safeInteger(amount));
+    let result = null;
+
+    database.transaction(() => {
+      const user = getUser(userJid);
+      if (!user) throw new Error(`Economy user not found: ${userJid}`);
+
+      const lastClaimAt = Math.max(0, safeInteger(user.last_claim_at));
+      const remaining = Math.max(0, cooldownMs - (now - lastClaimAt));
+      const balance = clampBalance(user.coins);
+
+      if (remaining > 0) {
+        result = { ok: false, remaining, balance };
+        return;
+      }
+
+      if (!value || balance + value > economyConfig.limits.maxBalance) {
+        result = { ok: false, remaining: 0, balance, reason: 'balance_limit' };
+        return;
+      }
+
+      const nextBalance = balance + value;
+      database.exec(
+        'UPDATE users SET coins = ?, last_claim_at = ?, updated_at = ? WHERE jid = ?',
+        [nextBalance, now, now, userJid],
+      );
+      insertEconomyTransaction({
+        userJid,
+        type: 'credit',
+        amount: value,
+        balanceAfter: nextBalance,
+        reason,
+        at: now,
+      });
+      result = { ok: true, amount: value, balance: nextBalance, nextClaimAt: now + cooldownMs };
+    });
+
+    return result;
+  }
+
+  function dailyEconomy({
+    userJid,
+    now,
+    cooldownMs,
+    streakWindowMs,
+    baseReward,
+    streakBonus,
+    maxReward,
+    reason = 'daily',
+  }) {
+    let result = null;
+
+    database.transaction(() => {
+      const user = getUser(userJid);
+      if (!user) throw new Error(`Economy user not found: ${userJid}`);
+
+      const lastDailyAt = Math.max(0, safeInteger(user.last_daily_at));
+      const previousStreak = Math.max(0, safeInteger(user.daily_streak));
+      const remaining = Math.max(0, cooldownMs - (now - lastDailyAt));
+      const balance = clampBalance(user.coins);
+
+      if (remaining > 0) {
+        result = {
+          ok: false,
+          remaining,
+          balance,
+          streak: previousStreak,
+        };
+        return;
+      }
+
+      const streak = lastDailyAt > 0 && now - lastDailyAt <= streakWindowMs
+        ? previousStreak + 1
+        : 1;
+      const amount = Math.min(
+        maxReward,
+        Math.max(0, safeInteger(baseReward)) + Math.max(0, streak - 1) * Math.max(0, safeInteger(streakBonus)),
+      );
+
+      if (!amount || balance + amount > economyConfig.limits.maxBalance) {
+        result = { ok: false, remaining: 0, balance, streak, reason: 'balance_limit' };
+        return;
+      }
+
+      const nextBalance = balance + amount;
+      database.exec(
+        `UPDATE users
+         SET coins = ?, daily_streak = ?, last_daily_at = ?, updated_at = ?
+         WHERE jid = ?`,
+        [nextBalance, streak, now, now, userJid],
+      );
+      insertEconomyTransaction({
+        userJid,
+        type: 'credit',
+        amount,
+        balanceAfter: nextBalance,
+        reason,
+        at: now,
+      });
+      result = {
+        ok: true,
+        amount,
+        balance: nextBalance,
+        streak,
+        nextDailyAt: now + cooldownMs,
+      };
+    });
+
+    return result;
+  }
+
+  function transferEconomy({
+    fromUserJid,
+    toUserJid,
+    amount,
+    fee = 0,
+    reason = 'transfer',
+    at = Date.now(),
+  }) {
+    const value = Math.max(0, safeInteger(amount));
+    const transferFee = Math.max(0, safeInteger(fee));
+    let result = null;
+
+    database.transaction(() => {
+      const sender = getUser(fromUserJid);
+      const recipient = getUser(toUserJid);
+      if (!sender) throw new Error(`Economy user not found: ${fromUserJid}`);
+      if (!recipient) throw new Error(`Economy user not found: ${toUserJid}`);
+
+      const senderBalance = clampBalance(sender.coins);
+      const recipientBalance = clampBalance(recipient.coins);
+      const totalDebit = value + transferFee;
+
+      if (!value) {
+        result = { ok: false, reason: 'invalid_amount', balance: senderBalance };
+        return;
+      }
+      if (senderBalance < totalDebit) {
+        result = { ok: false, reason: 'insufficient_funds', balance: senderBalance, required: totalDebit };
+        return;
+      }
+      if (recipientBalance + value > economyConfig.limits.maxBalance) {
+        result = { ok: false, reason: 'recipient_limit', balance: senderBalance };
+        return;
+      }
+
+      const nextSenderBalance = senderBalance - totalDebit;
+      const nextRecipientBalance = recipientBalance + value;
+
+      database.exec(
+        'UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?',
+        [nextSenderBalance, at, fromUserJid],
+      );
+      database.exec(
+        'UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?',
+        [nextRecipientBalance, at, toUserJid],
+      );
+
+      insertEconomyTransaction({
+        userJid: fromUserJid,
+        type: 'transfer_out',
+        amount: value,
+        balanceAfter: nextSenderBalance,
+        counterpartyJid: toUserJid,
+        reason,
+        at,
+      });
+
+      if (transferFee > 0) {
+        insertEconomyTransaction({
+          userJid: fromUserJid,
+          type: 'fee',
+          amount: transferFee,
+          balanceAfter: nextSenderBalance,
+          reason: `${reason}:fee`,
+          at,
+        });
+      }
+
+      insertEconomyTransaction({
+        userJid: toUserJid,
+        type: 'transfer_in',
+        amount: value,
+        balanceAfter: nextRecipientBalance,
+        counterpartyJid: fromUserJid,
+        reason,
+        at,
+      });
+
+      result = {
+        ok: true,
+        amount: value,
+        fee: transferFee,
+        senderBalance: nextSenderBalance,
+        recipientBalance: nextRecipientBalance,
+      };
+    });
+
+    return result;
+  }
+
+  function economyTransactions(userJid, limit = economyConfig.limits.historyLimit) {
+    return database.all(
+      `SELECT type, amount, balance_after, counterparty_jid, reason, created_at
+       FROM economy_transactions
+       WHERE user_jid = ?
+       ORDER BY id DESC
+       LIMIT ?`,
+      [userJid, Math.max(1, Math.min(200, safeInteger(limit, economyConfig.limits.historyLimit)))],
     );
   }
 
-  function economyTransactions(userJid, limit = 50) {
+  function economyLeaderboard(limit = economyConfig.limits.leaderboardLimit) {
     return database.all(
-      `SELECT type, amount, balance_after, reason, created_at
-       FROM economy_transactions WHERE user_jid = ?
-       ORDER BY id DESC LIMIT ?`,
-      [userJid, Math.max(1, Math.min(200, Number(limit) || 50))],
+      `SELECT jid, number, push_name, coins
+       FROM users
+       WHERE is_bot = 0
+       ORDER BY coins DESC, updated_at ASC
+       LIMIT ?`,
+      [Math.max(1, Math.min(100, safeInteger(limit, economyConfig.limits.leaderboardLimit)))],
     );
+  }
+
+  function logEconomyTransaction({
+    userJid,
+    type,
+    amount,
+    balanceAfter,
+    counterpartyJid = null,
+    reason = null,
+    at = Date.now(),
+  }) {
+    insertEconomyTransaction({
+      userJid,
+      type,
+      amount,
+      balanceAfter,
+      counterpartyJid,
+      reason,
+      at,
+    });
+  }
+
+  function transferLegacy({ userJid, type, amount, balanceAfter, reason = null, at = Date.now() }) {
+    const nextBalance = clampBalance(balanceAfter);
+    database.transaction(() => {
+      const result = getUser(userJid);
+      if (!result) throw new Error(`Economy user not found: ${userJid}`);
+      database.exec(
+        'UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?',
+        [nextBalance, at, userJid],
+      );
+      insertEconomyTransaction({
+        userJid,
+        type,
+        amount,
+        balanceAfter: nextBalance,
+        reason,
+        at,
+      });
+    });
+    return getUser(userJid);
   }
 
   return Object.freeze({
@@ -221,11 +518,14 @@ export function createRepositories(database) {
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     economy: Object.freeze({
       transactions: logEconomyTransaction,
-      transfer: transferEconomy,
+      transfer: transferLegacy,
+      transferBetween: transferEconomy,
       credit: creditEconomy,
       debit: debitEconomy,
       claim: claimEconomy,
+      daily: dailyEconomy,
       history: economyTransactions,
+      leaderboard: economyLeaderboard,
     }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
   });
