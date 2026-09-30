@@ -10,6 +10,7 @@
     "dev": "node --watch src/index.js",
     "check": "find src -type f -name '*.js' -print0 | xargs -0 -n1 node --check",
     "smoke": "node src/diagnostics/smoke.js",
+    "smoke:profile": "node src/diagnostics/profile-smoke.js",
     "check-media-tools": "sh -c 'command -v ffmpeg >/dev/null && command -v webpmux >/dev/null'",
     "check-newsletter": "node scripts/check-baileys-newsletter-support.js"
   },
@@ -19,7 +20,7 @@
     "axios": "1.12.2",
     "canvas": "3.2.3",
     "dotenv": "17.4.2",
-    "node-webpmux": "3.2.1",
+    "node-webpmux": "3.2.3",
     "pino": "9.6.0",
     "qrcode-terminal": "0.12.0",
     "sql.js": "1.14.2"
