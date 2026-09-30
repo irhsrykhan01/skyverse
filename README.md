@@ -4,9 +4,9 @@ A modern, modular, and extensible WhatsApp bot built with Node.js and Baileys.
 
 ## Status
 
-**Stage 2 — WhatsApp Core**
+**Stage 2 — WhatsApp Core + Economy Core v2**
 
-The current codebase includes the application foundation and WhatsApp core:
+The current codebase includes the application foundation, WhatsApp core, and Economy Core v2:
 
 - Node.js 20+ runtime baseline
 - ES modules
@@ -19,6 +19,10 @@ The current codebase includes the application foundation and WhatsApp core:
 - Optional pairing-code login with QR fallback
 - Automatic reconnect with bounded backoff
 - Graceful shutdown handling
+- Centralized Coin configuration and formatting
+- Atomic Coin credit/debit/transfer ledger
+- Periodic claim and daily reward streaks
+- Coin transaction history and leaderboard
 
 ## Development
 
