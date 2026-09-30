@@ -20,7 +20,7 @@
     "axios": "1.12.2",
     "canvas": "3.2.3",
     "dotenv": "17.4.2",
-    "node-webpmux": "3.2.3",
+    "node-webpmux": "3.2.1",
     "pino": "9.6.0",
     "qrcode-terminal": "0.12.0",
     "sql.js": "1.14.2"
