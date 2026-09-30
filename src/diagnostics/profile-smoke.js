@@ -16,11 +16,20 @@ assert.equal(titleForLevel(100), 'Penguasa Langit');
 assert.equal(levelFromXp(xpForLevel(4)), 4);
 assert.equal(levelFromXp(xpForLevel(10)), 10);
 assert.equal(levelFromXp(xpForLevel(20)), 20);
+assert.equal(levelFromXp(xpForLevel(21)), 20);
 assert.equal(levelFromXp(xpForLevel(22)), 22);
 
 const progress = levelProgress(xpForLevel(4) + 50);
 assert.equal(progress.level, 4);
 assert.equal(progress.progress, 50);
 assert.equal(progress.percent, 10);
+
+const transition = levelProgress(xpForLevel(20) + 1000);
+assert.equal(transition.level, 20);
+assert.equal(transition.nextFloor, xpForLevel(22));
+
+const highLevel = levelProgress(xpForLevel(50));
+assert.equal(highLevel.level, 50);
+assert.equal(highLevel.title, 'Penguasa Langit');
 
 console.log('Profile smoke test passed.');
