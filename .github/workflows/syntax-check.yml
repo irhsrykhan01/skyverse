@@ -20,4 +20,6 @@ jobs:
       - name: Run smoke test
         run: npm run smoke
       - name: Run profile smoke test
-        run: node src/diagnostics/profile-smoke.js
+        run: npm run smoke:profile
+      - name: Run progression smoke test
+        run: npm run smoke:progression
