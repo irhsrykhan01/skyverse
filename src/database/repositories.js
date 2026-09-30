@@ -122,21 +122,37 @@ export function createRepositories(database) {
     ) : undefined;
   }
 
-  function updateWallet(jid, { coins, isPremium, premiumUntil, lastClaimAt, dailyStreak, lastDailyAt }) {
+  function updateWallet(jid, { coins, isPremium, premiumUntil, lastClaimAt, dailyStreak, lastDailyAt } = {}) {
     const user = getUser(jid);
     if (!user) return undefined;
+
+    const nextCoins = coins === undefined ? user.coins : clampBalance(coins);
+    const nextPremium = isPremium === undefined ? user.is_premium : (isPremium ? 1 : 0);
+    const nextPremiumUntil = premiumUntil === undefined
+      ? user.premium_until
+      : (premiumUntil == null ? null : safeInteger(premiumUntil));
+    const nextClaimAt = lastClaimAt === undefined
+      ? user.last_claim_at
+      : Math.max(0, safeInteger(lastClaimAt));
+    const nextDailyStreak = dailyStreak === undefined
+      ? user.daily_streak
+      : Math.max(0, safeInteger(dailyStreak));
+    const nextDailyAt = lastDailyAt === undefined
+      ? user.last_daily_at
+      : Math.max(0, safeInteger(lastDailyAt));
+
     database.exec(
       `UPDATE users
        SET coins = ?, is_premium = ?, premium_until = ?,
            last_claim_at = ?, daily_streak = ?, last_daily_at = ?, updated_at = ?
        WHERE jid = ?`,
       [
-        clampBalance(coins),
-        isPremium ? 1 : 0,
-        premiumUntil == null ? null : safeInteger(premiumUntil),
-        Math.max(0, safeInteger(lastClaimAt)),
-        Math.max(0, safeInteger(dailyStreak)),
-        Math.max(0, safeInteger(lastDailyAt)),
+        nextCoins,
+        nextPremium,
+        nextPremiumUntil,
+        nextClaimAt,
+        nextDailyStreak,
+        nextDailyAt,
         Date.now(),
         jid,
       ],
