@@ -4,7 +4,7 @@ A modern, modular, and extensible WhatsApp bot built with Node.js and Baileys.
 
 ## Status
 
-**Stage 4 — Achievement + Quest System**
+**Stage 4 — Achievement + Quest System + WhatsApp Connection Recovery**
 
 The current codebase includes the application foundation, WhatsApp core, Economy Core v2, SkyVerse Profile System, and the new Achievement + Daily Quest layer:
 
@@ -29,6 +29,7 @@ The current codebase includes the application foundation, WhatsApp core, Economy
 - XP leaderboard
 - Persistent achievement unlocks
 - Daily quest progress and claimable rewards
+- Automatic QR recovery for invalid WhatsApp sessions
 
 ## SkyVerse Levels
 
