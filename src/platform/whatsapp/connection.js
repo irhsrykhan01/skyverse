@@ -84,7 +84,10 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
     });
 
     socket = nextSocket;
-    nextSocket.ev.on('creds.update', saveCreds);
+    nextSocket.ev.on('creds.update', (updatedCreds) => {
+      if (connectionId !== connectionGeneration || socket !== nextSocket) return;
+      return saveCreds(updatedCreds);
+    });
 
     nextSocket.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
       if (connectionId !== connectionGeneration || socket !== nextSocket) return;
