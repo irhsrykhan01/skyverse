@@ -23,7 +23,7 @@ const ASCII_BANNER = String.raw`
 ███████╗█████╔╝  ╚████╔╝ ██║   ██║█████╗  ██████╔╝███████╗█████╗
 ╚════██║██╔═██╗   ╚██╔╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝
 ███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████║███████║
-╚══════╝╚═╝  ╚═╝   ╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
+╚══════╝╚═╝  ╚═╝   ╚═╝     ╚══════╝╚══════╝╚══════╝╚══════╝
 `;
 
 function clearTerminal() {
@@ -58,6 +58,7 @@ async function main() {
   const repositories = createRepositories(database);
   const economy = new EconomyCore({ repositories, logger });
   const profile = new ProfileCore({ database, repositories, logger });
+  const contextRepositories = Object.freeze({ ...repositories, profile });
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
 
@@ -73,11 +74,9 @@ async function main() {
     logger,
     identity,
     registry,
-    repositories,
+    repositories: contextRepositories,
     economy,
-    profile,
     providers,
-    database,
   });
   lifecycle = createLifecycle({ logger, whatsapp, database });
 
