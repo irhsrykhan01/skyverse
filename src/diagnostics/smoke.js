@@ -11,26 +11,16 @@ import { EconomyCore, economyDefaults } from '../economy/core.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
+function assert(condition, message) { if (!condition) throw new Error(message); }
 
 const config = loadConfig({});
 const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
-
 for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'daily', 'pay', 'coinlog', 'coinlb']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
-for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) {
-  assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`);
-  assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`);
-}
-for (const command of visibleCommands) {
-  assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`);
-  assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`);
-  assert(Number.isInteger(command.cost) && command.cost >= 0, `Invalid coin cost: ${command.name}`);
-}
+for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
+for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); assert(Number.isInteger(command.cost) && command.cost >= 0, `Invalid coin cost: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
 assert(registry.resolve('bratvid')?.name === 'bratvid', 'Rebuilt bratvid command is not enabled.');
 assert(registry.resolve('fb')?.name === 'facebook', 'Facebook command alias regression.');
@@ -66,16 +56,7 @@ const fakeUsers = new Map([
   ['recipient@lid', { jid: 'recipient@lid', number: '628111111111', push_name: 'Recipient', coins: economyDefaults.newUserCoins, is_premium: 0, premium_until: null, last_claim_at: 0, daily_streak: 0, last_daily_at: 0, is_bot: 0 }],
 ]);
 function fakeGetUser(jid) { return fakeUsers.get(jid); }
-function fakeUpsertUser({ jid, number = null, pushName = null, isBot = false }) {
-  if (!fakeUsers.has(jid)) {
-    fakeUsers.set(jid, { jid, number, push_name: pushName, coins: economyDefaults.newUserCoins, is_premium: 0, premium_until: null, last_claim_at: 0, daily_streak: 0, last_daily_at: 0, is_bot: isBot ? 1 : 0 });
-    return { created: true, user: fakeGetUser(jid) };
-  }
-  const user = fakeGetUser(jid);
-  if (number) user.number = number;
-  if (pushName) user.push_name = pushName;
-  return { created: false, user };
-}
+function fakeUpsertUser({ jid, number = null, pushName = null, isBot = false }) { if (!fakeUsers.has(jid)) { fakeUsers.set(jid, { jid, number, push_name: pushName, coins: economyDefaults.newUserCoins, is_premium: 0, premium_until: null, last_claim_at: 0, daily_streak: 0, last_daily_at: 0, is_bot: isBot ? 1 : 0 }); return { created: true, user: fakeGetUser(jid) }; } const user = fakeGetUser(jid); if (number) user.number = number; if (pushName) user.push_name = pushName; return { created: false, user }; }
 const fakeRepositories = {
   users: { get: fakeGetUser, upsert: fakeUpsertUser },
   economy: {
