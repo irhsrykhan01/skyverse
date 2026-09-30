@@ -11,6 +11,7 @@
     "check": "find src -type f -name '*.js' -print0 | xargs -0 -n1 node --check",
     "smoke": "node src/diagnostics/smoke.js",
     "smoke:profile": "node src/diagnostics/profile-smoke.js",
+    "smoke:progression": "node src/diagnostics/progression-smoke.js",
     "check-media-tools": "sh -c 'command -v ffmpeg >/dev/null && command -v webpmux >/dev/null'",
     "check-newsletter": "node scripts/check-baileys-newsletter-support.js"
   },
