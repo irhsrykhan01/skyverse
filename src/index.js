@@ -8,6 +8,7 @@ import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createIdentity } from './security/identity.js';
 import { createProviderManager } from './services/providers/manager.js';
 import { EconomyCore } from './economy/core.js';
+import { ProfileCore } from './profile/core.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
@@ -21,7 +22,7 @@ const ASCII_BANNER = String.raw`
 ██╔════╝██║ ██╔╝╚██╗ ██╔╝██║   ██║██╔════╝██╔══██╗██╔════╝██╔════╝
 ███████╗█████╔╝  ╚████╔╝ ██║   ██║█████╗  ██████╔╝███████╗█████╗
 ╚════██║██╔═██╗   ╚██╔╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝
-███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████║███████╗
+███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████║███████║
 ╚══════╝╚═╝  ╚═╝   ╚═╝     ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝
 `;
 
@@ -43,9 +44,7 @@ function installNoiseFilter() {
 
 function assertRuntime() {
   const major = Number(process.versions.node.split('.')[0]);
-  if (major < 20) {
-    throw new Error(`SkyVerse membutuhkan Node.js 20 atau lebih baru. Versi saat ini: ${process.versions.node}`);
-  }
+  if (major < 20) throw new Error(`SkyVerse membutuhkan Node.js 20 atau lebih baru. Versi saat ini: ${process.versions.node}`);
 }
 
 async function main() {
@@ -53,12 +52,12 @@ async function main() {
   installNoiseFilter();
   console.log(ASCII_BANNER);
   logger.info('SkyVerse dimulai!');
-
   assertRuntime();
 
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
   const economy = new EconomyCore({ repositories, logger });
+  const profile = new ProfileCore({ database, repositories, logger });
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
 
@@ -76,7 +75,9 @@ async function main() {
     registry,
     repositories,
     economy,
+    profile,
     providers,
+    database,
   });
   lifecycle = createLifecycle({ logger, whatsapp, database });
 
@@ -98,13 +99,8 @@ for (const signal of shutdownSignals) {
   });
 }
 
-process.on('uncaughtException', (error) => {
-  logger.error(`Error fatal = ${getErrorMessage(error)}`);
-});
-
-process.on('unhandledRejection', (reason) => {
-  logger.error(`Error async = ${getErrorMessage(reason)}`);
-});
+process.on('uncaughtException', (error) => logger.error(`Error fatal = ${getErrorMessage(error)}`));
+process.on('unhandledRejection', (reason) => logger.error(`Error async = ${getErrorMessage(reason)}`));
 
 main().catch((error) => {
   logger.error(`Error startup = ${getErrorMessage(error)}`);
