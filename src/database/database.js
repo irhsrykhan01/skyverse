@@ -36,7 +36,10 @@ export async function createDatabase(databasePath, logger) {
       premium_until INTEGER,
       last_claim_at INTEGER NOT NULL DEFAULT 0,
       daily_streak INTEGER NOT NULL DEFAULT 0,
-      last_daily_at INTEGER NOT NULL DEFAULT 0
+      last_daily_at INTEGER NOT NULL DEFAULT 0,
+      xp INTEGER NOT NULL DEFAULT 0,
+      bio TEXT,
+      last_active_at INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS groups (
@@ -80,11 +83,23 @@ export async function createDatabase(databasePath, logger) {
       created_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS xp_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_jid TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      xp_after INTEGER NOT NULL,
+      source TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_economy_transactions_user_id
       ON economy_transactions (user_jid, id DESC);
-
+    CREATE INDEX IF NOT EXISTS idx_xp_transactions_user_id
+      ON xp_transactions (user_jid, id DESC);
     CREATE INDEX IF NOT EXISTS idx_users_coins
       ON users (coins DESC);
+    CREATE INDEX IF NOT EXISTS idx_users_xp
+      ON users (xp DESC);
   `);
 
   const migrationStatement = database.prepare('PRAGMA table_info(users)');
@@ -110,6 +125,9 @@ export async function createDatabase(databasePath, logger) {
     ['last_claim_at', 'ALTER TABLE users ADD COLUMN last_claim_at INTEGER NOT NULL DEFAULT 0'],
     ['daily_streak', 'ALTER TABLE users ADD COLUMN daily_streak INTEGER NOT NULL DEFAULT 0'],
     ['last_daily_at', 'ALTER TABLE users ADD COLUMN last_daily_at INTEGER NOT NULL DEFAULT 0'],
+    ['xp', 'ALTER TABLE users ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'],
+    ['bio', 'ALTER TABLE users ADD COLUMN bio TEXT'],
+    ['last_active_at', 'ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0'],
   ];
 
   let migrated = false;
@@ -133,22 +151,17 @@ export async function createDatabase(databasePath, logger) {
   async function persist() {
     if (closed || !dirty) return;
     if (flushPromise) return flushPromise;
-
     const writeVersion = dirtyVersion;
     const exported = Buffer.from(database.export());
-
     flushPromise = (async () => {
       await writeFile(databasePath, exported);
       if (dirtyVersion === writeVersion) dirty = false;
     })().finally(() => { flushPromise = null; });
-
     return flushPromise;
   }
 
   const flushTimer = setInterval(() => {
-    persist().catch((error) => logger.error('Database auto-save failed', {
-      error: error?.message ?? String(error),
-    }));
+    persist().catch((error) => logger.error('Database auto-save failed', { error: error?.message ?? String(error) }));
   }, 10_000);
   flushTimer.unref?.();
 
@@ -206,23 +219,12 @@ export async function createDatabase(databasePath, logger) {
   async function close() {
     if (closed) return;
     clearInterval(flushTimer);
-    do {
-      await persist();
-    } while (dirty);
+    do { await persist(); } while (dirty);
     database.close();
     closed = true;
   }
 
   if (migrated) logger.info('SQLite schema migrated.');
 
-  return Object.freeze({
-    exec,
-    transaction,
-    get,
-    all,
-    persist,
-    close,
-    markDirty,
-    get path() { return databasePath; },
-  });
+  return Object.freeze({ exec, transaction, get, all, persist, close, markDirty, get path() { return databasePath; } });
 }
