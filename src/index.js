@@ -9,6 +9,7 @@ import { createIdentity } from './security/identity.js';
 import { createProviderManager } from './services/providers/manager.js';
 import { EconomyCore } from './economy/core.js';
 import { ProfileCore } from './profile/core.js';
+import { ProgressionCore } from './progression/core.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
@@ -23,13 +24,10 @@ const ASCII_BANNER = String.raw`
 ███████╗█████╔╝  ╚████╔╝ ██║   ██║█████╗  ██████╔╝███████╗█████╗
 ╚════██║██╔═██╗   ╚██╔╝  ╚██╗ ██╔╝██╔══╝  ██╔══██╗╚════██║██╔══╝
 ███████║██║  ██╗   ██║    ╚████╔╝ ███████╗██║  ██║███████║███████║
-╚══════╝╚═╝  ╚═╝   ╚═╝     ╚══════╝╚══════╝╚══════╝╚══════╝
+╚══════╝╚═╝  ╚═╝   ╚════╝ ╚══════╝ ╚══════╝ ╚══════╝
 `;
 
-function clearTerminal() {
-  if (process.stdout.isTTY) process.stdout.write('\x1b[2J\x1b[H');
-}
-
+function clearTerminal() { if (process.stdout.isTTY) process.stdout.write('\x1b[2J\x1b[H'); }
 function installNoiseFilter() {
   const originalConsoleError = console.error.bind(console);
   console.error = (...args) => {
@@ -41,45 +39,26 @@ function installNoiseFilter() {
     originalConsoleError(...args);
   };
 }
-
 function assertRuntime() {
   const major = Number(process.versions.node.split('.')[0]);
   if (major < 20) throw new Error(`SkyVerse membutuhkan Node.js 20 atau lebih baru. Versi saat ini: ${process.versions.node}`);
 }
 
 async function main() {
-  clearTerminal();
-  installNoiseFilter();
-  console.log(ASCII_BANNER);
-  logger.info('SkyVerse dimulai!');
-  assertRuntime();
-
+  clearTerminal(); installNoiseFilter(); console.log(ASCII_BANNER); logger.info('SkyVerse dimulai!'); assertRuntime();
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
   const economy = new EconomyCore({ repositories, logger });
   const profile = new ProfileCore({ database, repositories, logger });
-  const contextRepositories = Object.freeze({ ...repositories, profile });
+  const progression = new ProgressionCore({ database, profile, logger });
+  const contextRepositories = Object.freeze({ ...repositories, profile, progression });
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
 
   let messageEngine;
-  const whatsapp = createWhatsAppConnection({
-    config,
-    logger,
-    onSocket: async (socket) => messageEngine.attach(socket),
-  });
-
-  messageEngine = createMessageEngine({
-    config,
-    logger,
-    identity,
-    registry,
-    repositories: contextRepositories,
-    economy,
-    providers,
-  });
+  const whatsapp = createWhatsAppConnection({ config, logger, onSocket: async (socket) => messageEngine.attach(socket) });
+  messageEngine = createMessageEngine({ config, logger, identity, registry, repositories: contextRepositories, economy, profile, progression, providers });
   lifecycle = createLifecycle({ logger, whatsapp, database });
-
   logger.info('Menghubungkan ke WhatsApp...');
   await lifecycle.start();
 }
@@ -87,21 +66,10 @@ async function main() {
 const shutdownSignals = ['SIGINT', 'SIGTERM'];
 for (const signal of shutdownSignals) {
   process.once(signal, async () => {
-    try {
-      await lifecycle?.stop(signal);
-      logger.info('SkyVerse dihentikan.');
-      process.exitCode = 0;
-    } catch (error) {
-      logger.error(`Error shutdown = ${getErrorMessage(error)}`);
-      process.exitCode = 1;
-    }
+    try { await lifecycle?.stop(signal); logger.info('SkyVerse dihentikan.'); process.exitCode = 0; }
+    catch (error) { logger.error(`Error shutdown = ${getErrorMessage(error)}`); process.exitCode = 1; }
   });
 }
-
 process.on('uncaughtException', (error) => logger.error(`Error fatal = ${getErrorMessage(error)}`));
 process.on('unhandledRejection', (reason) => logger.error(`Error async = ${getErrorMessage(reason)}`));
-
-main().catch((error) => {
-  logger.error(`Error startup = ${getErrorMessage(error)}`);
-  process.exitCode = 1;
-});
+main().catch((error) => { logger.error(`Error startup = ${getErrorMessage(error)}`); process.exitCode = 1; });
