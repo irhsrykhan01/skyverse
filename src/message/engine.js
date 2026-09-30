@@ -5,6 +5,7 @@ import { createAntideleteService } from '../services/antidelete.js';
 import { getMessageText } from './parser.js';
 import { isBombReply, guessBomb, updateBombMessage } from '../games/bomb.js';
 import { isTicTacToeReply, playTicTacToe, updateTicTacToeMessage } from '../games/tictactoe.js';
+import { profileConfig } from '../profile/config.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
