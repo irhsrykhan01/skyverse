@@ -1,9 +1,11 @@
+import { formatCoins } from '../../economy/config.js';
+
 export const command = {
   name: 'balance',
-  description: 'Melihat saldo coin.',
+  description: 'Melihat saldo Coin dan ringkasan wallet.',
   category: 'economy',
   access: 'npc',
-  aliases: ['coin', 'coins'],
+  aliases: ['coin', 'coins', 'bal'],
   usage: 'balance',
   permission: 'user',
   minArgs: 0,
@@ -14,6 +16,13 @@ export const command = {
     const wallet = ctx.economy.getWallet(ctx.senderJid, {
       pushName: ctx.message?.pushName ?? null,
     });
-    await ctx.reply(`🪙 Coin: ${wallet.coins}`);
+
+    await ctx.reply([
+      '╭─〔 *WALLET* 〕',
+      `│ 🪙 Coin    : ${formatCoins(wallet.coins)}`,
+      `│ 🔥 Streak  : ${wallet.dailyStreak} hari`,
+      `│ ⭐ Tier    : ${wallet.isPremium ? 'Premium' : 'Free'}`,
+      '╰────────────────',
+    ].join('\\n'));
   },
 };
