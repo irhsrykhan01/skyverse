@@ -28,10 +28,8 @@ export function xpForLevel(level) {
 
 export function levelFromXp(xp) {
   const safeXp = Math.max(0, Math.floor(Number(xp) || 0));
-  let level = 1;
-  while (level < 22 && xpForLevel(level + 1) <= safeXp) level += 1;
-  if (level >= 22) return level;
-  return level;
+  const rawLevel = Math.max(1, Math.floor((1 + Math.sqrt(1 + (8 * safeXp) / LEVEL_STEP)) / 2));
+  return rawLevel === 21 ? 20 : rawLevel;
 }
 
 export function titleForLevel(level) {
