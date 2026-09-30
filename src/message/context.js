@@ -4,14 +4,8 @@ import { createGroupService, createCapabilityEngine, calculate, createNewsletter
 import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark } from '../services/media/index.js';
 import { downloadResolvedMedia } from '../services/media/resolver.js';
 
-function getSenderJid(message) {
-  return message.key?.participant ?? message.key?.remoteJid ?? null;
-}
-
-function getSenderPhoneJid(message) {
-  return message.key?.participantAlt ?? message.key?.remoteJidAlt ?? null;
-}
-
+function getSenderJid(message) { return message.key?.participant ?? message.key?.remoteJid ?? null; }
+function getSenderPhoneJid(message) { return message.key?.participantAlt ?? message.key?.remoteJidAlt ?? null; }
 function getChatType(jid) {
   if (typeof jid !== 'string') return 'unknown';
   if (jid.endsWith('@g.us')) return 'group';
@@ -20,10 +14,8 @@ function getChatType(jid) {
   if (jid === 'status@broadcast') return 'status';
   return 'private';
 }
-
 function isGroupJid(jid) { return getChatType(jid) === 'group'; }
 function canQuoteMessage(chatType) { return chatType !== 'channel' && chatType !== 'broadcast'; }
-
 function getQuotedStanzaId(message) {
   const normalized = message?.message ?? message;
   const content = normalized?.extendedTextMessage ?? normalized?.imageMessage ?? normalized?.videoMessage
@@ -45,12 +37,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   const isOwner = identity.isOwner(senderPhoneJid || senderJid);
   const userRecord = existingUser ?? economy?.ensureUser(senderJid, { pushName: message.pushName ?? null });
   if (userRecord && directPhoneJid) {
-    repositories.users.upsert({
-      jid: senderJid,
-      phoneJid: directPhoneJid,
-      pushName: message.pushName ?? userRecord.push_name ?? null,
-      isBot: Boolean(userRecord.is_bot),
-    });
+    repositories.users.upsert({ jid: senderJid, phoneJid: directPhoneJid, pushName: message.pushName ?? userRecord.push_name ?? null, isBot: Boolean(userRecord.is_bot) });
   }
   const refreshedUser = repositories.users.get(senderJid) ?? userRecord;
   const directPhoneNumber = directPhoneJid ? normalizePhoneNumber(String(directPhoneJid).split('@')[0]) : null;
@@ -66,7 +53,6 @@ export function createMessageContext({ socket, message, command, registry, ident
     groupMetadataPromise ??= socket.groupMetadata(chatId);
     return groupMetadataPromise;
   }
-
   async function isAdmin() {
     if (!isGroup || !senderJid) return false;
     const metadata = await getGroupMetadata();
@@ -75,13 +61,11 @@ export function createMessageContext({ socket, message, command, registry, ident
     const participant = metadata.participants?.find((item) => [item.id, item.pn, item.lid].map(normalizeAccount).some((id) => id && senderAccounts.has(id)));
     return Boolean(participant?.admin);
   }
-
   async function permissionLevel(required = 'user') {
     if (isOwner) return getPermissionLevel({ isOwner: true });
     if (required !== 'admin') return getPermissionLevel();
     return getPermissionLevel({ isGroupAdmin: await isAdmin() });
   }
-
   async function reply(text, options = {}) {
     const sendOptions = options.sendOptions ?? {};
     const quote = options.quoted === false || !canQuoteMessage(chatType) ? {} : { quoted: message };
@@ -111,6 +95,7 @@ export function createMessageContext({ socket, message, command, registry, ident
 
   return Object.freeze({
     socket, message, config, registry, command, parsed, providers, repositories, economy,
+    profile: repositories.profile ?? null,
     chatId, chatType, senderJid, senderPhoneJid, senderNumber: userNumber,
     user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
