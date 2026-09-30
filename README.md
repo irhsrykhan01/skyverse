@@ -4,9 +4,9 @@ A modern, modular, and extensible WhatsApp bot built with Node.js and Baileys.
 
 ## Status
 
-**Stage 3 — User/Profile System + XP & Level**
+**Stage 4 — Achievement + Quest System**
 
-The current codebase includes the application foundation, WhatsApp core, Economy Core v2, and SkyVerse Profile System:
+The current codebase includes the application foundation, WhatsApp core, Economy Core v2, SkyVerse Profile System, and the new Achievement + Daily Quest layer:
 
 - Node.js 20+ runtime baseline
 - ES modules
@@ -27,6 +27,8 @@ The current codebase includes the application foundation, WhatsApp core, Economy
 - XP history and activity-based XP rewards
 - SkyVerse level progression and titles
 - XP leaderboard
+- Persistent achievement unlocks
+- Daily quest progress and claimable rewards
 
 ## SkyVerse Levels
 
@@ -44,8 +46,23 @@ Level 21 is intentionally skipped by the current title map so the requested `22+
 - `xp` / `level` / `lvl` — status XP dan level
 - `setbio <bio>` / `bio <bio>` — atur bio
 - `xplb` — leaderboard XP
+- `achievement` / `ach` — daftar achievement
+- `quest` / `misi` — daily quest
+- `quest claim <id>` — ambil reward quest yang sudah selesai
 
-Daily, Claim, and successful Coin transfers also grant XP with a global activity cooldown so repeated commands cannot rapidly farm XP.
+## Achievements
+
+Current achievements include first activity, first Daily, first Coin transfer, 1.000 Coin reward accumulation, and level milestones at 5, 10, 20, and 22.
+
+## Daily Quests
+
+Three rotating-by-day quest definitions are currently available:
+
+- `daily_claim` — ambil Daily 1 kali
+- `daily_xp` — dapatkan 30 XP dari aktivitas
+- `daily_transfer` — kirim Coin 1 kali
+
+Quest progress is stored per user and day. Completed quests must be explicitly claimed and grant their configured Coin + XP rewards.
 
 ## Development
 
@@ -78,12 +95,13 @@ If the pairing-code request cannot be generated or the number is invalid, SkyVer
 
 ## Verification
 
-Run the syntax check, smoke test, and profile smoke test before deploying:
+Run all checks before deploying:
 
 ```bash
 npm run check
 npm run smoke
-node src/diagnostics/profile-smoke.js
+npm run smoke:profile
+npm run smoke:progression
 ```
 
-The smoke test covers command loading, provider wiring, media helpers, economy, games, rich messages, and media-target regressions. The profile smoke test validates the SkyVerse XP curve and title boundaries.
+The progression smoke test validates achievement unlocks, daily quest progress, and quest reward claiming.
