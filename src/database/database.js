@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import initSqlJs from 'sql.js';
+import { economyConfig } from '../economy/config.js';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const WASM_DIR = join(MODULE_DIR, '../../node_modules/sql.js/dist');
@@ -22,62 +23,106 @@ export async function createDatabase(databasePath, logger) {
 
   database.exec(`
     PRAGMA foreign_keys = ON;
+
     CREATE TABLE IF NOT EXISTS users (
-      jid TEXT PRIMARY KEY, number TEXT, push_name TEXT,
-      is_bot INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
-      coins INTEGER NOT NULL DEFAULT 100,
+      jid TEXT PRIMARY KEY,
+      number TEXT,
+      push_name TEXT,
+      is_bot INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      coins INTEGER NOT NULL DEFAULT ${economyConfig.startingCoins},
       is_premium INTEGER NOT NULL DEFAULT 0,
       premium_until INTEGER,
-      last_claim_at INTEGER NOT NULL DEFAULT 0
+      last_claim_at INTEGER NOT NULL DEFAULT 0,
+      daily_streak INTEGER NOT NULL DEFAULT 0,
+      last_daily_at INTEGER NOT NULL DEFAULT 0
     );
+
     CREATE TABLE IF NOT EXISTS groups (
-      jid TEXT PRIMARY KEY, subject TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+      jid TEXT PRIMARY KEY,
+      subject TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
     );
+
     CREATE TABLE IF NOT EXISTS settings (
-      scope TEXT NOT NULL, scope_id TEXT NOT NULL, key TEXT NOT NULL,
-      value TEXT, updated_at INTEGER NOT NULL,
+      scope TEXT NOT NULL,
+      scope_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT,
+      updated_at INTEGER NOT NULL,
       PRIMARY KEY (scope, scope_id, key)
     );
+
     CREATE TABLE IF NOT EXISTS command_stats (
-      command TEXT PRIMARY KEY, usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL
+      command TEXT PRIMARY KEY,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
     );
+
     CREATE TABLE IF NOT EXISTS user_command_stats (
-      user_jid TEXT NOT NULL, command TEXT NOT NULL,
-      usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL,
+      user_jid TEXT NOT NULL,
+      command TEXT NOT NULL,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
       PRIMARY KEY (user_jid, command)
     );
+
     CREATE TABLE IF NOT EXISTS economy_transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_jid TEXT NOT NULL,
       type TEXT NOT NULL,
       amount INTEGER NOT NULL,
       balance_after INTEGER NOT NULL,
+      counterparty_jid TEXT,
       reason TEXT,
       created_at INTEGER NOT NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_economy_transactions_user_id
+      ON economy_transactions (user_jid, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_users_coins
+      ON users (coins DESC);
   `);
 
   const migrationStatement = database.prepare('PRAGMA table_info(users)');
-  const columns = [];
+  const userColumns = [];
   try {
-    while (migrationStatement.step()) columns.push(migrationStatement.getAsObject().name);
+    while (migrationStatement.step()) userColumns.push(migrationStatement.getAsObject().name);
   } finally {
     migrationStatement.free();
   }
 
+  const transactionMigrationStatement = database.prepare('PRAGMA table_info(economy_transactions)');
+  const transactionColumns = [];
+  try {
+    while (transactionMigrationStatement.step()) transactionColumns.push(transactionMigrationStatement.getAsObject().name);
+  } finally {
+    transactionMigrationStatement.free();
+  }
+
   const migrations = [
-    ['coins', 'ALTER TABLE users ADD COLUMN coins INTEGER NOT NULL DEFAULT 100'],
+    ['coins', `ALTER TABLE users ADD COLUMN coins INTEGER NOT NULL DEFAULT ${economyConfig.startingCoins}`],
     ['is_premium', 'ALTER TABLE users ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0'],
     ['premium_until', 'ALTER TABLE users ADD COLUMN premium_until INTEGER'],
     ['last_claim_at', 'ALTER TABLE users ADD COLUMN last_claim_at INTEGER NOT NULL DEFAULT 0'],
+    ['daily_streak', 'ALTER TABLE users ADD COLUMN daily_streak INTEGER NOT NULL DEFAULT 0'],
+    ['last_daily_at', 'ALTER TABLE users ADD COLUMN last_daily_at INTEGER NOT NULL DEFAULT 0'],
   ];
 
   let migrated = false;
   for (const [name, sql] of migrations) {
-    if (!columns.includes(name)) {
+    if (!userColumns.includes(name)) {
       database.exec(sql);
       migrated = true;
     }
+  }
+
+  if (!transactionColumns.includes('counterparty_jid')) {
+    database.exec('ALTER TABLE economy_transactions ADD COLUMN counterparty_jid TEXT');
+    migrated = true;
   }
 
   let dirty = true;
