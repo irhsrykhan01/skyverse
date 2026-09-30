@@ -1,6 +1,8 @@
+import { formatCoins } from '../../economy/config.js';
+
 export const command = {
   name: 'claim',
-  description: 'Mengambil bonus coin berkala.',
+  description: 'Mengambil bonus Coin berkala setiap 3 jam.',
   category: 'economy',
   access: 'npc',
   aliases: [],
@@ -18,10 +20,17 @@ export const command = {
     if (!result.ok) {
       const hours = Math.floor(result.remaining / 3600000);
       const minutes = Math.ceil((result.remaining % 3600000) / 60000);
-      await ctx.reply(`Claim berikutnya dalam ${hours}j ${minutes}m.\n🪙 Coin: ${result.balance}`);
+      await ctx.reply([
+        `Claim berikutnya dalam ${hours}j ${minutes}m.`,
+        `🪙 Saldo: ${formatCoins(result.balance)}`,
+      ].join('\\n'));
       return;
     }
 
-    await ctx.reply(`🎁 Claim berhasil! +${result.amount} 🪙\n🪙 Coin: ${result.balance}`);
+    await ctx.reply([
+      '🎁 *CLAIM BERHASIL*',
+      `+${formatCoins(result.amount)} 🪙`,
+      `🪙 Saldo: ${formatCoins(result.balance)}`,
+    ].join('\\n'));
   },
 };
