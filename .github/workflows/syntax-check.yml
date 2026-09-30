@@ -2,7 +2,7 @@ name: SkyVerse Checks
 
 on:
   push:
-    branches: [main, upgrade/economy-core-v2, upgrade/user-profile-system]
+    branches: [main, upgrade/economy-core-v2, upgrade/user-profile-system, upgrade/whatsapp-connection-recovery]
   workflow_dispatch:
 
 jobs:
