@@ -10,6 +10,7 @@ import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { EconomyCore, economyDefaults } from '../economy/core.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
+import { isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -50,6 +51,15 @@ assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
+
+assert(isInvalidSessionDisconnect(401), 'WhatsApp logged-out status is not recoverable.');
+assert(isInvalidSessionDisconnect(440), 'WhatsApp connection-replaced status is not recoverable.');
+assert(isInvalidSessionDisconnect(500), 'WhatsApp bad-session status is not recoverable.');
+assert(!isInvalidSessionDisconnect(408), 'WhatsApp timeout should use normal reconnect.');
+assert(!isInvalidSessionDisconnect(515), 'WhatsApp restart-required should use normal reconnect.');
+assert(recoveryDelay(1) === 1000 && recoveryDelay(4) === 8000, 'WhatsApp recovery backoff contract failed.');
+assert(recoveryReason(401) === 'logged_out', 'WhatsApp recovery reason mapping failed.');
+assert(recoveryReason(440) === 'connection_replaced', 'WhatsApp connection-replaced reason mapping failed.');
 
 const fakeUsers = new Map([
   ['smoke@lid', { jid: 'smoke@lid', number: '628000000000', push_name: 'Smoke User', coins: economyDefaults.newUserCoins, is_premium: 0, premium_until: null, last_claim_at: 0, daily_streak: 0, last_daily_at: 0, is_bot: 0 }],
