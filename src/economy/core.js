@@ -68,6 +68,7 @@ export class EconomyCore {
     this.ensureUser(id, options);
     const value = validAmount(amount);
     if (value === null) return this.getCoins(id);
+
     const result = this.repositories.economy.credit({
       userJid: id,
       amount: value,
@@ -79,14 +80,17 @@ export class EconomyCore {
   spendCoins(id, amount, reason = 'feature', options = {}) {
     this.ensureUser(id, options);
     const value = validAmount(amount);
+
     if (value === null) {
       return {
         ok: false,
         balance: this.getCoins(id),
         spent: 0,
         required: Math.max(0, Math.floor(Number(amount) || 0)),
+        reason: 'invalid_amount',
       };
     }
+
     return this.repositories.economy.debit({
       userJid: id,
       amount: value,
@@ -97,6 +101,7 @@ export class EconomyCore {
   canClaim(id, now = Date.now(), options = {}) {
     const user = this.ensureUser(id, options);
     const remainingMs = remaining(now, user.last_claim_at, economyConfig.claim.cooldownMs);
+
     return Object.freeze({
       ok: remainingMs === 0,
       remaining: remainingMs,
@@ -106,6 +111,7 @@ export class EconomyCore {
 
   claim(id, now = Date.now(), options = {}) {
     this.ensureUser(id, options);
+
     const amount = Math.floor(
       Math.random() * (economyConfig.claim.maxReward - economyConfig.claim.minReward + 1),
     ) + economyConfig.claim.minReward;
@@ -122,6 +128,7 @@ export class EconomyCore {
   canDaily(id, now = Date.now(), options = {}) {
     const user = this.ensureUser(id, options);
     const remainingMs = remaining(now, user.last_daily_at, economyConfig.daily.cooldownMs);
+
     return Object.freeze({
       ok: remainingMs === 0,
       remaining: remainingMs,
@@ -132,6 +139,7 @@ export class EconomyCore {
 
   daily(id, now = Date.now(), options = {}) {
     this.ensureUser(id, options);
+
     return this.repositories.economy.daily({
       userJid: id,
       now,
@@ -146,7 +154,17 @@ export class EconomyCore {
 
   transfer(fromId, toId, amount, reason = 'transfer') {
     if (!fromId || !toId) throw new Error('Pengirim dan penerima Coin wajib diisi.');
-    if (fromId === toId) return { ok: false, reason: 'self_transfer', balance: this.getCoins(fromId) };
+
+    this.ensureUser(fromId);
+    this.ensureUser(toId);
+
+    if (fromId === toId) {
+      return {
+        ok: false,
+        reason: 'self_transfer',
+        balance: this.getCoins(fromId),
+      };
+    }
 
     const value = validAmount(amount);
     if (value === null) {
@@ -158,10 +176,7 @@ export class EconomyCore {
       };
     }
 
-    this.ensureUser(fromId);
-    this.ensureUser(toId);
-
-    return this.repositories.economy.transfer({
+    return this.repositories.economy.transferBetween({
       fromUserJid: fromId,
       toUserJid: toId,
       amount: value,
@@ -172,12 +187,24 @@ export class EconomyCore {
 
   history(id, limit = economyConfig.limits.historyLimit) {
     this.ensureUser(id);
-    const safeLimit = Math.max(1, Math.min(economyConfig.limits.historyLimit, Number(limit) || economyConfig.limits.historyLimit));
+
+    const safeLimit = Math.max(
+      1,
+      Math.min(
+        economyConfig.limits.historyLimit,
+        Number(limit) || economyConfig.limits.historyLimit,
+      ),
+    );
+
     return this.repositories.economy.history(id, safeLimit);
   }
 
   leaderboard(limit = economyConfig.limits.leaderboardLimit) {
-    const safeLimit = Math.max(1, Math.min(100, Number(limit) || economyConfig.limits.leaderboardLimit));
+    const safeLimit = Math.max(
+      1,
+      Math.min(100, Number(limit) || economyConfig.limits.leaderboardLimit),
+    );
+
     return this.repositories.economy.leaderboard(safeLimit);
   }
 }
