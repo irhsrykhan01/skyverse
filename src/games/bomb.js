@@ -55,6 +55,19 @@ function makeBoard(opened = new Set()) {
   return rows.join('\n');
 }
 
+function publicSession(session) {
+  return {
+    userId: session.userId,
+    chatId: session.chatId,
+    gameMessageId: session.gameMessageId,
+    opened: new Set(session.opened),
+    startedAt: session.startedAt,
+    lastActionAt: session.lastActionAt,
+    board: makeBoard(session.opened),
+    bomb: undefined,
+  };
+}
+
 export function startBombGame(userId, { chatId = null, gameMessageId = null, now = Date.now() } = {}) {
   const session = {
     userId,
@@ -67,13 +80,7 @@ export function startBombGame(userId, { chatId = null, gameMessageId = null, now
   };
 
   sessions.set(userId, session);
-
-  return {
-    ...session,
-    opened: new Set(session.opened),
-    board: makeBoard(session.opened),
-    bomb: undefined,
-  };
+  return publicSession(session);
 }
 
 export function getBombGame(userId) {
@@ -85,12 +92,7 @@ export function getBombGame(userId) {
     return null;
   }
 
-  return {
-    ...session,
-    opened: new Set(session.opened),
-    board: makeBoard(session.opened),
-    bomb: undefined,
-  };
+  return publicSession(session);
 }
 
 export function updateBombMessage(userId, gameMessageId) {
