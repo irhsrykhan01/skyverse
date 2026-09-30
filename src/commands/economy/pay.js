@@ -29,8 +29,9 @@ function resolveTarget(ctx) {
   const number = normalizePhoneNumber(rawTarget);
   if (!number) return { jid: null, amount: Number(rawAmount) };
 
+  const user = ctx.repositories.users.findByNumber(number);
   return {
-    jid: `${number}@s.whatsapp.net`,
+    jid: user?.jid ?? null,
     amount: Number(rawAmount),
   };
 }
@@ -49,12 +50,13 @@ export const command = {
   cost: 0,
   async execute(ctx) {
     const { jid: target, amount } = resolveTarget(ctx);
-    if (!target) throw new Error('Format salah. Contoh: pay @user 100');
+    if (!target) throw new Error('Penerima belum terdaftar di SkyVerse atau format nomor tidak sesuai. Contoh: pay @user 100');
     if (!Number.isInteger(amount) || amount < 1) throw new Error('Jumlah Coin harus bilangan bulat minimal 1.');
 
     const result = ctx.economy.transfer(ctx.senderJid, target, amount, 'user:transfer');
     if (!result.ok) {
       if (result.reason === 'self_transfer') throw new Error('Kamu tidak bisa mengirim Coin ke diri sendiri.');
+      if (result.reason === 'recipient_not_found') throw new Error('Penerima belum terdaftar di SkyVerse.');
       if (result.reason === 'insufficient_funds') {
         throw new Error(`Coin tidak cukup. Saldo kamu ${formatCoins(result.balance)} 🪙.`);
       }
