@@ -45,7 +45,11 @@ function assertRuntime() {
 }
 
 async function main() {
-  clearTerminal(); installNoiseFilter(); console.log(ASCII_BANNER); logger.info('SkyVerse dimulai!'); assertRuntime();
+  clearTerminal();
+  installNoiseFilter();
+  console.log(ASCII_BANNER);
+  logger.info('SkyVerse dimulai!');
+  assertRuntime();
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
   const economy = new EconomyCore({ repositories, logger });
