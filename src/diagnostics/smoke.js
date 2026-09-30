@@ -95,7 +95,7 @@ assert(visibleBomb?.userId === 'smoke', 'Bomb game session contract failed.');
 assert(visibleBomb?.gameMessageId === null, 'Bomb game message-id contract failed.');
 assert(visibleBomb?.bomb === undefined, 'Bomb location leaked from public session contract.');
 assert(visibleBomb?.opened instanceof Set, 'Bomb game opened-state contract failed.');
-assert(Number.isInteger(bombSession?.bomb) && bombSession.bomb >= 1 && bombSession.bomb <= 9, 'Bomb game internal bomb contract failed.');
+assert(bombSession?.bomb === undefined, 'Bomb game start API leaked the internal bomb.');
 assert(guessBomb('smoke', 0).reason === 'invalid', 'Bomb game invalid-input contract failed.');
 stopBombGame('smoke');
 
