@@ -2,7 +2,7 @@ name: SkyVerse Checks
 
 on:
   push:
-    branches: [main, upgrade/economy-core-v2]
+    branches: [main, upgrade/economy-core-v2, upgrade/user-profile-system]
   workflow_dispatch:
 
 jobs:
@@ -19,3 +19,5 @@ jobs:
         run: npm run check
       - name: Run smoke test
         run: npm run smoke
+      - name: Run profile smoke test
+        run: node src/diagnostics/profile-smoke.js
