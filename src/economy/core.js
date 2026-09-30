@@ -156,7 +156,13 @@ export class EconomyCore {
     if (!fromId || !toId) throw new Error('Pengirim dan penerima Coin wajib diisi.');
 
     this.ensureUser(fromId);
-    this.ensureUser(toId);
+    if (!this.getUser(toId)) {
+      return {
+        ok: false,
+        reason: 'recipient_not_found',
+        balance: this.getCoins(fromId),
+      };
+    }
 
     if (fromId === toId) {
       return {
