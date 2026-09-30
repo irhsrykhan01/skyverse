@@ -7,7 +7,7 @@ import { createMessageEngine } from './message/engine.js';
 import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createIdentity } from './security/identity.js';
 import { createProviderManager } from './services/providers/manager.js';
-import { EconomyManager } from './economy/manager.js';
+import { EconomyCore } from './economy/core.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
@@ -58,7 +58,7 @@ async function main() {
 
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
-  const economy = new EconomyManager({ repositories });
+  const economy = new EconomyCore({ repositories, logger });
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
 
