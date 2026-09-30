@@ -1,43 +1,25 @@
-function getTarget(ctx) {
-  const mentioned = ctx.message?.message?.extendedTextMessage?.contextInfo?.mentionedJid
-    ?? ctx.message?.message?.imageMessage?.contextInfo?.mentionedJid
-    ?? ctx.message?.message?.videoMessage?.contextInfo?.mentionedJid;
-  if (Array.isArray(mentioned) && mentioned[0]) return mentioned[0];
-  return ctx.senderJid;
-}
-
 export const command = {
-  name: 'profile',
-  description: 'Menampilkan profile user dan statistik command.',
+  name: 'userprofile',
+  description: 'Menampilkan ringkasan akun user dan statistik command.',
   category: 'general',
-  aliases: ['me'],
-  usage: 'profile [@user]',
+  aliases: ['uprof'],
+  usage: 'userprofile',
   permission: 'user',
   minArgs: 0,
-  maxArgs: null,
+  maxArgs: 0,
   cooldown: 3000,
   async execute(ctx) {
-    const target = getTarget(ctx);
-    const user = ctx.repositories.users.get(target);
-    const stats = ctx.repositories.commands.userStats(100).find((item) => item.user_jid === target);
-    const afkRaw = ctx.repositories.settings.get('user', target, 'user.afk', null);
-    let afkText = 'Tidak';
-    try {
-      const afk = afkRaw ? JSON.parse(afkRaw) : null;
-      if (afk?.enabled) afkText = `Ya — ${afk.reason || 'AFK'}`;
-    } catch {}
-
-    const name = user?.push_name || target?.split('@')[0] || 'Unknown';
+    const profile = ctx.profile.getProfile(ctx.senderJid, { pushName: ctx.message?.pushName ?? null });
+    const stats = ctx.repositories.commands.userStats(100).find((item) => item.user_jid === ctx.senderJid);
     await ctx.reply([
-      '╭─〔 *PROFILE* 〕',
-      `│ Nama     : ${name}`,
-      `│ Nomor    : +${user?.number || target?.split('@')[0] || '-'}`,
+      '╭─〔 *USER PROFILE* 〕',
+      `│ Nama     : ${profile.name}`,
       `│ Commands : ${Number(stats?.usage_count || 0)}`,
-      `│ AFK      : ${afkText}`,
-      user?.created_at ? `│ Sejak    : ${new Date(user.created_at).toLocaleDateString('id-ID')}` : '│ Sejak    : -',
+      `│ Level    : ${profile.level}`,
+      `│ Gelar    : ${profile.title}`,
+      `│ XP       : ${profile.xp}`,
+      `│ Coin     : ${ctx.economy.format(profile.coins)}`,
       '╰────────────────',
-    ].join('\n'), {
-      sendOptions: target?.includes('@') ? { mentions: [target] } : {},
-    });
+    ].join('\n'));
   },
 };
