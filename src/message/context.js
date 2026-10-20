@@ -63,8 +63,6 @@ export function createMessageContext({ socket, message, command, registry, ident
 
   return Object.freeze({
     socket, message, config, registry, command, parsed, providers, repositories,
-    profile: repositories.profile ?? null,
-    progression: repositories.progression ?? null,
     chatId, chatType, senderJid, senderPhoneJid, senderNumber: userNumber,
     user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,

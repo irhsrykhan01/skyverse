@@ -7,8 +7,6 @@ import { createMessageEngine } from './message/engine.js';
 import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createIdentity } from './security/identity.js';
 import { createProviderManager } from './services/providers/manager.js';
-import { ProfileCore } from './profile/core.js';
-import { ProgressionCore } from './progression/core.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
@@ -51,15 +49,13 @@ async function main() {
   assertRuntime();
   const database = await createDatabase(config.databasePath, logger);
   const repositories = createRepositories(database);
-  const profile = new ProfileCore({ database, repositories, logger });
-  const progression = new ProgressionCore({ database, profile, logger });
-  const contextRepositories = Object.freeze({ ...repositories, profile, progression });
+  const contextRepositories = repositories;
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
 
   let messageEngine;
   const whatsapp = createWhatsAppConnection({ config, logger, onSocket: async (socket) => messageEngine.attach(socket) });
-  messageEngine = createMessageEngine({ config, logger, identity, registry, repositories: contextRepositories, profile, progression, providers });
+  messageEngine = createMessageEngine({ config, logger, identity, registry, repositories: contextRepositories, providers });
   lifecycle = createLifecycle({ logger, whatsapp, database });
   logger.info('Menghubungkan ke WhatsApp...');
   await lifecycle.start();

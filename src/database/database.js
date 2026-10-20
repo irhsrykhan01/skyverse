@@ -19,19 +19,13 @@ export async function createDatabase(databasePath, logger) {
       jid TEXT PRIMARY KEY, number TEXT, push_name TEXT, is_bot INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
       is_premium INTEGER NOT NULL DEFAULT 0, premium_until INTEGER,
-      xp INTEGER NOT NULL DEFAULT 0, bio TEXT,
+      
       last_active_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS groups (jid TEXT PRIMARY KEY, subject TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS settings (scope TEXT NOT NULL, scope_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY (scope, scope_id, key));
     CREATE TABLE IF NOT EXISTS command_stats (command TEXT PRIMARY KEY, usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS user_command_stats (user_jid TEXT NOT NULL, command TEXT NOT NULL, usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY (user_jid, command));
-    CREATE TABLE IF NOT EXISTS xp_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_jid TEXT NOT NULL, amount INTEGER NOT NULL, xp_after INTEGER NOT NULL, source TEXT NOT NULL, created_at INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS user_achievements (user_jid TEXT NOT NULL, achievement_id TEXT NOT NULL, unlocked_at INTEGER NOT NULL, PRIMARY KEY (user_jid, achievement_id));
-    CREATE TABLE IF NOT EXISTS quest_progress (user_jid TEXT NOT NULL, quest_id TEXT NOT NULL, period_key TEXT NOT NULL, progress INTEGER NOT NULL DEFAULT 0, completed_at INTEGER, claimed_at INTEGER, PRIMARY KEY (user_jid, quest_id, period_key));
-    CREATE INDEX IF NOT EXISTS idx_xp_transactions_user_id ON xp_transactions (user_jid, id DESC);
-    CREATE INDEX IF NOT EXISTS idx_users_xp ON users (xp DESC);
-    CREATE INDEX IF NOT EXISTS idx_quest_progress_user_period ON quest_progress (user_jid, period_key);
   `);
 
   const migrationStatement = database.prepare('PRAGMA table_info(users)');
@@ -40,7 +34,6 @@ export async function createDatabase(databasePath, logger) {
   const migrations = [
     ['is_premium', 'ALTER TABLE users ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0'],
     ['premium_until', 'ALTER TABLE users ADD COLUMN premium_until INTEGER'],
-    ['xp', 'ALTER TABLE users ADD COLUMN xp INTEGER NOT NULL DEFAULT 0'],
     ['bio', 'ALTER TABLE users ADD COLUMN bio TEXT'],
     ['last_active_at', 'ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0'],
   ];
