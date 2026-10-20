@@ -11,8 +11,9 @@ export const command = {
   cooldown: 0,
   cost: 0,
   async execute(ctx) {
-    if (ctx.args[0]?.toLowerCase() === 'claim') {
-      const questId = ctx.args[1];
+    const args = ctx.parsed?.args ?? [];
+    if (args[0]?.toLowerCase() === 'claim') {
+      const questId = args[1];
       if (!questId) throw new Error('Gunakan: quest claim <id>.');
       const result = ctx.progression.claimQuest(ctx.senderJid, questId);
       if (!result.ok) {
