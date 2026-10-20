@@ -97,7 +97,7 @@ export function createRepositories(database) {
   function getUser(jid) {
     return jid ? database.get(
       `SELECT jid, number, push_name, is_bot, created_at, updated_at,
-              coins, is_premium, premium_until, last_claim_at
+              coins, xp, is_premium, premium_until, last_claim_at
        FROM users WHERE jid = ?`,
       [jid],
     ) : undefined;
