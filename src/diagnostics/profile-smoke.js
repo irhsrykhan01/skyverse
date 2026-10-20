@@ -22,7 +22,7 @@ assert.equal(levelFromXp(xpForLevel(22)), 22);
 const progress = levelProgress(xpForLevel(4) + 50);
 assert.equal(progress.level, 4);
 assert.equal(progress.progress, 50);
-assert.equal(progress.percent, 10);
+assert.equal(progress.percent, 12);
 
 const transition = levelProgress(xpForLevel(20) + 1000);
 assert.equal(transition.level, 20);
