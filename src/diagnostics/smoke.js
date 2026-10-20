@@ -19,7 +19,7 @@ const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'daily', 'pay', 'coinlog', 'coinlb']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'daily', 'pay', 'coinlog', 'coinlb', 'achievement', 'quest', 'profile', 'userprofile', 'xp', 'xplb']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); assert(Number.isInteger(command.cost) && command.cost >= 0, `Invalid coin cost: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -32,6 +32,12 @@ assert(registry.resolve('ig')?.name === 'instagram', 'Instagram command alias re
 assert(registry.resolve('instagram')?.name === 'instagram', 'Instagram command name regression.');
 assert(registry.resolve('yt')?.name === 'youtube', 'YouTube command alias regression.');
 assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name regression.');
+assert(registry.resolve('ach')?.name === 'achievement', 'Achievement alias regression.');
+assert(registry.resolve('achievements')?.name === 'achievement', 'Achievements alias regression.');
+assert(registry.resolve('prestasi')?.name === 'achievement', 'Prestasi alias regression.');
+assert(registry.resolve('quests')?.name === 'quest', 'Quests alias regression.');
+assert(registry.resolve('misi')?.name === 'quest', 'Misi alias regression.');
+assert(registry.resolve('mission')?.name === 'quest', 'Mission alias regression.');
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
