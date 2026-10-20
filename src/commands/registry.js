@@ -64,7 +64,6 @@ function validateCommand(command, file) {
     minArgs,
     maxArgs,
     cooldown,
-    cost,
     hidden: blocked || command.hidden === true,
     enabled: !blocked && command.enabled !== false,
   });
