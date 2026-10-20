@@ -42,7 +42,7 @@ function userInputMessage(error) {
   return prefix ? message.slice(prefix.length).trim() : null;
 }
 
-export function createMessageEngine({ config, logger, identity, registry, repositories, economy, providers }) {
+export function createMessageEngine({ config, logger, identity, registry, repositories, providers }) {
   const seen = new Map();
   const cooldowns = new Map();
   const newsletterMessages = new Map();
@@ -162,14 +162,10 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
         return;
       }
       if (result.result === 'safe') {
-        economy.addCoins(senderJid, result.reward, 'game:board:win');
-        const sent = await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → ✅', '+' + result.reward + ' 🪙', '', 'Pilih angka berikutnya!', '', result.board, '', 'Ketikkan angka dan Reply pesan ini.'].join('\n') }, { quoted: message });
+        const sent = await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → ✅', '', 'Pilih angka berikutnya!', '', result.board, '', 'Ketikkan angka dan Reply pesan ini.'].join('\n') }, { quoted: message });
         updateBombMessage(senderJid, sent?.key?.id ?? null);
       } else {
-        const wallet = economy.getWallet(senderJid);
-        const penalty = Math.min(wallet.coins, result.penalty);
-        if (penalty > 0) economy.spendCoins(senderJid, penalty, 'game:board:loss');
-        await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → 💣', '', 'BOOM!! 💥💥', '', '- ' + penalty + ' 🪙', 'Game selesai!'].join('\n') }, { quoted: message });
+        await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → 💣', '', 'BOOM!! 💥💥', '', 'Game selesai!'].join('\n') }, { quoted: message });
       }
       return;
     }
@@ -180,13 +176,9 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const command = registry.resolve(parsed.name);
     if (!command) return;
 
-    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage, resolveGroupMessage });
+    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, resolveNewsletterMessage, resolveGroupMessage });
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) { await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.'); return; }
-    if (command.cost > 0 && !context.isOwner) {
-      const wallet = economy.getWallet(senderJid);
-      if (wallet.coins < command.cost) { await context.reply(`Coin tidak cukup. Butuh ${command.cost} 🪙, saldo kamu ${wallet.coins} 🪙.`); return; }
-    }
     if (parsed.args.length < command.minArgs || (command.maxArgs !== null && parsed.args.length > command.maxArgs)) {
       const usage = command.usage ? `${config.prefix}${command.usage}` : `${config.prefix}${command.name}`;
       await context.reply(`Format penggunaan tidak sesuai.\n\nUsage: ${usage}`); return;
@@ -201,13 +193,8 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
     let slowReactionTimer = null;
     let slowReactionShown = false;
-    let payment = null;
     try {
-      if (command.cost > 0 && !context.isOwner) {
-        payment = economy.spendCoins(senderJid, command.cost, `command:${command.name}`);
-        if (!payment.ok) { if (cooldownKey) cooldowns.delete(cooldownKey); await context.reply(`Coin tidak cukup. Butuh ${payment.required} 🪙, saldo kamu ${payment.balance} 🪙.`); return; }
-      }
-      repositories.commands.increment(command.name, senderJid);
+            repositories.commands.increment(command.name, senderJid);
       slowReactionTimer = setTimeout(async () => { slowReactionShown = true; await safeReact(context, '⏳'); }, slowCommandDelay);
       await command.execute(context);
       if (slowReactionShown) await safeReact(context, '✅');
@@ -215,9 +202,6 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     } catch (error) {
       const code = errorCode(error);
       const friendly = userInputMessage(error);
-      if (payment?.ok) {
-        try { economy.addCoins(senderJid, payment.spent, `refund:command:${command.name}`); } catch (refundError) { logger.error(`Error refund = ${refundError?.message ?? String(refundError)}`); }
-      }
       if (cooldownKey) cooldowns.delete(cooldownKey);
       logger.error(`Error${code ? ` ${code}` : ''} = ${error?.message ?? String(error)}`);
       if (slowReactionShown) await safeReact(context, '❌');

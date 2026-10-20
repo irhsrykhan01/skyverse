@@ -13,7 +13,7 @@ export class ProfileCore {
     const user = this.ensureUser(jid, options);
     const profile = this.database.get('SELECT jid, xp, bio, last_active_at FROM users WHERE jid = ?', [jid]) ?? { jid, xp: 0, bio: null, last_active_at: 0 };
     const progress = levelProgress(profile.xp);
-    return Object.freeze({ jid, number: user.number ?? null, name: user.push_name ?? 'SkyWalker', bio: profile.bio ?? null, coins: Math.max(0, integer(user.coins)), xp: progress.currentXp, level: progress.level, title: progress.title, progress: progress.progress, needed: progress.needed, percent: progress.percent, streak: Math.max(0, integer(user.daily_streak)), premium: Boolean(user.is_premium), createdAt: integer(user.created_at) });
+    return Object.freeze({ jid, number: user.number ?? null, name: user.push_name ?? 'SkyWalker', bio: profile.bio ?? null, xp: progress.currentXp, level: progress.level, title: progress.title, progress: progress.progress, needed: progress.needed, percent: progress.percent, premium: Boolean(user.is_premium), createdAt: integer(user.created_at) });
   }
   setBio(jid, bio, options = {}) {
     this.ensureUser(jid, options); const value = cleanBio(bio);
@@ -46,7 +46,7 @@ export class ProfileCore {
   getProgress(jid) { const row = this.database.get('SELECT xp FROM users WHERE jid = ?', [jid]); return levelProgress(row?.xp ?? 0); }
   xpHistory(jid, limit = 10) { this.ensureUser(jid); return this.database.all(`SELECT amount, xp_after, source, created_at FROM xp_transactions WHERE user_jid = ? ORDER BY id DESC LIMIT ?`, [jid, Math.max(1, Math.min(50, integer(limit, 10)))]); }
   leaderboard(limit = 10) {
-    const rows = this.database.all(`SELECT jid, push_name, xp, coins FROM users WHERE is_bot = 0 ORDER BY xp DESC, coins DESC, updated_at ASC LIMIT ?`, [Math.max(1, Math.min(100, integer(limit, 10)))]);
-    return rows.map((row, index) => { const progress = levelProgress(row.xp); return { rank: index + 1, jid: row.jid, name: row.push_name ?? 'SkyWalker', xp: progress.currentXp, level: progress.level, title: progress.title, coins: Math.max(0, integer(row.coins)) }; });
+    const rows = this.database.all(`SELECT jid, push_name, xp FROM users WHERE is_bot = 0 ORDER BY xp DESC, updated_at ASC LIMIT ?`, [Math.max(1, Math.min(100, integer(limit, 10)))]);
+    return rows.map((row, index) => { const progress = levelProgress(row.xp); return { rank: index + 1, jid: row.jid, name: row.push_name ?? 'SkyWalker', xp: progress.currentXp, level: progress.level, title: progress.title }; });
   }
 }

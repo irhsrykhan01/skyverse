@@ -62,17 +62,7 @@ export class ProgressionCore {
     const profile = this.profile.getProfile(jid);
 
     if (event === 'activity') unlocked.push(this.unlock(jid, achievementConfig.firstSteps.id, now));
-    if (event === 'daily') unlocked.push(this.unlock(jid, achievementConfig.dailyRitual.id, now));
-    if (event === 'transfer') unlocked.push(this.unlock(jid, achievementConfig.socialSky.id, now));
-    if (event === 'reward_total') {
-      const total = this.database.get(
-        `SELECT COALESCE(SUM(amount), 0) AS total
-         FROM economy_transactions
-         WHERE user_jid = ? AND type = 'credit'`,
-        [jid],
-      );
-      if (integer(total?.total) >= 1000) unlocked.push(this.unlock(jid, achievementConfig.coinHunter.id, now));
-    }
+
     if (profile.level >= 5) unlocked.push(this.unlock(jid, achievementConfig.levelFive.id, now));
     if (profile.level >= 10) unlocked.push(this.unlock(jid, achievementConfig.levelTen.id, now));
     if (profile.level >= 20) unlocked.push(this.unlock(jid, achievementConfig.levelTwenty.id, now));
@@ -162,7 +152,7 @@ export class ProgressionCore {
         'UPDATE quest_progress SET claimed_at = ? WHERE user_jid = ? AND quest_id = ? AND period_key = ?',
         [now, jid, questId, key],
       );
-      result = { ok: true, quest, progress, xp: quest.xp, coins: quest.coins };
+      result = { ok: true, quest, progress, xp: quest.xp };
     });
 
     if (result?.ok) {

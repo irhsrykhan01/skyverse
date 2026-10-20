@@ -25,15 +25,12 @@ export const command = {
         await ctx.reply(messages[result.reason] ?? 'Quest belum bisa di-claim.');
         return;
       }
-      const coinResult = ctx.economy.addCoins(ctx.senderJid, result.coins, `quest:${result.quest.id}`);
       const xpAdded = result.xpResult?.added ?? 0;
       await ctx.reply([
         '🎯 *QUEST SELESAI!*',
         `${result.quest.name}`,
-        `+${result.coins} 🪙`,
         `+${xpAdded} XP ✨`,
         result.xpResult?.leveledUp ? `🎉 Level Up → Lv.${result.xpResult.level} ${result.xpResult.title}` : '',
-        coinResult != null ? `🪙 Saldo: ${ctx.economy.format(coinResult)}` : '',
       ].filter(Boolean).join('\n'));
       return;
     }
@@ -42,7 +39,7 @@ export const command = {
     await ctx.reply([
       '🎯 *DAILY QUEST SKYVERSE*',
       '',
-      ...quests.map((quest) => `${quest.completed ? (quest.claimed ? '✅' : '🎁') : '▫️'} *${quest.name}* [${quest.id}]\n   ${quest.description}\n   Progress: ${quest.progress}/${quest.target} · +${quest.xp} XP · +${quest.coins} 🪙`),
+      ...quests.map((quest) => `${quest.completed ? (quest.claimed ? '✅' : '🎁') : '▫️'} *${quest.name}* [${quest.id}]\n   ${quest.description}\n   Progress: ${quest.progress}/${quest.target} · +${quest.xp} XP`),
       '',
       'Claim: `.quest claim <id>`',
     ].join('\n'));

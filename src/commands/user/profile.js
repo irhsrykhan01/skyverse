@@ -18,7 +18,6 @@ export const command = {
       `│ Level    : ${profile.level}`,
       `│ Gelar    : ${profile.title}`,
       `│ XP       : ${profile.xp}`,
-      `│ Coin     : ${ctx.economy.format(profile.coins)}`,
       '╰────────────────',
     ].join('\n'));
   },

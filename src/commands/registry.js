@@ -48,10 +48,10 @@ function validateCommand(command, file) {
   const minArgs = Number.isInteger(command.minArgs) && command.minArgs >= 0 ? command.minArgs : 0;
   const maxArgs = Number.isInteger(command.maxArgs) && command.maxArgs >= minArgs ? command.maxArgs : null;
   const cooldown = Number.isFinite(command.cooldown) && command.cooldown > 0 ? command.cooldown : 0;
-  const cost = Number.isFinite(command.cost) && command.cost > 0 ? Math.floor(command.cost) : 0;
+  const { cost: _ignoredCost, ...commandMetadata } = command;
   const blocked = BLOCKED_COMMANDS.has(name);
   return Object.freeze({
-    ...command,
+    ...commandMetadata,
     name,
     category: String(command.category ?? 'general').trim().toLowerCase() || 'general',
     description: String(command.description ?? 'No description available.'),

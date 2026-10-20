@@ -1,8 +1,6 @@
-import { formatCoins } from '../economy/config.js';
-
 export const command = {
   name: 'profile',
-  description: 'Melihat profil, level, XP, Coin, dan gelar SkyVerse.',
+  description: 'Melihat profil, level, XP, dan gelar SkyVerse.',
   category: 'general',
   aliases: ['me', 'profil'],
   usage: 'profile',
@@ -23,8 +21,6 @@ export const command = {
       `│ ⭐ Level  : ${profile.level}`,
       `│ ✨ XP     : ${profile.xp}`,
       `│ 📈 Progress: ${bar} ${profile.percent}%`,
-      `│ 🪙 Coin   : ${formatCoins(profile.coins)}`,
-      `│ 🔥 Streak : ${profile.streak} hari`,
       `│ 📝 Bio    : ${profile.bio || 'Belum diatur.'}`,
       `│ ${profile.premium ? '💎 Premium' : '▫️ Free'}`,
       '╰────────────────────',

@@ -15,7 +15,7 @@ function getQuotedStanzaId(message) {
   return content?.contextInfo?.stanzaId ?? null;
 }
 
-export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage }) {
+export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, resolveNewsletterMessage }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
   const directPhoneJid = getSenderPhoneJid(message);
@@ -27,7 +27,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   const existingUser = repositories.users.get(senderJid);
   const senderPhoneJid = directPhoneJid || (existingUser?.number ? `${existingUser.number}@s.whatsapp.net` : null);
   const isOwner = identity.isOwner(senderPhoneJid || senderJid);
-  const userRecord = existingUser ?? economy?.ensureUser(senderJid, { pushName: message.pushName ?? null });
+  const userRecord = existingUser ?? repositories.users.upsert({ jid: senderJid, phoneJid: directPhoneJid, pushName: message.pushName ?? null }).user;
   if (userRecord && directPhoneJid) repositories.users.upsert({ jid: senderJid, phoneJid: directPhoneJid, pushName: message.pushName ?? userRecord.push_name ?? null, isBot: Boolean(userRecord.is_bot) });
   const refreshedUser = repositories.users.get(senderJid) ?? userRecord;
   const directPhoneNumber = directPhoneJid ? normalizePhoneNumber(String(directPhoneJid).split('@')[0]) : null;
@@ -62,7 +62,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   function getNewsletterReplyTarget() { if (!isChannel) return null; const stanzaId = getQuotedStanzaId(message); if (!stanzaId) return null; const cached = typeof resolveNewsletterMessage === 'function' ? resolveNewsletterMessage(chatId, stanzaId) : null; return cached ?? { messageId: stanzaId, serverId: null, fromMe: false }; }
 
   return Object.freeze({
-    socket, message, config, registry, command, parsed, providers, repositories, economy,
+    socket, message, config, registry, command, parsed, providers, repositories,
     profile: repositories.profile ?? null,
     progression: repositories.progression ?? null,
     chatId, chatType, senderJid, senderPhoneJid, senderNumber: userNumber,

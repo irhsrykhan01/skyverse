@@ -38,7 +38,6 @@ function buildAllMenu(ctx) {
   const lines = [
     '╭── ＳＫＹＶＥＲＳＥ ──',
     `│ Halo, @${ctx.senderJid?.split('@')[0] ?? 'User'}!`,
-    `│ Koin: ${Number(ctx.user?.coins ?? 0)}`,
     `│ Tier: ${ctx.user?.is_premium ? 'Premium User' : 'Free User'}`,
     '╰───────────────',
     'Selamat datang di Skyverse Bot!. ☁',
