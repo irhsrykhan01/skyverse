@@ -1,4 +1,3 @@
-import { createDepayProvider } from './depay.js';
 import { createDelineProvider } from './deline.js';
 import { createMakerProvider } from './makers.js';
 import { createReelsVideoProvider } from './reelsvideo.js';
@@ -22,7 +21,6 @@ async function withFallbackChain(providers) {
 }
 
 export function createProviderManager(config) {
-  const depay = createDepayProvider({ baseUrl: config.depayBaseUrl });
   const deline = createDelineProvider({ baseUrl: config.delineBaseUrl });
   const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
@@ -37,24 +35,25 @@ export function createProviderManager(config) {
   });
 
   const downloader = Object.freeze({
-    tiktok: (url) => tikwm.tiktok(url),
+    tiktok: (url) => withFallbackChain([
+      () => tikwm.tiktok(url),
+      () => deline.call('/downloader/tiktok', { url }),
+      () => zenzxz.call('/downloader/tiktok', { url }),
+    ]),
     instagram: (url) => reelsvideo.instagram(url),
     youtube: (url) => withFallbackChain([
       () => deline.youtube(url),
       () => zenzxz.youtube(url),
       () => vreden.youtube(url),
-      () => depay.youtube(url, 'video'),
     ]),
     youtubeMp3: (url) => withFallbackChain([
       () => deline.youtubeMp3(url),
       () => zenzxz.youtubeMp3(url),
       () => vreden.youtubeMp3(url),
-      () => depay.youtube(url, 'mp3'),
     ]),
     facebook: (url) => withFallbackChain([
       () => deline.facebook(url),
       () => zenzxz.facebook(url),
-      () => depay.facebook(url),
     ]),
     pinterest: (url) => deline.pinterest(url),
     twitter: (url) => deline.twitter(url),
@@ -65,7 +64,6 @@ export function createProviderManager(config) {
   const removebg = createRemoveBgProvider({ baseUrl: config.removeBgBaseUrl });
 
   return Object.freeze({
-    depay,
     deline,
     zenzxz,
     vreden,
