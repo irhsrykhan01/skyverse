@@ -20,6 +20,7 @@ const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
 assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still present.');
 assert(providers.depay === undefined, 'Removed Depay provider is still exposed.');
+assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Siputzx YouTube provider is not exposed.');
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
