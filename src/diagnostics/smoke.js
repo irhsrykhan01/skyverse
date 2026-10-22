@@ -10,6 +10,7 @@ import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
+import { renderMockUi } from '../services/mock-ui.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -18,7 +19,7 @@ const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', ]) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -36,9 +37,20 @@ assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is mi
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
 assert(config.nexrayBaseUrl === 'https://api.nexray.web.id', 'Default Nexray provider URL regression.');
-assert(typeof providers.downloader?.tiktok === 'function', 'Keyra TikTok provider is missing.');
-assert(typeof providers.downloader?.youtube === 'function', 'Keyra YouTube provider is missing.');
-assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Keyra YouTube MP3 provider is missing.');
+assert(config.delineBaseUrl === 'https://api.deline.web.id', 'Default Deline URL regression.');
+assert(config.zenzxzBaseUrl === 'https://api.zenzxz.my.id', 'Default Zenzxz URL regression.');
+assert(config.vredenBaseUrl === 'https://api.vreden.my.id', 'Default Vreden URL regression.');
+assert(config.tikwmBaseUrl === 'https://www.tikwm.com/api/', 'Default TikWM URL regression.');
+assert(config.reelsVideoBaseUrl === 'https://reelsvideo.io', 'Default ReelsVideo URL regression.');
+assert(typeof providers.downloader?.tiktok === 'function', 'TikWM downloader is missing.');
+assert(typeof providers.downloader?.instagram === 'function', 'ReelsVideo downloader is missing.');
+assert(typeof providers.downloader?.youtube === 'function', 'YouTube fallback chain is missing.');
+assert(typeof providers.downloader?.youtubeMp3 === 'function', 'YouTube MP3 fallback chain is missing.');
+assert(typeof providers.downloader?.facebook === 'function', 'Facebook fallback chain is missing.');
+assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloader is missing.');
+assert(typeof providers.downloader?.twitter === 'function', 'Twitter downloader is missing.');
+assert(typeof providers.downloader?.mediafire === 'function', 'MediaFire downloader is missing.');
+assert(typeof providers.downloader?.googleDrive === 'function', 'Google Drive downloader is missing.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
 assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
@@ -50,6 +62,8 @@ assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
+const mockPng = renderMockUi({ title: 'SMOKE TEST', fields: [{ label: 'Status', value: 'OK' }] });
+assert(Buffer.isBuffer(mockPng) && mockPng.length > 1000 && mockPng.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'Mock maker renderer failed.');
 
 assert(isInvalidSessionDisconnect(401), 'WhatsApp logged-out status is not recoverable.');
 assert(isInvalidSessionDisconnect(440), 'WhatsApp connection-replaced status is not recoverable.');
