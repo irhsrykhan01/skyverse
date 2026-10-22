@@ -28,19 +28,21 @@ function scoreCandidate(candidate, preferredTerms = []) {
   ), 0);
 }
 
-function chooseUrl(result, preferredTerms = [], extensions = []) {
+function chooseUrls(result, preferredTerms = [], extensions = []) {
   const candidates = collectUrls(result);
   const ranked = candidates
-    .map((candidate) => ({
+    .map((candidate, index) => ({
       ...candidate,
+      index,
       score: scoreCandidate(candidate, preferredTerms)
         + (extensions.some((ext) => candidate.url.toLowerCase().split('?')[0].endsWith(ext)) ? 3 : 0),
     }))
-    .sort((a, b) => b.score - a.score);
-  return ranked[0]?.url ?? null;
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+
+  return [...new Set(ranked.map((candidate) => candidate.url))];
 }
 
-export function findDownloaderUrl(response, { kind = 'video' } = {}) {
+export function findDownloaderUrls(response, { kind = 'video' } = {}) {
   const result = response?.result ?? response;
   const preferred = kind === 'audio'
     ? ['audio', 'mp3', 'music', 'm4a', 'audio_url', 'download_audio']
@@ -48,7 +50,11 @@ export function findDownloaderUrl(response, { kind = 'video' } = {}) {
   const extensions = kind === 'audio'
     ? ['.mp3', '.m4a', '.aac', '.ogg', '.opus']
     : ['.mp4', '.webm', '.mov', '.mkv'];
-  return chooseUrl(result, preferred, extensions);
+  return chooseUrls(result, preferred, extensions);
+}
+
+export function findDownloaderUrl(response, options = {}) {
+  return findDownloaderUrls(response, options)[0] ?? null;
 }
 
 function isLikelyMediaBuffer(buffer, kind) {
@@ -103,36 +109,53 @@ async function downloadUrl(url, { maxBytes = 30 * 1024 * 1024, retries = 2, kind
 }
 
 export async function replyWithDownloaderMedia(ctx, response, { kind = 'video', caption = null, filename = null } = {}) {
-  const url = findDownloaderUrl(response, { kind });
-  if (!url) {
+  const urls = findDownloaderUrls(response, { kind });
+  if (!urls.length) {
     const errorMessage = response?.error?.message ?? response?.error ?? 'Downloader tidak mengembalikan media yang dapat digunakan.';
     throw new Error(String(errorMessage));
   }
 
-  const media = await downloadUrl(url, { kind });
-  const content = kind === 'audio'
-    ? { audio: media, mimetype: 'audio/mpeg', ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) }
-    : { video: media, ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) };
+  let lastError = null;
+  for (const url of urls.slice(0, 6)) {
+    try {
+      const media = await downloadUrl(url, { kind });
+      const content = kind === 'audio'
+        ? { audio: media, mimetype: 'audio/mpeg', ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) }
+        : { video: media, ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) };
+      return await ctx.socket.sendMessage(ctx.chatId, content, { quoted: ctx.message });
+    } catch (error) {
+      lastError = error;
+    }
+  }
 
-  return ctx.socket.sendMessage(ctx.chatId, content, { quoted: ctx.message });
+  throw lastError ?? new Error('Semua kandidat media dari provider gagal dimuat.');
 }
 
 export async function replyWithDownloaderAudio(ctx, response, { caption = null, filename = 'skyverse-audio.mp3' } = {}) {
-  const url = findDownloaderUrl(response, { kind: 'audio' });
-  if (!url) {
+  const urls = findDownloaderUrls(response, { kind: 'audio' });
+  if (!urls.length) {
     const errorMessage = response?.error?.message ?? response?.error ?? 'Downloader tidak mengembalikan audio yang dapat digunakan.';
     throw new Error(String(errorMessage));
   }
 
-  const source = await downloadUrl(url, { maxBytes: 50 * 1024 * 1024, kind: 'audio' });
-  const audio = await ctx.media.toMp3(source);
-  if (!Buffer.isBuffer(audio) || audio.length < 1024 || audio.subarray(0, 3).toString('ascii') !== 'ID3') {
-    throw new Error('Audio hasil konversi MP3 tidak valid.');
+  let lastError = null;
+  for (const url of urls.slice(0, 6)) {
+    try {
+      const source = await downloadUrl(url, { maxBytes: 50 * 1024 * 1024, kind: 'audio' });
+      const audio = await ctx.media.toMp3(source);
+      if (!Buffer.isBuffer(audio) || audio.length < 1024 || audio.subarray(0, 3).toString('ascii') !== 'ID3') {
+        throw new Error('Audio hasil konversi MP3 tidak valid.');
+      }
+
+      return await ctx.media.send(audio, 'audio', {
+        mimetype: 'audio/mpeg',
+        fileName: filename,
+        caption,
+      });
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  return ctx.media.send(audio, 'audio', {
-    mimetype: 'audio/mpeg',
-    fileName: filename,
-    caption,
-  });
+  throw lastError ?? new Error('Semua kandidat audio dari provider gagal dimuat.');
 }
