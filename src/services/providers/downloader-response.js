@@ -46,10 +46,14 @@ export function findDownloaderUrls(response, { kind = 'video' } = {}) {
   const result = response?.result ?? response;
   const preferred = kind === 'audio'
     ? ['audio', 'mp3', 'music', 'm4a', 'audio_url', 'download_audio']
-    : ['video', 'mp4', 'play', 'download', 'video_url', 'no_watermark'];
+    : kind === 'image'
+      ? ['image', 'images', 'photo', 'picture', 'jpg', 'jpeg', 'png']
+      : ['video', 'mp4', 'play', 'download', 'video_url', 'no_watermark'];
   const extensions = kind === 'audio'
     ? ['.mp3', '.m4a', '.aac', '.ogg', '.opus']
-    : ['.mp4', '.webm', '.mov', '.mkv'];
+    : kind === 'image'
+      ? ['.jpg', '.jpeg', '.png', '.webp']
+      : ['.mp4', '.webm', '.mov', '.mkv'];
   return chooseUrls(result, preferred, extensions);
 }
 
@@ -65,6 +69,12 @@ function isLikelyMediaBuffer(buffer, kind) {
       || buffer.subarray(0, 3).toString('ascii') === 'ID3'
       || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)
       || buffer.subarray(0, 4).toString('ascii') === 'RIFF';
+  }
+
+  if (kind === 'image') {
+    return buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))
+      || buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+      || (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP');
   }
 
   return buffer.subarray(4, 8).toString('ascii') === 'ftyp'
@@ -121,7 +131,9 @@ export async function replyWithDownloaderMedia(ctx, response, { kind = 'video', 
       const media = await downloadUrl(url, { kind });
       const content = kind === 'audio'
         ? { audio: media, mimetype: 'audio/mpeg', ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) }
-        : { video: media, ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) };
+        : kind === 'image'
+          ? { image: media, ...(caption ? { caption } : {}) }
+          : { video: media, ...(filename ? { fileName: filename } : {}), ...(caption ? { caption } : {}) };
       return await ctx.socket.sendMessage(ctx.chatId, content, { quoted: ctx.message });
     } catch (error) {
       lastError = error;
