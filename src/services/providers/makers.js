@@ -1,119 +1,91 @@
-const DEFAULT_BRAT_BASE_URL = 'https://aqul-brat.hf.space';
-const DEFAULT_NEXRAY_BASE_URL = 'https://api.nexray.web.id';
-const RETRIES = 2;
+import { requestResource } from './http.js';
+
 const MAX_BRAT_TEXT_LENGTH = 250;
 const MAX_BRATVID_FRAMES = 24;
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function cleanBaseUrl(value) {
+  return String(value).replace(/\/+$/, '');
 }
 
-function baseUrl(baseUrl) {
-  return String(baseUrl).replace(/\/+$/, '');
-}
-
-function retryable(status) {
-  return status === 408 || status === 425 || status === 429 || status >= 500;
-}
-
-async function requestMedia(url, { maxBytes = 12 * 1024 * 1024 } = {}) {
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        headers: { accept: 'image/*, application/json, */*' },
-        signal: AbortSignal.timeout(30_000),
-      });
-
-      const contentType = String(response.headers.get('content-type') ?? '').toLowerCase();
-      if (!response.ok) {
-        const text = await response.text().catch(() => '');
-        let message = `Maker request failed (${response.status})`;
-        try {
-          const body = text ? JSON.parse(text) : null;
-          message = body?.error?.message ?? body?.error ?? body?.message ?? message;
-        } catch {}
-        const error = new Error(`${message} [${url}]`);
-        error.status = response.status;
-        if (!retryable(response.status) || attempt >= RETRIES) throw error;
-        lastError = error;
-        await wait(500 * (attempt + 1));
-        continue;
-      }
-
-      const length = Number(response.headers.get('content-length') ?? 0);
-      if (length > maxBytes) throw new Error('Media dari maker terlalu besar untuk diproses.');
-
-      if (contentType.startsWith('image/') || contentType.startsWith('video/') || contentType.startsWith('audio/')) {
-        const media = Buffer.from(await response.arrayBuffer());
-        if (!media.length) throw new Error('Maker mengembalikan media kosong.');
-        if (media.length > maxBytes) throw new Error('Media dari maker terlalu besar untuk diproses.');
-        return { media, mimeType: contentType.split(';', 1)[0] };
-      }
-
-      const text = await response.text();
-      if (!text) throw new Error('Maker mengembalikan response kosong.');
-      const body = JSON.parse(text);
-      if (body && typeof body === 'object' && body.status === false) {
-        throw new Error(String(body.error?.message ?? body.error ?? body.message ?? 'Maker menolak request.'));
-      }
-      return body;
-    } catch (error) {
-      lastError = error;
-      const status = Number(error?.status ?? 0);
-      const retry = !status || retryable(status) || /fetch failed|ECONNRESET|ETIMEDOUT|UND_ERR/i.test(String(error?.message ?? ''));
-      if (!retry || attempt >= RETRIES) throw error;
-      await wait(500 * (attempt + 1));
-    }
+async function fallback(tasks) {
+  const errors = [];
+  for (const task of tasks) {
+    try { return await task(); }
+    catch (error) { errors.push(error); }
   }
-
-  throw lastError ?? new Error('Maker request failed.');
+  const error = new Error(errors.at(-1)?.message ?? 'Semua maker provider gagal.');
+  error.cause = errors;
+  throw error;
 }
 
-function validateBratText(text) {
-  const value = String(text).trim();
-  if (!value) throw new Error('Teks Brat tidak boleh kosong.');
-  if (value.length > MAX_BRAT_TEXT_LENGTH) throw new Error(`Teks Brat maksimal ${MAX_BRAT_TEXT_LENGTH} karakter.`);
+function validateText(text, label = 'Teks') {
+  const value = String(text ?? '').trim();
+  if (!value) throw new Error(`${label} tidak boleh kosong.`);
+  if (value.length > MAX_BRAT_TEXT_LENGTH) throw new Error(`${label} maksimal ${MAX_BRAT_TEXT_LENGTH} karakter.`);
   return value;
 }
 
-function progressivePhrases(text) {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
-  const limited = words.slice(0, MAX_BRATVID_FRAMES);
-  if (limited.length === 1) return [limited[0], limited[0]];
-  return limited.map((_, index) => limited.slice(0, index + 1).join(' '));
-}
-
 export function createMakerProvider({
-  bratBaseUrl = DEFAULT_BRAT_BASE_URL,
-  nexrayBaseUrl = DEFAULT_NEXRAY_BASE_URL,
+  bratBaseUrl = 'https://aqul-brat.hf.space',
+  nexrayBaseUrl = 'https://api.nexray.web.id',
+  deline,
+  zenzxz,
 } = {}) {
+  const aqulBrat = (text) => requestResource(
+    `${cleanBaseUrl(bratBaseUrl)}/?text=${encodeURIComponent(text)}`,
+    { retries: 2, maxBytes: 12 * 1024 * 1024 },
+  );
+
+  const nexrayIqc = (text) => requestResource(
+    `${cleanBaseUrl(nexrayBaseUrl)}/maker/iqc?text=${encodeURIComponent(text)}`,
+    { retries: 1, maxBytes: 12 * 1024 * 1024 },
+  );
+
   const brat = (text) => {
-    const value = validateBratText(text);
-    return requestMedia(`${baseUrl(bratBaseUrl)}/?text=${encodeURIComponent(value)}`);
+    const value = validateText(text, 'Teks Brat');
+    return fallback([
+      () => deline?.brat(value),
+      () => zenzxz?.brat(value),
+      () => aqulBrat(value),
+    ].filter(Boolean));
   };
 
   const bratFrames = async (text) => {
-    const value = validateBratText(text);
-    const phrases = progressivePhrases(value);
+    const value = validateText(text, 'Teks BratVid');
+    const words = value.split(/\s+/).filter(Boolean).slice(0, MAX_BRATVID_FRAMES);
+    const phrases = words.length === 1
+      ? [words[0], words[0]]
+      : words.map((_, index) => words.slice(0, index + 1).join(' '));
     const frames = [];
     for (const phrase of phrases) {
-      const result = await brat(phrase);
-      if (!result?.media || !Buffer.isBuffer(result.media)) {
-        throw new Error('Brat API tidak mengembalikan gambar yang valid.');
-      }
-      frames.push(result.media);
+      const result = await fallback([
+        () => deline?.brat(phrase),
+        () => aqulBrat(phrase),
+      ].filter(Boolean));
+      const media = Buffer.isBuffer(result) ? result : result?.media;
+      if (!Buffer.isBuffer(media)) throw new Error('Maker Brat tidak mengembalikan frame gambar yang valid.');
+      frames.push(media);
     }
     return frames;
   };
 
-  const iqc = (text) => {
-    const value = String(text).trim();
-    if (!value) throw new Error('Teks IQC tidak boleh kosong.');
-    return requestMedia(`${baseUrl(nexrayBaseUrl)}/maker/iqc?text=${encodeURIComponent(value)}`);
+  const bratVideo = (text) => {
+    const value = validateText(text, 'Teks BratVid');
+    return fallback([
+      () => deline?.bratVideo(value),
+      () => zenzxz?.bratVideo(value),
+    ].filter(Boolean));
   };
 
-  return Object.freeze({ brat, bratFrames, iqc });
+  const iqc = (text) => {
+    const value = validateText(text, 'Teks IQC');
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return fallback([
+      () => deline?.iqc(value, time),
+      () => nexrayIqc(value),
+    ].filter(Boolean));
+  };
+
+  return Object.freeze({ brat, bratFrames, bratVideo, iqc });
 }
