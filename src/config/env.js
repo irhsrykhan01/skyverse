@@ -15,7 +15,6 @@ export function loadConfig(env = process.env) {
     logLevel: clean(env.LOG_LEVEL) ?? defaults.logLevel,
     authPath: clean(env.AUTH_PATH) ?? defaults.authPath,
     databasePath: clean(env.DATABASE_PATH) ?? defaults.databasePath,
-    depayBaseUrl: clean(env.DEPAY_BASE_URL) ?? defaults.depayBaseUrl,
     delineBaseUrl: clean(env.DELINE_BASE_URL) ?? defaults.delineBaseUrl,
     zenzxzBaseUrl: clean(env.ZENZXZ_BASE_URL) ?? defaults.zenzxzBaseUrl,
     vredenBaseUrl: clean(env.VREDEN_BASE_URL) ?? defaults.vredenBaseUrl,
