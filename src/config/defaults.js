@@ -8,6 +8,7 @@ export const defaults = Object.freeze({
   delineBaseUrl: 'https://api.deline.web.id',
   zenzxzBaseUrl: 'https://api.zenzxz.my.id',
   vredenBaseUrl: 'https://api.vreden.my.id',
+  siputzxBaseUrl: 'https://api.siputzx.my.id',
   tikwmBaseUrl: 'https://www.tikwm.com/api/',
   reelsVideoBaseUrl: 'https://reelsvideo.io',
   keyraBaseUrl: 'https://www.keyrafara.com',
