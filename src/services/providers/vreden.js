@@ -1,7 +1,10 @@
-import { buildUrl, requestResource } from './http.js';
+import { buildUrl, ensureProviderSuccess, requestResource } from './http.js';
 
 export function createVredenProvider({ baseUrl = 'https://api.vreden.my.id' } = {}) {
-  const call = (path, params = {}) => requestResource(buildUrl(baseUrl, path, params), { retries: 1 });
+  const call = async (path, params = {}) => ensureProviderSuccess(
+    await requestResource(buildUrl(baseUrl, path, params), { retries: 1 }),
+    'vreden',
+  );
 
   return Object.freeze({
     call,
