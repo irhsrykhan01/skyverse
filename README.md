@@ -16,8 +16,8 @@ Fitur utama yang aktif:
 - Sticker/media conversion berbasis FFmpeg
 - TikTok downloader melalui TikWM
 - Instagram downloader melalui ReelsVideo
-- YouTube fallback: Deline → Zenzxz → Vreden → Depay
-- Facebook fallback: Deline → Zenzxz → Depay
+- YouTube fallback: Deline → Zenzxz → Vreden
+- Facebook fallback: Deline → Zenzxz
 - Pinterest, Twitter/X, MediaFire, dan Google Drive melalui Deline
 - Brat: Deline → Zenzxz → aqul-brat fallback
 - IQC: Deline → Nexray fallback
