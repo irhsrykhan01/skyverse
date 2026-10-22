@@ -59,3 +59,13 @@ export async function requestResource(url, {
   }
   throw lastError ?? new Error('Provider request gagal.');
 }
+
+export function ensureProviderSuccess(value, label = 'Provider') {
+  if (value && typeof value === 'object') {
+    if (value.status === false || value.success === false) {
+      const message = value.error?.message ?? value.error ?? value.message ?? `${label} menolak request.`;
+      throw new Error(String(message));
+    }
+  }
+  return value;
+}
