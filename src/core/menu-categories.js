@@ -6,7 +6,6 @@ export const MENU_CATEGORY_DEFINITIONS = Object.freeze([
   { key: 'sticker-media', label: 'Media Tools' },
   { key: 'tools', label: 'Tools' },
   { key: 'games', label: 'Games' },
-  { key: 'economy', label: 'Economy' },
   { key: 'group', label: 'Group' },
   { key: 'channel', label: 'Channel' },
   { key: 'user', label: 'User' },
