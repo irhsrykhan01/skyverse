@@ -15,6 +15,10 @@ function buildDownloaderMenu(prefix, commands) {
     { name: 'instagram', label: 'instagram', children: [] },
     { name: 'tiktok', label: 'tiktok', children: ['ttmp3'] },
     { name: 'youtube', label: 'youtube', children: ['ytmp3'] },
+    { name: 'pinterest', label: 'pinterest', children: [] },
+    { name: 'twitter', label: 'twitter', children: [] },
+    { name: 'mediafire', label: 'mediafire', children: [] },
+    { name: 'gdrive', label: 'gdrive', children: [] },
   ];
 
   const lines = [' ❏ *Downloader*'];
