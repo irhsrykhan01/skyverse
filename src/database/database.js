@@ -34,7 +34,6 @@ export async function createDatabase(databasePath, logger) {
   const migrations = [
     ['is_premium', 'ALTER TABLE users ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0'],
     ['premium_until', 'ALTER TABLE users ADD COLUMN premium_until INTEGER'],
-    ['bio', 'ALTER TABLE users ADD COLUMN bio TEXT'],
     ['last_active_at', 'ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0'],
   ];
   let migrated = false;
