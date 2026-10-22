@@ -32,9 +32,7 @@ export function renderMockUi({ title, subtitle = 'SkyVerse Mock Maker', fields =
   ctx.fillRect(0, 0, width, height);
 
   ctx.fillStyle = '#1b2230';
-  ctx.beginPath();
-  ctx.roundRect(70, 110, width - 140, height - 220, 42);
-  ctx.fill();
+  ctx.fillRect(70, 110, width - 140, height - 220);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 54px sans-serif';
