@@ -18,6 +18,7 @@ export function loadConfig(env = process.env) {
     delineBaseUrl: clean(env.DELINE_BASE_URL) ?? defaults.delineBaseUrl,
     zenzxzBaseUrl: clean(env.ZENZXZ_BASE_URL) ?? defaults.zenzxzBaseUrl,
     vredenBaseUrl: clean(env.VREDEN_BASE_URL) ?? defaults.vredenBaseUrl,
+    siputzxBaseUrl: clean(env.SIPUTZX_BASE_URL) ?? defaults.siputzxBaseUrl,
     tikwmBaseUrl: clean(env.TIKWM_BASE_URL) ?? defaults.tikwmBaseUrl,
     reelsVideoBaseUrl: clean(env.REELSVIDEO_BASE_URL) ?? defaults.reelsVideoBaseUrl,
     keyraBaseUrl: clean(env.KEYRA_BASE_URL) ?? defaults.keyraBaseUrl,
