@@ -11,12 +11,16 @@ import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
 import { renderMockUi } from '../services/mock-ui.js';
+import { resolveMenuCategory } from '../core/menu-categories.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
 const config = loadConfig({});
 const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
+assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still present.');
+assert(providers.depay === undefined, 'Removed Depay provider is still exposed.');
+assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
