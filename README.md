@@ -4,76 +4,34 @@ A modern, modular, and extensible WhatsApp bot built with Node.js and Baileys.
 
 ## Status
 
-**Stage 4 — Achievement + Quest System + WhatsApp Connection Recovery**
+SkyVerse saat ini difokuskan pada kestabilan WhatsApp core dan command yang benar-benar dapat dipakai.
 
-The current codebase includes the application foundation, WhatsApp core, Economy Core v2, SkyVerse Profile System, and the new Achievement + Daily Quest layer:
+Fitur utama yang aktif:
 
-- Node.js 20+ runtime baseline
-- ES modules
+- Node.js 20+ dan ES modules
 - Environment-based configuration
-- Structured logger and error foundation
-- SQLite-backed persistence
+- SQLite persistence untuk data dasar bot
 - Dynamic command registry
-- WhatsApp Multi-Device connection with multi-file auth
-- QR login by default
-- Optional pairing-code login with QR fallback
-- Automatic reconnect with bounded backoff
-- Graceful shutdown handling
-- Centralized Coin configuration and formatting
-- Atomic Coin credit/debit/transfer ledger
-- Periodic claim and daily reward streaks
-- Coin transaction history and leaderboard
-- Persistent user profile and editable bio
-- XP history and activity-based XP rewards
-- SkyVerse level progression and titles
-- XP leaderboard
-- Persistent achievement unlocks
-- Daily quest progress and claimable rewards
-- Automatic QR recovery for invalid WhatsApp sessions
+- WhatsApp Multi-Device melalui Baileys
+- QR login dan optional pairing-code login
+- Automatic reconnect dan invalid-session recovery
+- Graceful shutdown
+- Sticker dan media conversion berbasis FFmpeg
+- Downloader TikTok, Facebook, Instagram, dan YouTube melalui provider
+- Group utilities, games, dan command umum
+- Syntax check dan smoke test
 
-## SkyVerse Levels
-
-- Level 1–3: Bintang Kecil
-- Level 4–5: Pengawal Langit
-- Level 6–10: Penakluk Cakrawala
-- Level 11–20: Sultan Langit
-- Level 22+: Penguasa Langit
-
-Level 21 is intentionally skipped by the current title map so the requested `22+` tier remains exact; reaching the XP threshold for Level 22 moves directly into `Penguasa Langit`.
-
-## Profile Commands
-
-- `profile` / `profil` / `me` — profile lengkap
-- `xp` / `level` / `lvl` — status XP dan level
-- `setbio <bio>` / `bio <bio>` — atur bio
-- `xplb` — leaderboard XP
-- `achievement` / `ach` — daftar achievement
-- `quest` / `misi` — daily quest
-- `quest claim <id>` — ambil reward quest yang sudah selesai
-
-## Achievements
-
-Current achievements include first activity, first Daily, first Coin transfer, 1.000 Coin reward accumulation, and level milestones at 5, 10, 20, and 22.
-
-## Daily Quests
-
-Three rotating-by-day quest definitions are currently available:
-
-- `daily_claim` — ambil Daily 1 kali
-- `daily_xp` — dapatkan 30 XP dari aktivitas
-- `daily_transfer` — kirim Coin 1 kali
-
-Quest progress is stored per user and day. Completed quests must be explicitly claimed and grant their configured Coin + XP rewards.
+Fitur Economy, Coin, XP, Level, Profile, Achievement, dan Quest telah dihapus dari build ini agar core bot tetap ringan dan stabil.
 
 ## Development
 
-Copy `.env.example` to `.env`, adjust the values, then run:
+Copy `.env.example` menjadi `.env`, sesuaikan konfigurasi, lalu jalankan:
 
 ```bash
 npm start
 ```
 
-For development with Node watch mode:
+Mode development:
 
 ```bash
 npm run dev
@@ -81,28 +39,27 @@ npm run dev
 
 ### Login methods
 
-QR login is the default and requires no extra configuration.
+QR login adalah default dan tidak memerlukan konfigurasi tambahan.
 
-To opt into pairing-code login, set:
+Untuk pairing code:
 
 ```env
 USE_PAIRING_CODE=true
 PAIRING_NUMBER=628xxxxxxxxxx
 ```
 
-The phone number is normalized to digits by SkyVerse. Keep the country code and do not include a plus sign in the value.
+Nomor akan dinormalisasi menjadi digit. Gunakan kode negara dan jangan memakai tanda plus.
 
-If the pairing-code request cannot be generated or the number is invalid, SkyVerse falls back to printing the QR code instead of stopping startup.
+Jika pairing code gagal dibuat atau nomor tidak valid, SkyVerse akan kembali menampilkan QR.
 
 ## Verification
 
-Run all checks before deploying:
+Sebelum menjalankan bot, cek source dan smoke test:
 
 ```bash
 npm run check
 npm run smoke
-npm run smoke:profile
-npm run smoke:progression
+npm run check-media-tools
 ```
 
-The progression smoke test validates achievement unlocks, daily quest progress, and quest reward claiming.
+`check-media-tools` memastikan `ffmpeg` dan `webpmux` tersedia untuk command media.
