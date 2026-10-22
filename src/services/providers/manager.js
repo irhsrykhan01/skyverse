@@ -2,6 +2,7 @@ import { createDelineProvider } from './deline.js';
 import { createMakerProvider } from './makers.js';
 import { createReelsVideoProvider } from './reelsvideo.js';
 import { createRemoveBgProvider } from './removebg.js';
+import { createSiputzxProvider } from './siputzx.js';
 import { findDownloaderUrl } from './downloader-response.js';
 import { createTikwmProvider } from './tikwm.js';
 import { createVredenProvider } from './vreden.js';
@@ -73,6 +74,7 @@ export function createProviderManager(config) {
   const deline = createDelineProvider({ baseUrl: config.delineBaseUrl });
   const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
+  const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
   const tikwm = createTikwmProvider({ baseUrl: config.tikwmBaseUrl });
   const reelsvideo = createReelsVideoProvider({ baseUrl: config.reelsVideoBaseUrl });
 
@@ -91,11 +93,13 @@ export function createProviderManager(config) {
     ]),
     instagram: (url) => reelsvideo.instagram(url),
     youtube: (url) => withFallbackChain([
+      { name: 'Siputzx', run: async () => requireDownloaderMedia(await siputzx.youtube(url), 'Siputzx', ['video']) },
       { name: 'Deline', run: async () => requireDownloaderMedia(await deline.youtube(url), 'Deline', ['video']) },
       { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.youtube(url), 'Zenzxz', ['video']) },
       { name: 'Vreden', run: async () => requireDownloaderMedia(await vreden.youtube(url), 'Vreden', ['video']) },
     ]),
     youtubeMp3: (url) => withFallbackChain([
+      { name: 'Siputzx', run: async () => requireDownloaderMedia(await siputzx.youtubeMp3(url), 'Siputzx', ['audio', 'video']) },
       { name: 'Deline', run: async () => requireDownloaderMedia(await deline.youtubeMp3(url), 'Deline', ['audio', 'video']) },
       { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.youtubeMp3(url), 'Zenzxz', ['audio', 'video']) },
       { name: 'Vreden', run: async () => requireDownloaderMedia(await vreden.youtubeMp3(url), 'Vreden', ['audio', 'video']) },
@@ -116,6 +120,7 @@ export function createProviderManager(config) {
     deline,
     zenzxz,
     vreden,
+    siputzx,
     tikwm,
     reelsvideo,
     makers,
