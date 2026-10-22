@@ -2,22 +2,71 @@ import { createDelineProvider } from './deline.js';
 import { createMakerProvider } from './makers.js';
 import { createReelsVideoProvider } from './reelsvideo.js';
 import { createRemoveBgProvider } from './removebg.js';
+import { findDownloaderUrl } from './downloader-response.js';
 import { createTikwmProvider } from './tikwm.js';
 import { createVredenProvider } from './vreden.js';
 import { createZenzxzProvider } from './zenzxz.js';
 
+function describeError(error) {
+  return String(error?.message ?? error ?? 'Unknown provider error').replace(/\s+/g, ' ').trim();
+}
+
 async function withFallbackChain(providers) {
   const errors = [];
-  for (const provider of providers) {
+  for (const { name, run } of providers) {
     try {
-      return await provider();
+      return await run();
     } catch (error) {
-      errors.push(error);
+      errors.push({ provider: name, error });
     }
   }
-  const error = new Error(errors.at(-1)?.message ?? 'Semua provider gagal.');
-  error.cause = errors;
+
+  const details = errors
+    .map(({ provider, error }) => `${provider}: ${describeError(error)}`)
+    .join(' | ');
+  const error = new Error(details ? `Semua provider gagal — ${details}` : 'Tidak ada provider yang dikonfigurasi.');
+  error.cause = errors.map(({ provider, error: cause }) => ({ provider, message: describeError(cause) }));
   throw error;
+}
+
+function isHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value);
+}
+
+function normalizeTikTokResponse(response, providerName) {
+  const resultValue = response?.result ?? response?.data ?? response;
+  const result = resultValue && typeof resultValue === 'object' && !Array.isArray(resultValue)
+    ? resultValue
+    : {};
+  const images = Array.isArray(result.images) ? result.images.filter(isHttpUrl) : [];
+  const directVideo = [
+    result.video,
+    result.play,
+    result.video_url,
+    result.videoUrl,
+    result.hdplay,
+    result.wmplay,
+    result.nowm,
+    result.no_watermark,
+  ].find(isHttpUrl);
+  const video = directVideo ?? findDownloaderUrl(response, { kind: 'video' });
+
+  if (!video && images.length === 0) {
+    throw new Error(`${providerName} tidak mengembalikan URL video/foto TikTok yang dapat digunakan.`);
+  }
+
+  return {
+    ...(response && typeof response === 'object' ? response : {}),
+    result: { ...result, video: video ?? null, images },
+  };
+}
+
+function requireDownloaderMedia(response, providerName, kinds) {
+  const hasMedia = kinds.some((kind) => Boolean(findDownloaderUrl(response, { kind })));
+  if (!hasMedia) {
+    throw new Error(`${providerName} tidak mengembalikan URL media yang dikenali.`);
+  }
+  return response;
 }
 
 export function createProviderManager(config) {
@@ -36,24 +85,24 @@ export function createProviderManager(config) {
 
   const downloader = Object.freeze({
     tiktok: (url) => withFallbackChain([
-      () => tikwm.tiktok(url),
-      () => deline.call('/downloader/tiktok', { url }),
-      () => zenzxz.call('/downloader/tiktok', { url }),
+      { name: 'TikWM', run: async () => normalizeTikTokResponse(await tikwm.tiktok(url), 'TikWM') },
+      { name: 'Deline', run: async () => normalizeTikTokResponse(await deline.call('/downloader/tiktok', { url }), 'Deline') },
+      { name: 'Zenzxz', run: async () => normalizeTikTokResponse(await zenzxz.call('/downloader/tiktok', { url }), 'Zenzxz') },
     ]),
     instagram: (url) => reelsvideo.instagram(url),
     youtube: (url) => withFallbackChain([
-      () => deline.youtube(url),
-      () => zenzxz.youtube(url),
-      () => vreden.youtube(url),
+      { name: 'Deline', run: async () => requireDownloaderMedia(await deline.youtube(url), 'Deline', ['video']) },
+      { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.youtube(url), 'Zenzxz', ['video']) },
+      { name: 'Vreden', run: async () => requireDownloaderMedia(await vreden.youtube(url), 'Vreden', ['video']) },
     ]),
     youtubeMp3: (url) => withFallbackChain([
-      () => deline.youtubeMp3(url),
-      () => zenzxz.youtubeMp3(url),
-      () => vreden.youtubeMp3(url),
+      { name: 'Deline', run: async () => requireDownloaderMedia(await deline.youtubeMp3(url), 'Deline', ['audio', 'video']) },
+      { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.youtubeMp3(url), 'Zenzxz', ['audio', 'video']) },
+      { name: 'Vreden', run: async () => requireDownloaderMedia(await vreden.youtubeMp3(url), 'Vreden', ['audio', 'video']) },
     ]),
     facebook: (url) => withFallbackChain([
-      () => deline.facebook(url),
-      () => zenzxz.facebook(url),
+      { name: 'Deline', run: async () => requireDownloaderMedia(await deline.facebook(url), 'Deline', ['video']) },
+      { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.facebook(url), 'Zenzxz', ['video']) },
     ]),
     pinterest: (url) => deline.pinterest(url),
     twitter: (url) => deline.twitter(url),
