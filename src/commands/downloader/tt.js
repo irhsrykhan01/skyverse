@@ -1,4 +1,4 @@
-import { findDownloaderUrls, replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
+import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
 
 export const command = {
   name: 'tiktok',
@@ -12,16 +12,28 @@ export const command = {
   cooldown: 5000,
   async execute(ctx) {
     const response = await ctx.providers.downloader.tiktok(ctx.parsed.args[0]);
-    const images = findDownloaderUrls(response, { kind: 'image' });
-    const videos = findDownloaderUrls(response, { kind: 'video' });
+    const result = response?.result ?? {};
+    const images = Array.isArray(result.images) ? result.images.filter(Boolean) : [];
 
-    if (images.length > 1 && !videos.length) {
+    if (images.length && !result.video) {
       for (const url of images.slice(0, 10)) {
         await replyWithDownloaderMedia(ctx, { result: { image: url } }, { kind: 'image' });
       }
       return;
     }
 
-    await replyWithDownloaderMedia(ctx, response, { kind: videos.length ? 'video' : 'image' });
+    if (result.video) {
+      await replyWithDownloaderMedia(ctx, { result: { video: result.video } }, { kind: 'video' });
+      return;
+    }
+
+    if (images.length) {
+      for (const url of images.slice(0, 10)) {
+        await replyWithDownloaderMedia(ctx, { result: { image: url } }, { kind: 'image' });
+      }
+      return;
+    }
+
+    throw new Error('TikWM tidak mengembalikan video atau foto.');
   },
 };
