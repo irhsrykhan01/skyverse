@@ -114,7 +114,6 @@ export async function downloadMediaSource(source, { maxBytes = 12 * 1024 * 1024,
 
 function getProviderBaseUrl(ctx, options = {}) {
   return options.baseUrl
-    ?? ctx.config.depayBaseUrl
     ?? ctx.config.keyraBaseUrl
     ?? 'https://www.keyrafara.com';
 }
@@ -142,7 +141,7 @@ export async function replyWithProviderMedia(ctx, response, type = 'image', capt
 export async function replyWithProviderSticker(ctx, response, { animated = false, baseUrl } = {}) {
   const result = response?.result ?? response;
   const source = findMediaSource(result, {
-    baseUrl: baseUrl ?? ctx.config.depayBaseUrl ?? ctx.config.keyraBaseUrl ?? 'https://www.keyrafara.com',
+    baseUrl: baseUrl ?? ctx.config.keyraBaseUrl ?? 'https://www.keyrafara.com',
   });
 
   if (!source) {
