@@ -1,7 +1,10 @@
-import { buildUrl, requestResource } from './http.js';
+import { buildUrl, ensureProviderSuccess, requestResource } from './http.js';
 
 export function createDelineProvider({ baseUrl = 'https://api.deline.web.id' } = {}) {
-  const call = (path, params = {}) => requestResource(buildUrl(baseUrl, path, params), { retries: 2 });
+  const call = async (path, params = {}) => ensureProviderSuccess(
+    await requestResource(buildUrl(baseUrl, path, params), { retries: 2 }),
+    'deline',
+  );
 
   return Object.freeze({
     call,
@@ -11,7 +14,7 @@ export function createDelineProvider({ baseUrl = 'https://api.deline.web.id' } =
     pinterest: (url) => call('/downloader/pinterest', { url }),
     twitter: (url) => call('/downloader/twitter', { url }),
     mediafire: (url) => call('/downloader/mediafire', { url }),
-    googleDrive: (url) => call('/downloader/googledrive', { url }),
+    googleDrive: (url) => call('/downloader/gdrive', { url }),
     brat: (text) => call('/maker/brat', { text }),
     bratVideo: (text) => call('/maker/bratvid', { text }),
     iqc: (text, time) => call('/maker/iqc', { text, chatTime: time, statusBarTime: time }),
