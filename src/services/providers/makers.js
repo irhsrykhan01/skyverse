@@ -58,11 +58,15 @@ export function createMakerProvider({
       : words.map((_, index) => words.slice(0, index + 1).join(' '));
     const frames = [];
     for (const phrase of phrases) {
-      const result = await fallback([
-        () => deline?.brat(phrase),
+      const media = await fallback([
+        async () => {
+          const result = await deline?.brat(phrase);
+          const buffer = Buffer.isBuffer(result) ? result : result?.media;
+          if (!Buffer.isBuffer(buffer)) throw new Error('Deline Brat tidak mengembalikan buffer gambar.');
+          return buffer;
+        },
         () => aqulBrat(phrase),
-      ].filter(Boolean));
-      const media = Buffer.isBuffer(result) ? result : result?.media;
+      ]);
       if (!Buffer.isBuffer(media)) throw new Error('Maker Brat tidak mengembalikan frame gambar yang valid.');
       frames.push(media);
     }
