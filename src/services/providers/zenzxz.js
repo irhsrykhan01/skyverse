@@ -1,7 +1,10 @@
-import { buildUrl, requestResource } from './http.js';
+import { buildUrl, ensureProviderSuccess, requestResource } from './http.js';
 
 export function createZenzxzProvider({ baseUrl = 'https://api.zenzxz.my.id' } = {}) {
-  const call = (path, params = {}) => requestResource(buildUrl(baseUrl, path, params), { retries: 1 });
+  const call = async (path, params = {}) => ensureProviderSuccess(
+    await requestResource(buildUrl(baseUrl, path, params), { retries: 1 }),
+    'zenzxz',
+  );
 
   return Object.freeze({
     call,
