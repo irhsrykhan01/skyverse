@@ -45,7 +45,11 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons, exte
   const waMessage = generateWAMessageFromContent(jid, {
     viewOnceMessage: {
       message: {
-        messageContextInfo: {\n          deviceListMetadata: {},\n          deviceListMetadataVersion: 2,\n          ...(externalAdReply ? { externalAdReply } : {}),\n        },
+        messageContextInfo: {
+          deviceListMetadata: {},
+          deviceListMetadataVersion: 2,
+          ...(externalAdReply ? { externalAdReply } : {}),
+        },
         interactiveMessage,
       },
     },
