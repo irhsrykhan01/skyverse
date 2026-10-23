@@ -1,4 +1,4 @@
-import { normalizeMessageContent } from '@whiskeysockets/baileys';
+import { normalizeMessageContent } from '@itsliaaa/baileys';
 
 function getInteractiveResponseId(content) {
   const response = content?.interactiveResponseMessage;
