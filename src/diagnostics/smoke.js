@@ -12,6 +12,7 @@ import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
 import { renderMockUi } from '../services/mock-ui.js';
 import { resolveMenuCategory } from '../core/menu-categories.js';
+import { command as allmenuCommand } from '../commands/general/allmenu.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -24,6 +25,25 @@ assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Si
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
+
+const allmenuPayloads = [];
+await allmenuCommand.execute({
+  registry,
+  config: { prefix: '.' },
+  senderJid: '1234567890@s.whatsapp.net',
+  user: { is_premium: false },
+  chatId: '1234567890@s.whatsapp.net',
+  socket: {
+    sendMessage: async (_jid, payload) => {
+      allmenuPayloads.push(payload);
+      return { key: { id: `SMOKE-ALLMENU-${allmenuPayloads.length}` } };
+    },
+  },
+});
+const allmenuTextPayload = allmenuPayloads.find((payload) => typeof payload.text === 'string');
+assert(typeof allmenuTextPayload?.text === 'string' && allmenuTextPayload.text.includes('Dukung SkyVerse:'), 'Allmenu plain-text delivery contract failed.');
+assert(!allmenuTextPayload.contextInfo, 'Allmenu text must not depend on externalAdReply metadata.');
+assert(allmenuPayloads.some((payload) => Buffer.isBuffer(payload.image)), 'Allmenu banner must be sent as ordinary image media.');
 for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
