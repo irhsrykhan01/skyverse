@@ -29,13 +29,7 @@ function buildAllMenu(ctx) {
     }
   }
 
-  lines.push(
-    '',
-    '───────────────',
-    '💡 Dukung SkyVerse:',
-    SUPPORT_URL,
-  );
-
+  lines.push('', '───────────────', '💡 Dukung SkyVerse:', SUPPORT_URL);
   return lines.join('\n');
 }
 
@@ -47,23 +41,24 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    // Send the actual banner as ordinary media instead of externalAdReply.
-    // Recent Baileys reports describe messages with externalAdReply being
-    // accepted by the sender but not appearing on some recipients' WhatsApp clients.
-    try {
-      const thumbnail = fs.readFileSync(BANNER_PATH);
-      if (Buffer.isBuffer(thumbnail) && thumbnail.length > 0) {
-        await ctx.socket.sendMessage(ctx.chatId, {
-          image: thumbnail,
-          caption: `☁️ SkyVerse\n_All-in-one WhatsApp virtual bot assistant._\n💡 Dukung SkyVerse: ${SUPPORT_URL}`,
-        });
-      }
-    } catch {
-      // The banner is decorative; never let its failure block the actual menu.
+    const thumbnail = fs.readFileSync(BANNER_PATH);
+    if (!Buffer.isBuffer(thumbnail) || thumbnail.length === 0) {
+      throw new Error('Banner SkyVerse tidak valid atau kosong.');
     }
 
     const sent = await ctx.socket.sendMessage(ctx.chatId, {
       text: buildAllMenu(ctx),
+      contextInfo: {
+        externalAdReply: {
+          title: 'SkyVerse',
+          body: 'All-in-one WhatsApp virtual bot assistant.',
+          mediaType: 1,
+          thumbnail,
+          sourceUrl: SUPPORT_URL,
+          renderLargerThumbnail: true,
+          showAdAttribution: true,
+        },
+      },
     });
 
     if (!sent?.key?.id) {
