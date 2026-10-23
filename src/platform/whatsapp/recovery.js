@@ -1,4 +1,4 @@
-import { DisconnectReason } from '@itsliaaa/baileys';
+import { DisconnectReason } from '@whiskeysockets/baileys';
 
 const INVALID_SESSION_CODES = new Set([
   DisconnectReason.loggedOut,
