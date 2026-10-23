@@ -3,7 +3,7 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-} from '@whiskeysockets/baileys';
+} from '@itsliaaa/baileys';
 import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import { clearAuthState, loadAuthState } from './auth.js';
