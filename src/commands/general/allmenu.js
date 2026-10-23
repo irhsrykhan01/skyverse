@@ -2,66 +2,39 @@ import fs from 'node:fs';
 import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
 
 const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
-const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/saweria.jpg', import.meta.url);
-
-function commandMap(commands) {
-  return new Map(commands.map((command) => [command.name, command]));
-}
-
-function buildDownloaderMenu(prefix, commands) {
-  const byName = commandMap(commands);
-  const main = [
-    { name: 'facebook', label: 'facebook', children: ['fbmp3'] },
-    { name: 'instagram', label: 'instagram', children: [] },
-    { name: 'tiktok', label: 'tiktok', children: ['ttmp3'] },
-    { name: 'youtube', label: 'youtube', children: ['ytmp3'] },
-    { name: 'pinterest', label: 'pinterest', children: [] },
-    { name: 'twitter', label: 'twitter', children: [] },
-    { name: 'mediafire', label: 'mediafire', children: [] },
-    { name: 'gdrive', label: 'gdrive', children: [] },
-  ];
-
-  const lines = [' ❏ *Downloader*'];
-  const visibleMain = main.filter((entry) => byName.has(entry.name));
-  visibleMain.forEach((entry, index) => {
-    const isLast = index === visibleMain.length - 1;
-    lines.push(`${isLast ? '└' : '├'} ${prefix}${entry.label}`);
-    const children = entry.children.filter((name) => byName.has(name));
-    children.forEach((name, childIndex) => {
-      const childBranch = childIndex === children.length - 1 ? '└' : '├';
-      lines.push(`     ${childBranch} ${prefix}${name}`);
-    });
-  });
-  return lines;
-}
+const BANNER_PATH = new URL('../../../assets/SkyLabs_banner.jpg', import.meta.url);
 
 function buildAllMenu(ctx) {
   const groups = ctx.registry.byCategory({ includeHidden: false });
   const ordered = orderMenuCategories(groups);
-  const total = ctx.registry.all({ includeHidden: false }).length;
+  const commands = ctx.registry.all({ includeHidden: false });
+  const total = commands.length;
+  const tag = ctx.senderJid?.split('@')[0] ?? 'User';
+  const tier = ctx.user?.is_premium ? 'Premium User' : 'Free User';
+
   const lines = [
-    '╭── ＳＫＹＶＥＲＳＥ ──',
-    `│ Halo, @${ctx.senderJid?.split('@')[0] ?? 'User'}!`,
-    `│ Tier: ${ctx.user?.is_premium ? 'Premium User' : 'Free User'}`,
-    '╰───────────────',
-    'Selamat datang di Skyverse Bot!. ☁',
-    '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
-    '',
-    `Total Command: ${total}`,
+    '❖  *SKYVERSE*  ❖',
+    '───────────────',
+    `Halo, @${tag}`,
+    `⋄ Status : ${tier}`,
+    `⋄ Total  : ${total} Commands`,
+    '───────────────',
+    '> _All-in-one WhatsApp virtual bot assistant._',
   ];
 
-  for (const [category, commands] of ordered) {
-    if (category === 'downloader') {
-      lines.push('', ...buildDownloaderMenu(ctx.config.prefix, commands));
-      continue;
+  for (const [category, items] of ordered) {
+    lines.push('', `⚝ *${getMenuCategoryLabel(category).toUpperCase()}*`);
+    for (const item of items) {
+      lines.push(`⊛ ${ctx.config.prefix}${item.name}`);
     }
-
-    lines.push('', ` ❏ *${getMenuCategoryLabel(category)}*`);
-    commands.forEach((item, index) => {
-      const branch = index === commands.length - 1 ? '└' : '├';
-      lines.push(`${branch} ${ctx.config.prefix}${item.name}`);
-    });
   }
+
+  lines.push(
+    '',
+    '───────────────',
+    '💡 Dukung SkyVerse:',
+    SUPPORT_URL,
+  );
 
   return lines.join('\n');
 }
@@ -74,29 +47,23 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL);
+    const thumbnail = fs.readFileSync(BANNER_PATH);
     if (!Buffer.isBuffer(thumbnail) || thumbnail.length === 0) {
-      throw new Error('Thumbnail allmenu tidak valid atau kosong.');
+      throw new Error('Banner SkyVerse tidak valid atau kosong.');
     }
 
-    // Tambahkan cache-buster khusus saat testing agar WhatsApp tidak memakai
-    // hasil preview lama untuk URL Saweria yang sama.
-    const previewUrl = `${SUPPORT_URL}?v=${Date.now()}`;
-    const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${previewUrl}`;
-
-    const sent = await ctx.reply(text, {
-      sendOptions: {
-        contextInfo: {
-          externalAdReply: {
-            title: 'Support SkyVerse',
-            body: 'yang mau request tinggal tulis disini aja',
-            mediaType: 1,
-            previewType: 'PHOTO',
-            thumbnail,
-            renderLargerThumbnail: true,
-            sourceUrl: previewUrl,
-            mediaUrl: previewUrl,
-          },
+    const mentionedJid = ctx.senderJid ? [ctx.senderJid] : [];
+    const sent = await ctx.socket.sendMessage(ctx.chatId, {
+      text: buildAllMenu(ctx),
+      contextInfo: {
+        mentionedJid,
+        externalAdReply: {
+          title: 'SkyVerse',
+          body: 'All-in-one WhatsApp virtual bot assistant.',
+          mediaType: 1,
+          thumbnail,
+          renderLargerThumbnail: true,
+          sourceUrl: SUPPORT_URL,
         },
       },
     });
