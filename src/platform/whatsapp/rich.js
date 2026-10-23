@@ -1,4 +1,4 @@
-import { generateWAMessageFromContent, proto } from '@whiskeysockets/baileys';
+import { generateWAMessageFromContent, proto } from '@itsliaaa/baileys';
 
 const MAX_HTML_PAYLOAD = 12000;
 const ALLOWED_HTML = /^(?:h1|h2|h3|p|div|span|b|strong|i|em|br|ul|ol|li|code|pre|a)$/i;
