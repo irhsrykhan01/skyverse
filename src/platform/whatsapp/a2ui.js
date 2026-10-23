@@ -2,7 +2,7 @@ import {
   generateWAMessageFromContent,
   isJidGroup,
   proto,
-} from '@itsliaaa/baileys';
+} from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories, resolveMenuCategory } from '../../core/menu-categories.js';
 
 function buildBizNode() {
