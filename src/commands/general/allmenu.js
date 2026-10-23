@@ -46,35 +46,21 @@ export const command = {
       throw new Error('Banner SkyVerse tidak valid atau kosong.');
     }
 
-    // Send the actual menu as a plain text message first. This keeps delivery
-    // reliable even when WhatsApp rejects externalAdReply metadata.
     const sent = await ctx.socket.sendMessage(ctx.chatId, {
       text: buildAllMenu(ctx),
+      externalAdReply: {
+        title: 'SkyVerse',
+        body: 'All-in-one WhatsApp virtual bot assistant.',
+        mediaType: 1,
+        thumbnail,
+        url: SUPPORT_URL,
+        largeThumbnail: true,
+        showAdAttribution: true,
+      },
     });
 
     if (!sent?.key?.id) {
       throw new Error('Baileys tidak mengembalikan message key untuk allmenu.');
-    }
-
-    // externalAdReply is best-effort: some WhatsApp/Baileys combinations can
-    // accept the send locally while dropping the message for the recipient.
-    try {
-      await ctx.socket.sendMessage(ctx.chatId, {
-        text: 'SkyVerse',
-        contextInfo: {
-          externalAdReply: {
-            title: 'SkyVerse',
-            body: 'All-in-one WhatsApp virtual bot assistant.',
-            mediaType: 1,
-            thumbnail,
-            sourceUrl: SUPPORT_URL,
-            renderLargerThumbnail: true,
-            showAdAttribution: true,
-          },
-        },
-      });
-    } catch {
-      // The real allmenu message was already delivered above.
     }
   },
 };
