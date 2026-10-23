@@ -24,7 +24,7 @@ function button(name, params) {
   });
 }
 
-async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
+async function sendInteractive(socket, jid, { title, body, footer, buttons, externalAdReply = null }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
   const interactiveMessage = proto.Message.InteractiveMessage.create({
@@ -45,7 +45,7 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
   const waMessage = generateWAMessageFromContent(jid, {
     viewOnceMessage: {
       message: {
-        messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
+        messageContextInfo: {\n          deviceListMetadata: {},\n          deviceListMetadataVersion: 2,\n          ...(externalAdReply ? { externalAdReply } : {}),\n        },
         interactiveMessage,
       },
     },
@@ -63,7 +63,7 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
   return waMessage.key;
 }
 
-export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
+export async function sendA2UIMenu(socket, jid, { config, registry, body = null, externalAdReply = null }) {
   const groups = registry.byCategory({ includeHidden: false });
   const ordered = orderMenuCategories(groups);
 
@@ -89,9 +89,7 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
   return sendInteractive(socket, jid, {
     title: config.botName || 'SkyVerse',
     body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
-    footer: 'SkyLabs • SkyVerse',
-    buttons,
-  });
+    footer: 'SkyLabs • SkyVerse',\n    buttons,\n    externalAdReply,\n  });
 }
 
 export async function sendA2UICategoryMenu(socket, jid, { config, registry, category }) {
