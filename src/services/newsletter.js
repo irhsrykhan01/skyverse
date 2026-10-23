@@ -1,4 +1,4 @@
-import { normalizeMessageContent } from '@itsliaaa/baileys';
+import { normalizeMessageContent } from '@whiskeysockets/baileys';
 import { extractMotionPhoto } from './media/motion-photo.js';
 import { downloadResolvedMedia, resolveMediaTarget } from './media/resolver.js';
 
