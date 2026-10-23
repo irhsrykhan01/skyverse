@@ -1,45 +1,26 @@
 import fs from 'node:fs';
+import { sendA2UIMenu } from '../../platform/whatsapp/a2ui.js';
 
 const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
 const BANNER_PATH = new URL('../../../assets/SkyLabs_banner.jpg', import.meta.url);
 
-const GENERAL_COMMANDS = Object.freeze([
-  'afk',
-  'allmenu',
-  'delete',
-  'help',
-  'info',
-  'leaderboard',
-  'menu',
-  'owner',
-  'ping',
-]);
-
-function buildMenu(ctx) {
+function buildMenuBody(ctx) {
+  const user = ctx.user ?? {};
+  const coin = Number(user.coins ?? 0);
+  const tier = user.is_premium ? 'Premium User' : 'Free User';
   const tag = ctx.senderJid?.split('@')[0] ?? 'User';
-  const tier = ctx.user?.is_premium ? 'Premium User' : 'Free User';
-  const total = ctx.registry.all({ includeHidden: false }).length;
-  const available = new Set(
-    ctx.registry.all({ includeHidden: false }).map((item) => item.name),
-  );
-
-  const commandLines = GENERAL_COMMANDS
-    .filter((name) => available.has(name))
-    .map((name) => `⊛ ${ctx.config.prefix}${name}`);
 
   return [
-    '❖  *SKYVERSE*  ❖',
-    '───────────────',
-    `Halo, @${tag}`,
-    `⋄ Status : ${tier}`,
-    `⋄ Total  : ${total} Commands`,
-    '───────────────',
-    '> _All-in-one WhatsApp virtual bot assistant._',
+    '╭── ＳＫＹＶＥＲＳＥ ──',
+    `│ Halo, @${tag}!`,
+    `│ Koin: ${coin}`,
+    `│ Tier: ${tier}`,
+    '╰───────────────',
+    'Selamat datang di Skyverse Bot!. ☁',
+    '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
     '',
-    '⚝ *GENERAL MENU*',
-    ...commandLines,
+    'Butuh bantuan atau ingin request fitur? Ketik *.owner* untuk menghubungi admin.',
     '',
-    '───────────────',
     '💡 Dukung SkyVerse:',
     SUPPORT_URL,
   ].join('\n');
@@ -47,7 +28,7 @@ function buildMenu(ctx) {
 
 export const command = {
   name: 'menu',
-  description: 'Menampilkan menu utama SkyVerse.',
+  description: 'Menampilkan menu interaktif SkyVerse.',
   category: 'general',
   aliases: [],
   permission: 'user',
@@ -58,22 +39,18 @@ export const command = {
       throw new Error('Banner SkyVerse tidak valid atau kosong.');
     }
 
-    const mentionedJid = ctx.senderJid ? [ctx.senderJid] : [];
-    const content = {
-      text: buildMenu(ctx),
-      contextInfo: {
-        mentionedJid,
-        externalAdReply: {
-          title: 'SkyVerse',
-          body: 'All-in-one WhatsApp virtual bot assistant.',
-          mediaType: 1,
-          thumbnail,
-          renderLargerThumbnail: true,
-          sourceUrl: SUPPORT_URL,
-        },
+    await sendA2UIMenu(ctx.socket, ctx.chatId, {
+      config: ctx.config,
+      registry: ctx.registry,
+      body: buildMenuBody(ctx),
+      externalAdReply: {
+        title: 'SkyVerse',
+        body: 'All-in-one WhatsApp virtual bot assistant.',
+        mediaType: 1,
+        thumbnail,
+        renderLargerThumbnail: true,
+        sourceUrl: SUPPORT_URL,
       },
-    };
-
-    await ctx.socket.sendMessage(ctx.chatId, content);
+    });
   },
 };
