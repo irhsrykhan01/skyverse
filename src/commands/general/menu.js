@@ -61,7 +61,6 @@ export const command = {
     const mentionedJid = ctx.senderJid ? [ctx.senderJid] : [];
     const content = {
       text: buildMenu(ctx),
-      mentions: mentionedJid,
       contextInfo: {
         mentionedJid,
         externalAdReply: {
@@ -75,10 +74,6 @@ export const command = {
       },
     };
 
-    const options = ctx.isChannel || ctx.isBroadcast
-      ? {}
-      : { quoted: ctx.message };
-
-    await ctx.socket.sendMessage(ctx.chatId, content, options);
+    await ctx.socket.sendMessage(ctx.chatId, content);
   },
 };
