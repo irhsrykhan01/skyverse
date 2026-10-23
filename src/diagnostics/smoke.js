@@ -42,8 +42,12 @@ await allmenuCommand.execute({
 });
 const allmenuTextPayload = allmenuPayloads.find((payload) => typeof payload.text === 'string');
 assert(typeof allmenuTextPayload?.text === 'string' && allmenuTextPayload.text.includes('Dukung SkyVerse:'), 'Allmenu plain-text delivery contract failed.');
-assert(!allmenuTextPayload.contextInfo, 'Allmenu text must not depend on externalAdReply metadata.');
-assert(allmenuPayloads.some((payload) => Buffer.isBuffer(payload.image)), 'Allmenu banner must be sent as ordinary image media.');
+const allmenuAdReply = allmenuTextPayload?.contextInfo?.externalAdReply;
+assert(allmenuAdReply?.title === 'SkyVerse', 'Allmenu externalAdReply title contract failed.');
+assert(allmenuAdReply?.body === 'All-in-one WhatsApp virtual bot assistant.', 'Allmenu externalAdReply body contract failed.');
+assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contract failed.');
+assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
+assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply source URL contract failed.');
 for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
