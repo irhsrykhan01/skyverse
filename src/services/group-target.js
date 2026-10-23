@@ -1,4 +1,4 @@
-import { normalizeMessageContent } from '@itsliaaa/baileys';
+import { normalizeMessageContent } from '@whiskeysockets/baileys';
 
 function unwrap(message) {
   let current = normalizeMessageContent(message?.message ?? message);
