@@ -48,15 +48,6 @@ export const command = {
 
     const sent = await ctx.socket.sendMessage(ctx.chatId, {
       text: buildAllMenu(ctx),
-      externalAdReply: {
-        title: 'SkyVerse',
-        body: 'All-in-one WhatsApp virtual bot assistant.',
-        mediaType: 1,
-        thumbnail,
-        url: SUPPORT_URL,
-        largeThumbnail: true,
-        showAdAttribution: true,
-      },
     });
 
     if (!sent?.key?.id) {
