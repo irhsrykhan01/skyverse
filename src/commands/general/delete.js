@@ -1,4 +1,4 @@
-import { normalizeMessageContent } from '@itsliaaa/baileys';
+import { normalizeMessageContent } from '@whiskeysockets/baileys';
 
 function getContextInfo(message) {
   const content = normalizeMessageContent(message?.message ?? message);
