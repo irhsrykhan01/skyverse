@@ -1,4 +1,4 @@
-import { downloadMediaMessage } from '@itsliaaa/baileys';
+import { downloadMediaMessage } from '@whiskeysockets/baileys';
 import { addExif } from '../../services/media/sticker-metadata.js';
 
 export const command = {
