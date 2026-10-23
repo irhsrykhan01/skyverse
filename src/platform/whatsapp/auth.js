@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises';
-import { useMultiFileAuthState } from '@itsliaaa/baileys';
+import { useMultiFileAuthState } from '@whiskeysockets/baileys';
 
 export async function loadAuthState(authPath) {
   return useMultiFileAuthState(authPath);
