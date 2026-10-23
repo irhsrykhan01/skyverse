@@ -93,7 +93,10 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null,
   return sendInteractive(socket, jid, {
     title: config.botName || 'SkyVerse',
     body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
-    footer: 'SkyLabs • SkyVerse',\n    buttons,\n    externalAdReply,\n  });
+    footer: 'SkyLabs • SkyVerse',
+    buttons,
+    externalAdReply,
+  });
 }
 
 export async function sendA2UICategoryMenu(socket, jid, { config, registry, category }) {
