@@ -68,12 +68,9 @@ export const command = {
           title: 'SkyVerse',
           body: 'All-in-one WhatsApp virtual bot assistant.',
           mediaType: 1,
-          previewType: 'PHOTO',
           thumbnail,
           renderLargerThumbnail: true,
-          showAdAttribution: false,
           sourceUrl: SUPPORT_URL,
-          mediaUrl: SUPPORT_URL,
         },
       },
     };
