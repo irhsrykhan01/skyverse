@@ -1,4 +1,4 @@
-import { downloadMediaMessage, getContentType, normalizeMessageContent } from '@itsliaaa/baileys';
+import { downloadMediaMessage, getContentType, normalizeMessageContent } from '@whiskeysockets/baileys';
 
 export const USER_INPUT_MEDIA_ERROR_PREFIX = 'USER_INPUT_MEDIA:';
 
