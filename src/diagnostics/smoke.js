@@ -13,6 +13,10 @@ import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryRe
 import { renderMockUi } from '../services/mock-ui.js';
 import { resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createDatabase, createRepositories } from '../database/index.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -152,4 +156,38 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + downloader aliases + games + Canvas Rich + PTV resolver tests.`);
+const dbSmokeDir = await mkdtemp(join(tmpdir(), 'skyverse-db-smoke-'));
+const dbSmokePath = join(dbSmokeDir, 'data', 'skyverse.sqlite');
+const dbSmokeLogger = { info() {}, warn() {}, error() {}, debug() {} };
+let dbSmoke = null;
+try {
+  dbSmoke = await createDatabase(dbSmokePath, dbSmokeLogger);
+  const repositories = createRepositories(dbSmoke);
+  const smokeJid = '628123456789@s.whatsapp.net';
+  repositories.users.upsert({
+    jid: smokeJid,
+    phoneJid: smokeJid,
+    pushName: 'Smoke User',
+    isBot: false,
+  });
+  repositories.settings.set('group', '120000000000000@g.us', 'group.welcome', JSON.stringify({ enabled: true }));
+  repositories.commands.increment('ping', smokeJid);
+
+  // close() must flush pending writes even when persist() was not called manually.
+  await dbSmoke.close();
+  dbSmoke = null;
+
+  dbSmoke = await createDatabase(dbSmokePath, dbSmokeLogger);
+  const restored = createRepositories(dbSmoke);
+  assert(restored.users.get(smokeJid)?.push_name === 'Smoke User', 'Database user data did not survive a close/reopen cycle.');
+  assert(restored.users.get(smokeJid)?.number === '628123456789', 'Database phone number did not survive a close/reopen cycle.');
+  assert(restored.settings.get('group', '120000000000000@g.us', 'group.welcome') === JSON.stringify({ enabled: true }), 'Database settings did not survive a close/reopen cycle.');
+  assert(restored.commands.stats().some((item) => item.command === 'ping' && item.usage_count === 1), 'Database command stats did not survive a close/reopen cycle.');
+  await dbSmoke.close();
+  dbSmoke = null;
+} finally {
+  if (dbSmoke) await dbSmoke.close().catch(() => {});
+  await rm(dbSmokeDir, { recursive: true, force: true });
+}
+
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + downloader aliases + games + Canvas Rich + PTV resolver + database persistence tests.`);

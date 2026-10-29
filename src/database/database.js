@@ -1,4 +1,5 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import initSqlJs from 'sql.js';
@@ -43,8 +44,21 @@ export async function createDatabase(databasePath, logger) {
   async function persist() {
     if (closed || !dirty) return;
     if (flushPromise) return flushPromise;
-    const writeVersion = dirtyVersion, exported = Buffer.from(database.export());
-    flushPromise = (async () => { await writeFile(databasePath, exported); if (dirtyVersion === writeVersion) dirty = false; })().finally(() => { flushPromise = null; });
+
+    const writeVersion = dirtyVersion;
+    const exported = Buffer.from(database.export());
+    const temporaryPath = `${databasePath}.${process.pid}.${randomUUID()} .tmp`.replace(' .tmp', '.tmp');
+
+    flushPromise = (async () => {
+      try {
+        await writeFile(temporaryPath, exported);
+        await rename(temporaryPath, databasePath);
+        if (dirtyVersion === writeVersion) dirty = false;
+      } finally {
+        await rm(temporaryPath, { force: true }).catch(() => {});
+      }
+    })().finally(() => { flushPromise = null; });
+
     return flushPromise;
   }
   const flushTimer = setInterval(() => { persist().catch((error) => logger.error('Database auto-save failed', { error: error?.message ?? String(error) })); }, 10_000);
