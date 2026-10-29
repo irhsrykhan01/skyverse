@@ -47,7 +47,7 @@ export async function createDatabase(databasePath, logger) {
 
     const writeVersion = dirtyVersion;
     const exported = Buffer.from(database.export());
-    const temporaryPath = `${databasePath}.${process.pid}.${randomUUID()} .tmp`.replace(' .tmp', '.tmp');
+    const temporaryPath = databasePath + '.' + process.pid + '.' + randomUUID() + '.tmp';
 
     flushPromise = (async () => {
       try {
