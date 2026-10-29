@@ -5,6 +5,8 @@ import * as media from '../services/media/index.js';
 import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
+import { startMiniGame, getMiniGame, isMiniGameReply, answerMiniGame, updateMiniGameMessage, stopMiniGame } from '../games/mini-games.js';
+import { formatMultipleChoice } from '../services/games-api.js';
 import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { normalizePhoneNumber } from '../security/identity.js';
@@ -53,7 +55,7 @@ assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contr
 assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
 assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
 assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -132,6 +134,57 @@ assert(getMathQuiz('smoke')?.answer === mathSession.answer, 'Math quiz session c
 assert(formatMathQuestion(mathSession).includes('='), 'Math quiz formatter contract failed.');
 assert(answerMathQuiz('smoke', mathSession.answer).result === 'win', 'Math quiz answer contract failed.');
 stopMathQuiz('smoke');
+
+const formattedTrivia = formatMultipleChoice({
+  category: 'Science',
+  difficulty: 'easy',
+  question: 'Which planet is known as the Red Planet?',
+  correctAnswer: 'Mars',
+  incorrectAnswers: ['Venus', 'Jupiter', 'Mercury'],
+  source: 'SkyVerse offline',
+});
+assert(formattedTrivia.choices.length === 4, 'Trivia formatter must produce four answer choices.');
+assert('ABCD'.includes(formattedTrivia.correctLetter), 'Trivia formatter must identify the correct answer letter.');
+assert(formattedTrivia.choices.includes('Mars'), 'Trivia formatter dropped the correct answer.');
+
+startMiniGame({
+  userId: 'mini-game-smoke',
+  chatId: 'mini-chat-smoke',
+  gameMessageId: 'MINI-GAME-1',
+  type: 'tebakangka',
+  answer: 12,
+  state: { minimum: 1, maximum: 30, attempts: 0, maxAttempts: 6 },
+});
+assert(getMiniGame('mini-game-smoke', 'mini-chat-smoke')?.type === 'tebakangka', 'Mini-game session was not created.');
+assert(isMiniGameReply('mini-game-smoke', { chatId: 'mini-chat-smoke', stanzaId: 'MINI-GAME-1' }), 'Mini-game reply routing failed.');
+const numberHint = answerMiniGame('mini-game-smoke', 'mini-chat-smoke', 'MINI-GAME-1', '5');
+assert(numberHint.matched && numberHint.keep && numberHint.text.includes('Terlalu kecil'), 'Number-guessing hint contract failed.');
+assert(updateMiniGameMessage('mini-game-smoke', 'mini-chat-smoke', 'MINI-GAME-2'), 'Mini-game message ID did not update.');
+const numberWin = answerMiniGame('mini-game-smoke', 'mini-chat-smoke', 'MINI-GAME-2', '12');
+assert(numberWin.matched && numberWin.complete && numberWin.text.includes('12'), 'Number-guessing win contract failed.');
+assert(getMiniGame('mini-game-smoke', 'mini-chat-smoke') === null, 'Completed mini-game session was not removed.');
+
+startMiniGame({
+  userId: 'mini-quiz-smoke',
+  chatId: 'mini-quiz-chat',
+  gameMessageId: 'MINI-QUIZ-1',
+  type: 'quizcepat',
+  state: {
+    questions: [
+      { question: 'Two plus two?', category: 'Math', choices: ['4', '3', '2', '5'], correctLetter: 'A', correctAnswer: '4', source: 'SkyVerse offline' },
+      { question: 'Three plus three?', category: 'Math', choices: ['6', '5', '7', '8'], correctLetter: 'A', correctAnswer: '6', source: 'SkyVerse offline' },
+    ],
+    index: 0,
+    score: 0,
+  },
+});
+const quizNext = answerMiniGame('mini-quiz-smoke', 'mini-quiz-chat', 'MINI-QUIZ-1', 'A');
+assert(quizNext.matched && quizNext.keep && quizNext.text.includes('Soal 2/2'), 'Quick quiz did not advance to its next question.');
+updateMiniGameMessage('mini-quiz-smoke', 'mini-quiz-chat', 'MINI-QUIZ-2');
+const quizFinish = answerMiniGame('mini-quiz-smoke', 'mini-quiz-chat', 'MINI-QUIZ-2', 'A');
+assert(quizFinish.matched && quizFinish.complete && quizFinish.text.includes('2/2'), 'Quick quiz final score contract failed.');
+stopMiniGame('unused-user', 'unused-chat');
+
 
 const p1 = '111111111111111@s.whatsapp.net';
 const p2 = '222222222222222@s.whatsapp.net';

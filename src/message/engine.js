@@ -5,6 +5,7 @@ import { createAntideleteService } from '../services/antidelete.js';
 import { getMessageText } from './parser.js';
 import { isBombReply, guessBomb, updateBombMessage } from '../games/bomb.js';
 import { isTicTacToeReply, playTicTacToe, updateTicTacToeMessage } from '../games/tictactoe.js';
+import { isMiniGameReply, answerMiniGame, updateMiniGameMessage } from '../games/mini-games.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
@@ -167,6 +168,15 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
         await socket.sendMessage(chatId, { text: [String(result.selected) + '\uFE0F → 💣', '', 'BOOM!! 💥💥', '', 'Game selesai!'].join('\n') }, { quoted: message });
       }
       return;
+    }
+
+    if (!plainText.startsWith(config.prefix) && quotedStanzaId && isMiniGameReply(senderJid, { chatId, stanzaId: quotedStanzaId })) {
+      const result = answerMiniGame(senderJid, chatId, quotedStanzaId, plainText);
+      if (result.matched) {
+        const sent = await socket.sendMessage(chatId, { text: result.text }, { quoted: message });
+        if (result.keep && sent?.key?.id) updateMiniGameMessage(senderJid, chatId, sent.key.id);
+        return;
+      }
     }
 
     const parsed = parseIncomingMessage(message, config.prefix);
