@@ -2,14 +2,21 @@ import { DisconnectReason } from '@whiskeysockets/baileys';
 
 const INVALID_SESSION_CODES = new Set([
   DisconnectReason.loggedOut,
-  DisconnectReason.forbidden,
   DisconnectReason.multideviceMismatch,
-  DisconnectReason.connectionReplaced,
   DisconnectReason.badSession,
 ]);
 
+export function disconnectStatus(error) {
+  if (!error || typeof error !== 'object') return null;
+  const candidate = error.output?.statusCode ?? error.statusCode ?? error.status;
+  const statusCode = Number(candidate);
+  return Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599
+    ? statusCode
+    : null;
+}
+
 export function isInvalidSessionDisconnect(statusCode) {
-  return INVALID_SESSION_CODES.has(statusCode);
+  return INVALID_SESSION_CODES.has(Number(statusCode));
 }
 
 export function recoveryDelay(attempt = 1) {

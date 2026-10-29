@@ -9,7 +9,7 @@ import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from 
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
-import { isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
+import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
 import { renderMockUi } from '../services/mock-ui.js';
 import { resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
@@ -42,13 +42,13 @@ await allmenuCommand.execute({
 });
 const allmenuTextPayload = allmenuPayloads.find((payload) => typeof payload.text === 'string');
 assert(typeof allmenuTextPayload?.text === 'string' && allmenuTextPayload.text.includes('Dukung SkyVerse:'), 'Allmenu plain-text delivery contract failed.');
-const allmenuAdReply = allmenuTextPayload?.externalAdReply;
+const allmenuAdReply = allmenuTextPayload?.contextInfo?.externalAdReply;
 assert(allmenuAdReply?.title === 'SkyVerse', 'Allmenu externalAdReply title contract failed.');
 assert(allmenuAdReply?.body === 'All-in-one WhatsApp virtual bot assistant.', 'Allmenu externalAdReply body contract failed.');
 assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contract failed.');
 assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
-assert(allmenuAdReply?.url === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply URL contract failed.');
-assert(allmenuAdReply?.largeThumbnail === true, 'Allmenu externalAdReply large thumbnail contract failed.');
+assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
+assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
 for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
@@ -95,9 +95,14 @@ assert(typeof resolveMediaTarget === 'function', 'Media target resolver export i
 const mockPng = renderMockUi({ title: 'SMOKE TEST', fields: [{ label: 'Status', value: 'OK' }] });
 assert(Buffer.isBuffer(mockPng) && mockPng.length > 1000 && mockPng.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'Mock maker renderer failed.');
 
-assert(isInvalidSessionDisconnect(401), 'WhatsApp logged-out status is not recoverable.');
-assert(isInvalidSessionDisconnect(440), 'WhatsApp connection-replaced status is not recoverable.');
-assert(isInvalidSessionDisconnect(500), 'WhatsApp bad-session status is not recoverable.');
+assert(disconnectStatus(undefined) === null, 'Missing WhatsApp disconnect error must not be treated as HTTP 500.');
+assert(disconnectStatus(new Error('network failure')) === null, 'Generic errors must not be treated as bad sessions.');
+assert(disconnectStatus({ output: { statusCode: 401 } }) === 401, 'Boom disconnect status extraction failed.');
+assert(isInvalidSessionDisconnect(401), 'WhatsApp logged-out status should reset invalid auth.');
+assert(!isInvalidSessionDisconnect(403), 'WhatsApp forbidden status must not trigger destructive auth reset.');
+assert(!isInvalidSessionDisconnect(440), 'WhatsApp connection-replaced status must preserve auth.');
+assert(isInvalidSessionDisconnect(411), 'WhatsApp multi-device mismatch should recover invalid auth.');
+assert(isInvalidSessionDisconnect(500), 'WhatsApp bad-session status should recover invalid auth.');
 assert(!isInvalidSessionDisconnect(408), 'WhatsApp timeout should use normal reconnect.');
 assert(!isInvalidSessionDisconnect(515), 'WhatsApp restart-required should use normal reconnect.');
 assert(recoveryDelay(1) === 1000 && recoveryDelay(4) === 8000, 'WhatsApp recovery backoff contract failed.');

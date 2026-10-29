@@ -4,11 +4,10 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
 } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
 import qrcode from 'qrcode-terminal';
 import { clearAuthState, loadAuthState } from './auth.js';
 import { createWhatsAppLogger } from './logger.js';
-import { isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from './recovery.js';
+import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from './recovery.js';
 
 function normalizePairingNumber(value) {
   const digits = String(value ?? '').replace(/\D/g, '');
@@ -18,10 +17,6 @@ function normalizePairingNumber(value) {
 function formatPairingCode(value) {
   const compact = String(value ?? '').replace(/\s+/g, '');
   return compact.match(/.{1,4}/g)?.join('-') ?? compact;
-}
-
-function disconnectStatus(error) {
-  return new Boom(error)?.output?.statusCode ?? null;
 }
 
 export function createWhatsAppConnection({ config, logger, onSocket }) {
@@ -133,6 +128,10 @@ export function createWhatsAppConnection({ config, logger, onSocket }) {
 
       const statusCode = disconnectStatus(lastDisconnect?.error);
       const invalidSession = isInvalidSessionDisconnect(statusCode);
+
+      if (statusCode === DisconnectReason.connectionReplaced) {
+        logger.warn('WhatsApp digantikan koneksi lain. Auth tidak dihapus; pastikan hanya satu proses SkyVerse memakai sesi yang sama.');
+      }
 
       socket = null;
 
