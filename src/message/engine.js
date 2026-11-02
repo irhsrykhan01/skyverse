@@ -11,7 +11,7 @@ const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
 const NEWSLETTER_META_TTL = 6 * 60 * 60 * 1000;
 const GROUP_MESSAGE_TTL = 30 * 60 * 1000;
-const MAX_GROUP_CACHED_MESSAGES = 250;
+const MAX_GROUP_CACHED_MESSAGES = 1000;
 const USER_INPUT_PREFIXES = ['USER_INPUT:', 'USER_INPUT_MEDIA:'];
 
 function displaySender(jid, phoneJid, chatId) {
@@ -237,6 +237,28 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     } finally { if (slowReactionTimer) clearTimeout(slowReactionTimer); }
   }
 
+  async function isPrivilegedMessageAuthor(socket, groupJid, original) {
+    const sender = original.key?.participant ?? null;
+    const senderPhone = original.key?.participantAlt ?? null;
+    const user = sender ? repositories.users.get(sender) : null;
+    const storedPhone = user?.number ? `${user.number}@s.whatsapp.net` : null;
+    if (identity.isOwner(senderPhone ?? storedPhone ?? sender)) return true;
+
+    try {
+      const metadata = await socket.groupMetadata(groupJid);
+      const candidates = new Set([sender, senderPhone, storedPhone].filter(Boolean).map(String));
+      const participant = (metadata?.participants ?? []).find((item) =>
+        [item?.id, item?.pn, item?.lid].filter(Boolean).some((jid) => candidates.has(String(jid)))
+      );
+      return Boolean(participant?.admin);
+    } catch (error) {
+      logger.debug('Anti-delete could not verify message author role', {
+        error: error?.message ?? String(error),
+      });
+      return false;
+    }
+  }
+
   async function handleDeletedMessages(socket, keys) {
     for (const key of keys ?? []) {
       const jid = key?.remoteJid;
@@ -245,11 +267,28 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (!settings.enabled) continue;
       const original = resolveGroupMessage(key);
       if (!original) continue;
+
+      // Do not archive or re-send messages authored by group admins or the bot owner.
+      if (await isPrivilegedMessageAuthor(socket, jid, original)) continue;
+
       const destination = settings.destination || jid;
-      const sender = original.key?.participant ?? key.participant ?? 'unknown';
-      const info = ['🗑️ *ANTI-DELETE*', `Pengirim: @${String(sender).split('@')[0]}`, `ID Pesan: ${key.id ?? 'unknown'}`, `Waktu: ${new Date().toLocaleString('id-ID')}`].join('\n');
-      try { await socket.sendMessage(destination, { text: info, mentions: sender && sender.includes('@') ? [sender] : [] }); await socket.sendMessage(destination, { forward: original, force: true }); }
-      catch (error) { logger.error(`Error anti-delete = ${error?.message ?? String(error)}`); }
+      const sender = original.key?.participant ?? key.participant ?? null;
+      const senderLabel = sender ? `@${String(sender).split('@')[0]}` : 'tidak diketahui';
+      const info = [
+        '🗑️ *ANTI-DELETE*',
+        'Sebuah pesan yang sebelumnya dikirim di grup telah dihapus.',
+        `Pengirim pesan: ${senderLabel}`,
+        `Waktu: ${new Date().toLocaleString('id-ID')}`,
+      ].join('\\n');
+      try {
+        await socket.sendMessage(destination, {
+          text: info,
+          mentions: sender && sender.includes('@') ? [sender] : [],
+        });
+        await socket.sendMessage(destination, { forward: original, force: true });
+      } catch (error) {
+        logger.error(`Error anti-delete = ${error?.message ?? String(error)}`);
+      }
     }
   }
 
