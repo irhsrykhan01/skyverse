@@ -13,6 +13,6 @@ export const command = {
       '',
       `🪙 Coin  : ${wallet.coins.toLocaleString('id-ID')}`,
       `⚡ Limit : ${wallet.limits.toLocaleString('id-ID')}`,
-    ].join('\\n'));
+    ].join('\n'));
   },
 };
