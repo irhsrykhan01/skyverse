@@ -286,7 +286,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
         'Sebuah pesan yang sebelumnya dikirim di grup telah dihapus.',
         `Pengirim pesan: ${senderLabel}`,
         `Waktu: ${new Date().toLocaleString('id-ID')}`,
-      ].join('\\n');
+      ].join('\n');
       try {
         await socket.sendMessage(destination, {
           text: info,
