@@ -11,7 +11,6 @@ export const command = {
   minArgs: 1,
   maxArgs: null,
   cooldown: 3000,
-  limitCost: 1,
   async execute(ctx) {
     let media;
     try {
