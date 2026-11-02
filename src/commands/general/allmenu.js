@@ -9,13 +9,13 @@ function buildAllMenu(ctx) {
   const ordered = orderMenuCategories(groups);
   const commands = ctx.registry.all({ includeHidden: false });
   const total = commands.length;
-  const tag = ctx.senderJid?.split('@')[0] ?? 'User';
+  const tag = ctx.senderNumber ? `+${ctx.senderNumber}` : (ctx.message?.pushName || 'User');
   const tier = ctx.user?.is_premium ? 'Premium User' : 'Free User';
 
   const lines = [
     '❖  *SKYVERSE*  ❖',
     '───────────────',
-    `Halo, @${tag}`,
+    `Halo, ${tag}`,
     `⋄ Status : ${tier}`,
     `⋄ Total  : ${total} Commands`,
     '───────────────',
@@ -48,7 +48,6 @@ export const command = {
 
     const sent = await ctx.socket.sendMessage(ctx.chatId, {
       text: buildAllMenu(ctx),
-      mentions: ctx.senderJid ? [ctx.senderJid] : [],
       contextInfo: {
         externalAdReply: {
           title: 'SkyVerse',
