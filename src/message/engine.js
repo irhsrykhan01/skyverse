@@ -187,7 +187,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       const suggestions = registry.suggest(parsed.name).filter((name) => registry.resolve(name));
       if (suggestions.length) {
         await socket.sendMessage(chatId, {
-          text: `Command .${parsed.name} tidak ditemukan. Mungkin maksud kamu:\\n${suggestions.map((name) => `• ${config.prefix}${name}`).join('\\n')}\\n\\nKetik ${config.prefix}help <command> untuk melihat cara penggunaan.`,
+          text: `Command .${parsed.name} tidak ditemukan. Mungkin maksud kamu:\n${suggestions.map((name) => `• ${config.prefix}${name}`).join('\n')}\n\nKetik ${config.prefix}help <command> untuk melihat cara penggunaan.`,
         }, { quoted: message });
       }
       return;
