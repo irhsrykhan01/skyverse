@@ -202,8 +202,18 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
     let slowReactionTimer = null;
     let slowReactionShown = false;
+    let chargedLimit = 0;
     try {
-            repositories.commands.increment(command.name, senderJid);
+      if (command.limitCost > 0) {
+        const charged = repositories.economy.consumeLimit(senderJid, command.limitCost);
+        if (!charged) {
+          const wallet = repositories.economy.get(senderJid);
+          await context.reply(`Limit tidak cukup. Fitur ini membutuhkan ${command.limitCost} Limit. Sisa Limit: ${wallet?.limits ?? 0}.`);
+          return;
+        }
+        chargedLimit = command.limitCost;
+      }
+      repositories.commands.increment(command.name, senderJid);
       slowReactionTimer = setTimeout(async () => { slowReactionShown = true; await safeReact(context, '⏳'); }, slowCommandDelay);
       await command.execute(context);
       if (slowReactionShown) await safeReact(context, '✅');
@@ -212,6 +222,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       const code = errorCode(error);
       const friendly = userInputMessage(error);
       if (cooldownKey) cooldowns.delete(cooldownKey);
+      if (chargedLimit > 0) repositories.economy.refundLimit(senderJid, chargedLimit);
       logger.error(`Error${code ? ` ${code}` : ''} = ${error?.message ?? String(error)}`);
       if (slowReactionShown) await safeReact(context, '❌');
       try { await context.reply(friendly || 'Terjadi kesalahan saat menjalankan command. Coba lagi nanti.'); } catch {}
