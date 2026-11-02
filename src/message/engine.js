@@ -242,7 +242,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
   async function isPrivilegedMessageAuthor(socket, groupJid, original) {
     const sender = original.key?.participant ?? null;
-    const senderPhone = original.key?.participantAlt ?? null;
+    const senderPhone = original.key?.participantAlt ?? lidToPn.get(sender) ?? null;
     const user = sender ? repositories.users.get(sender) : null;
     const storedPhone = user?.number ? `${user.number}@s.whatsapp.net` : null;
     if (identity.isOwner(senderPhone ?? storedPhone ?? sender)) return true;
@@ -280,7 +280,17 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
       const destination = settings.destination || jid;
       const sender = original.key?.participant ?? key.participant ?? null;
-      const senderLabel = sender ? `@${String(sender).split('@')[0]}` : 'tidak diketahui';
+      const user = sender ? repositories.users.get(sender) : null;
+      const senderPhoneJid = original.key?.participantAlt
+        ?? (sender ? lidToPn.get(sender) : null)
+        ?? (user?.number ? `${user.number}@s.whatsapp.net` : null);
+      const senderNumber = senderPhoneJid
+        ? String(senderPhoneJid).split('@')[0].replace(/\D/g, '')
+        : null;
+      const senderLabel = senderNumber
+        ? `@${senderNumber} (+${senderNumber})`
+        : (original.pushName || 'anggota grup');
+      const mentionJid = senderPhoneJid ?? sender;
       const info = [
         '🗑️ *ANTI-DELETE*',
         'Sebuah pesan yang sebelumnya dikirim di grup telah dihapus.',
@@ -290,7 +300,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       try {
         await socket.sendMessage(destination, {
           text: info,
-          mentions: sender && sender.includes('@') ? [sender] : [],
+          mentions: mentionJid && senderNumber ? [mentionJid] : [],
         });
         await socket.sendMessage(destination, { forward: original, force: true });
       } catch (error) {
