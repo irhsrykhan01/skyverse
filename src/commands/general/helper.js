@@ -9,8 +9,9 @@ export const command = {
   maxArgs: 1,
   async execute(ctx) {
     const query = String(ctx.parsed.args[0] ?? '').trim().toLowerCase();
+    const visibleNames = new Set(ctx.registry.all({ includeHidden: false }).map((item) => item.name));
     const suggestions = ctx.registry.suggest(query)
-      .filter((name) => ctx.registry.resolve(name))
+      .filter((name) => visibleNames.has(name))
       .slice(0, 3);
 
     if (!suggestions.length) {
