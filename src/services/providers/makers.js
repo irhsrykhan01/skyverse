@@ -1,10 +1,11 @@
 import { requestResource } from './http.js';
+import { findMediaSource, downloadMediaSource } from './media-response.js';
 
 const MAX_BRAT_TEXT_LENGTH = 250;
 const MAX_BRATVID_FRAMES = 24;
 
 function cleanBaseUrl(value) {
-  return String(value).replace(/\/+$/, '');
+  return String(value).replace(/\\/+$/, '');
 }
 
 async function fallback(tasks) {
@@ -25,9 +26,17 @@ function validateText(text, label = 'Teks') {
   return value;
 }
 
+async function resolveImage(response, baseUrl) {
+  if (Buffer.isBuffer(response)) return response;
+  const source = findMediaSource(response?.result ?? response, { baseUrl });
+  if (!source) throw new Error('Maker API tidak mengembalikan URL atau buffer gambar.');
+  return downloadMediaSource(source, { expectedType: 'image', maxBytes: 12 * 1024 * 1024 });
+}
+
 export function createMakerProvider({
   bratBaseUrl = 'https://aqul-brat.hf.space',
   nexrayBaseUrl = 'https://api.nexray.web.id',
+  delineBaseUrl = 'https://api.deline.web.id',
   deline,
   zenzxz,
 } = {}) {
@@ -44,31 +53,30 @@ export function createMakerProvider({
   const brat = (text) => {
     const value = validateText(text, 'Teks Brat');
     return fallback([
-      () => deline?.brat(value),
-      () => zenzxz?.brat(value),
+      () => deline.brat(value),
+      () => zenzxz.brat(value),
       () => aqulBrat(value),
-    ].filter(Boolean));
+    ]);
   };
 
   const bratFrames = async (text) => {
     const value = validateText(text, 'Teks BratVid');
-    const words = value.split(/\s+/).filter(Boolean).slice(0, MAX_BRATVID_FRAMES);
+    const words = value.split(/\\s+/).filter(Boolean).slice(0, MAX_BRATVID_FRAMES);
     const phrases = words.length === 1
       ? [words[0], words[0]]
       : words.map((_, index) => words.slice(0, index + 1).join(' '));
     const frames = [];
+
     for (const phrase of phrases) {
-      const media = await fallback([
-        async () => {
-          const result = await deline?.brat(phrase);
-          const buffer = Buffer.isBuffer(result) ? result : result?.media;
-          if (!Buffer.isBuffer(buffer)) throw new Error('Deline Brat tidak mengembalikan buffer gambar.');
-          return buffer;
-        },
-        () => aqulBrat(phrase),
+      const frame = await fallback([
+        async () => resolveImage(await deline.brat(phrase), delineBaseUrl),
+        async () => resolveImage(await zenzxz.brat(phrase), 'https://api.zenzxz.my.id'),
+        async () => resolveImage(await aqulBrat(phrase), bratBaseUrl),
       ]);
-      if (!Buffer.isBuffer(media)) throw new Error('Maker Brat tidak mengembalikan frame gambar yang valid.');
-      frames.push(media);
+      if (!Buffer.isBuffer(frame) || frame.length < 16) {
+        throw new Error('Maker API tidak mengembalikan frame gambar yang valid.');
+      }
+      frames.push(frame);
     }
     return frames;
   };
@@ -76,9 +84,9 @@ export function createMakerProvider({
   const bratVideo = (text) => {
     const value = validateText(text, 'Teks BratVid');
     return fallback([
-      () => deline?.bratVideo(value),
-      () => zenzxz?.bratVideo(value),
-    ].filter(Boolean));
+      () => deline.bratVideo(value),
+      () => zenzxz.bratVideo(value),
+    ]);
   };
 
   const iqc = (text) => {
@@ -86,9 +94,9 @@ export function createMakerProvider({
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     return fallback([
-      () => deline?.iqc(value, time),
+      () => deline.iqc(value, time),
       () => nexrayIqc(value),
-    ].filter(Boolean));
+    ]);
   };
 
   return Object.freeze({ brat, bratFrames, bratVideo, iqc });
