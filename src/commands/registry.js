@@ -48,6 +48,7 @@ function validateCommand(command, file) {
   const minArgs = Number.isInteger(command.minArgs) && command.minArgs >= 0 ? command.minArgs : 0;
   const maxArgs = Number.isInteger(command.maxArgs) && command.maxArgs >= minArgs ? command.maxArgs : null;
   const cooldown = Number.isFinite(command.cooldown) && command.cooldown > 0 ? command.cooldown : 0;
+  const limitCost = Number.isSafeInteger(command.limitCost) && command.limitCost > 0 ? command.limitCost : 0;
   const { cost: _ignoredCost, ...commandMetadata } = command;
   const blocked = BLOCKED_COMMANDS.has(name);
   return Object.freeze({
@@ -64,6 +65,7 @@ function validateCommand(command, file) {
     minArgs,
     maxArgs,
     cooldown,
+    limitCost,
     hidden: blocked || command.hidden === true,
     enabled: !blocked && command.enabled !== false,
   });
