@@ -5,7 +5,7 @@ const MAX_BRAT_TEXT_LENGTH = 250;
 const MAX_BRATVID_FRAMES = 24;
 
 function cleanBaseUrl(value) {
-  return String(value).replace(/\\/+$/, '');
+  return String(value).replace(/\/+$/, '');
 }
 
 async function fallback(tasks) {
@@ -61,7 +61,7 @@ export function createMakerProvider({
 
   const bratFrames = async (text) => {
     const value = validateText(text, 'Teks BratVid');
-    const words = value.split(/\\s+/).filter(Boolean).slice(0, MAX_BRATVID_FRAMES);
+    const words = value.split(/\s+/).filter(Boolean).slice(0, MAX_BRATVID_FRAMES);
     const phrases = words.length === 1
       ? [words[0], words[0]]
       : words.map((_, index) => words.slice(0, index + 1).join(' '));
