@@ -29,6 +29,7 @@ assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still 
 assert(providers.depay === undefined, 'Removed Depay provider is still exposed.');
 assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Siputzx YouTube provider is not exposed.');
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
+assert(resolveMenuCategory('media') === 'media', 'Media menu category is missing.');
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
@@ -55,7 +56,7 @@ assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contr
 assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
 assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
 assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'limit', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'balance', 'limit', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -66,6 +67,13 @@ for (const name of ['brat', 'bratvid', 'iqc', 'sticker', 'stickerwatermark']) {
 }
 assert((registry.resolve('ping')?.limitCost ?? 0) === 0, 'Free commands must not consume Limit.');
 assert(registry.resolve('bratvid')?.name === 'bratvid', 'Rebuilt bratvid command is not enabled.');
+assert(registry.resolve('allmenu')?.permission === 'user' && !registry.resolve('allmenu')?.hidden, 'Allmenu must be visible to regular users.');
+assert(registry.resolve('helper')?.permission === 'user', 'Helper must be available to regular users.');
+for (const name of ['toimg', 'tomp3', 'tomp4', 'tovideo']) {
+  assert(registry.resolve(name)?.category === 'media', name + ' must belong to the Media category.');
+}
+assert(registry.resolve('brathd')?.limitCost === 1, 'BratHD must consume one Limit.');
+
 assert(registry.resolve('fb')?.name === 'facebook', 'Facebook command alias regression.');
 assert(registry.resolve('facebook')?.name === 'facebook', 'Facebook command name regression.');
 assert(registry.resolve('tt')?.name === 'tiktok', 'TikTok command alias regression.');
