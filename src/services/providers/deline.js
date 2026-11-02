@@ -1,8 +1,8 @@
 import { buildUrl, ensureProviderSuccess, requestResource } from './http.js';
 
-export function createDelineProvider({ baseUrl = 'https://api.deline.web.id' } = {}) {
+export function createDelineProvider({ baseUrl = 'https://api.deline.web.id', apiKey = null } = {}) {
   const call = async (path, params = {}) => ensureProviderSuccess(
-    await requestResource(buildUrl(baseUrl, path, params), { retries: 2 }),
+    await requestResource(buildUrl(baseUrl, path, { ...params, ...(apiKey ? { apikey: apiKey } : {}) }), { retries: 2 }),
     'deline',
   );
 
