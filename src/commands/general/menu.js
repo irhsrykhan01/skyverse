@@ -6,20 +6,20 @@ const BANNER_PATH = new URL('../../../assets/SkyLabs_banner.jpg', import.meta.ur
 
 function buildMenuBody(ctx) {
   const user = ctx.user ?? {};
-  const coin = Number(user.coins ?? 0);
+  const coin = Number(user.coins ?? 0);\n  const limit = Number(user.limits ?? 0);
   const tier = user.is_premium ? 'Premium User' : 'Free User';
   const tag = ctx.senderJid?.split('@')[0] ?? 'User';
 
   return [
     '╭── ＳＫＹＶＥＲＳＥ ──',
     `│ Halo, @${tag}!`,
-    `│ Koin: ${coin}`,
+    `│ Coin: ${coin.toLocaleString('id-ID')}`,\n    `│ Limit: ${limit.toLocaleString('id-ID')}`,
     `│ Tier: ${tier}`,
     '╰───────────────',
     'Selamat datang di Skyverse Bot!. ☁',
     '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
     '',
-    'Butuh bantuan atau ingin request fitur? Ketik *.owner* untuk menghubungi admin.',
+    'Ketik *.allmenu* untuk melihat semua command dalam bentuk teks.',\n    'Butuh bantuan atau ingin request fitur? Ketik *.owner* untuk menghubungi admin.',
     '',
     '💡 Dukung SkyVerse:',
     SUPPORT_URL,
