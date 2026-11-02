@@ -42,6 +42,13 @@ export const command = {
         return;
       }
 
+      if (ctx.isGroup) {
+        const capability = await ctx.capabilities.check(ctx.chatId);
+        if (!capability.known || !capability.isAdmin) {
+          throw new Error('Bot harus menjadi admin group untuk menggunakan delete.');
+        }
+      }
+
       const stanzaId = getQuotedStanzaId(ctx.message);
       if (!stanzaId) throw new Error('Reply pesan yang ingin dihapus.');
 
