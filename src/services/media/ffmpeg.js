@@ -132,17 +132,31 @@ async function framesToAnimatedWebp(frames) {
     for (let index = 0; index < frames.length; index += 1) {
       const frame = frames[index];
       if (!Buffer.isBuffer(frame) || frame.length < 16) throw new Error(`Frame ${index + 1} tidak valid.`);
-      await writeFile(join(dir, `frame-${String(index + 1).padStart(4, '0')}.webp`), frame);
+      const sourcePath = join(dir, `source-${String(index + 1).padStart(4, '0')}.bin`);
+      const framePath = join(dir, `frame-${String(index + 1).padStart(4, '0')}.png`);
+      await writeFile(sourcePath, frame);
+      await runProcess('ffmpeg', [
+        '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+        '-i', sourcePath,
+        '-frames:v', '1',
+        '-vf', `${scaleFilter()},format=rgba`,
+        '-c:v', 'png', '-f', 'image2', framePath,
+      ]);
+      const normalized = await readFile(framePath);
+      if (normalized.length < 16 || !normalized.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+        throw new Error(`Frame ${index + 1} gagal dinormalisasi menjadi PNG.`);
+      }
     }
 
     const outputPath = join(dir, 'bratvid.webp');
     await runProcess('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
       '-framerate', '3',
-      '-i', join(dir, 'frame-%04d.webp'),
-      '-vf', `${scaleFilter()},format=rgba`,
-      '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
-      '-compression_level', '6', '-loop', '0', '-an', '-f', 'webp', outputPath,
+      '-i', join(dir, 'frame-%04d.png'),
+      '-vf', 'format=rgba',
+      '-c:v', 'libwebp', '-lossless', '1',
+      '-compression_level', '6', '-pix_fmt', 'yuva420p',
+      '-loop', '0', '-an', '-f', 'webp', outputPath,
     ]);
 
     const output = await readFile(outputPath);
@@ -209,16 +223,16 @@ export function toVoiceNote(buffer) { return withTempMedia(buffer, '.ogg', (inpu
 export function toHd(buffer, { scale = 2 } = {}) { const multiplier = Number(scale); if (![2, 4].includes(multiplier)) throw new Error('HD hanya mendukung scale 2x atau 4x.'); return withTempMedia(buffer, '.jpg', (input, output) => ['-i', input, '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv420p`, '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '2', '-f', 'image2', output]); }
 function wrapMemeText(value, maxChars = 20) { const words = String(value).trim().toUpperCase().split(/\s+/).filter(Boolean); const lines = []; let line = ''; for (const word of words) { const next = line ? `${line} ${word}` : word; if (line && next.length > maxChars) { lines.push(line); line = word; } else line = next; } if (line) lines.push(line); return lines.join('\\n'); }
 function memeTextFilter(text, position) { const wrapped = escapeDrawtext(wrapMemeText(text)); const y = position === 'top' ? '24' : 'h-text_h-24'; return `drawtext=font='DejaVu Sans:style=Bold':text='${wrapped}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=${y}:line_spacing=4`; }
-export function toSmeme(buffer, { top = '', bottom = '' } = {}) { const filters = []; if (top) filters.push(memeTextFilter(top, 'top')); if (bottom) filters.push(memeTextFilter(bottom, 'bottom')); if (!filters.length) throw new Error('Teks meme tidak boleh kosong.'); return withTempMedia(buffer, '.jpg', (input, output) => ['-i', input, '-vf', `${scaleFilter()},${filters.join(',')}`, '-frames:v', '1', '-map_metadata', '-1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output]); }
+export function toSmeme(buffer, { top = '', bottom = '' } = {}) { const filters = []; if (top) filters.push(memeTextFilter(top, 'top')); if (bottom) filters.push(memeTextFilter(bottom, 'bottom')); if (!filters.length) throw new Error('Teks meme tidak boleh kosong.'); return withTempMedia(buffer, '.jpg', (input, output) => ['-i', input, '-vf', `scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,${filters.join(',')}`, '-frames:v', '1', '-map_metadata', '-1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output]); }
 export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = 'SkyVerse Bot' } = {}) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-vf', `${scaleFilter()},format=rgba`, '-frames:v', '1', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-preset', 'picture', '-metadata', `comment=${pack} | ${author}`, '-f', 'webp', output]); }
 export function toSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker kosong atau tidak valid.');
   if (isWebp(buffer)) return throwOversize(buffer, isAnimatedWebp(buffer) ? MAX_ANIMATED_STICKER_BYTES : MAX_STATIC_STICKER_BYTES, isAnimatedWebp(buffer) ? 'Sticker animasi' : 'Sticker');
-  return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', scaleFilter(), '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
+  return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', `${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '1', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
 }
 export function toAnimatedSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker animasi kosong atau tidak valid.');
   if (isAnimatedWebp(buffer)) return throwOversize(buffer, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
-  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()}`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
+  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '1', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
 }
 export { framesToAnimatedWebp as toAnimatedStickerFromFrames };
