@@ -9,6 +9,7 @@ export const command = {
   permission: 'user',
   minArgs: 1,
   cooldown: 3000,
+  limitCost: 1,
   async execute(ctx) {
     const response = await ctx.providers.makers.brat(ctx.parsed.args.join(' '));
     await replyWithProviderSticker(ctx, response, { baseUrl: ctx.config.delineBaseUrl });
