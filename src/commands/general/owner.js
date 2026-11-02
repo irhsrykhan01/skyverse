@@ -5,7 +5,7 @@ export const command = {
   aliases: ['creator'],
   permission: 'user',
   async execute(ctx) {
-    const number = String(ctx.config.ownerNumber ?? '').replace(/\\D/g, '');
+    const number = String(ctx.config.ownerNumber ?? '').replace(/\D/g, '');
     if (!number) {
       await ctx.reply('Owner belum dikonfigurasi. Isi OWNER_NUMBER pada environment SkyVerse.');
       return;
