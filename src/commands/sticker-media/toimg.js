@@ -1,7 +1,7 @@
 export const command = {
   name: 'toimg',
   description: 'Mengubah sticker atau video menjadi gambar JPEG dari frame pertama.',
-  category: 'sticker',
+  category: 'media',
   aliases: ['toimage'],
   usage: 'toimg (reply sticker atau video)',
   permission: 'user',
