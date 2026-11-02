@@ -20,6 +20,7 @@ export async function createDatabase(databasePath, logger) {
       jid TEXT PRIMARY KEY, number TEXT, push_name TEXT, is_bot INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
       is_premium INTEGER NOT NULL DEFAULT 0, premium_until INTEGER,
+      coins INTEGER NOT NULL DEFAULT 500, limits INTEGER NOT NULL DEFAULT 10,
       
       last_active_at INTEGER NOT NULL DEFAULT 0
     );
@@ -36,6 +37,8 @@ export async function createDatabase(databasePath, logger) {
     ['is_premium', 'ALTER TABLE users ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0'],
     ['premium_until', 'ALTER TABLE users ADD COLUMN premium_until INTEGER'],
     ['last_active_at', 'ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0'],
+    ['coins', 'ALTER TABLE users ADD COLUMN coins INTEGER NOT NULL DEFAULT 500'],
+    ['limits', 'ALTER TABLE users ADD COLUMN limits INTEGER NOT NULL DEFAULT 10'],
   ];
   let migrated = false;
   for (const [name, sql] of migrations) { if (!userColumns.includes(name)) { database.exec(sql); migrated = true; } }
