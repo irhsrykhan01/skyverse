@@ -1,5 +1,4 @@
-import { findDownloaderUrl, replyWithDownloaderAudio } from '../../services/providers/downloader-response.js';
-import { downloadMediaSource } from '../../services/providers/media-response.js';
+import { sendAudioDownload, sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'fbmp3',
@@ -12,17 +11,10 @@ export const command = {
   maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.facebook(ctx.parsed.args[0]);
-    const audioUrl = findDownloaderUrl(response, { kind: 'audio' });
-    if (audioUrl) {
-      await replyWithDownloaderAudio(ctx, { result: { audio: audioUrl } }, { filename: 'skyverse-facebook.mp3' });
-      return;
-    }
-
-    const videoUrl = findDownloaderUrl(response, { kind: 'video' });
-    if (!videoUrl) throw new Error(response?.error?.message ?? 'Facebook tidak mengembalikan media yang dapat diunduh.');
-    const buffer = await downloadMediaSource({ kind: 'url', value: videoUrl, expectedType: 'video' });
-    const audio = await ctx.media.toMp3(buffer);
-    await ctx.media.send(audio, 'audio', { mimetype: 'audio/mpeg', fileName: 'skyverse-facebook.mp3' });
+    const url = ctx.parsed.args[0];
+    await sendWithFallback(ctx, [
+      { name: 'Deline', run: () => ctx.providers.deline.facebook(url) },
+      { name: 'Zenzxz', run: () => ctx.providers.zenzxz.facebook(url) },
+    ], (response) => sendAudioDownload(ctx, response, 'skyverse-facebook.mp3'));
   },
 };
