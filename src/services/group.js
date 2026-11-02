@@ -145,9 +145,9 @@ export function createGroupService() {
     if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
     const unique = [...new Set(participants)];
     const body = String(text).trim() || 'Tag all';
-    const visibleMentions = unique.map((jid) => `@${String(jid).split('@')[0]}`).join('\\n');
+    const visibleMentions = unique.map((jid) => `@${String(jid).split('@')[0]}`).join('\n');
     await ctx.socket.sendMessage(ctx.chatId, {
-      text: `${body}\\n\\n${visibleMentions}`,
+      text: `${body}\n\n${visibleMentions}`,
       mentions: unique,
     });
   }
