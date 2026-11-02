@@ -9,11 +9,11 @@ function buildMenuBody(ctx) {
   const coin = Number(user.coins ?? 0);
   const limit = Number(user.limits ?? 0);
   const tier = user.is_premium ? 'Premium User' : 'Free User';
-  const tag = ctx.senderJid?.split('@')[0] ?? 'User';
+  const tag = ctx.senderNumber ? `+${ctx.senderNumber}` : (ctx.message?.pushName || 'User');
 
   return [
     '╭── ＳＫＹＶＥＲＳＥ ──',
-    `│ Halo, @${tag}!`,
+    `│ Halo, ${tag}!`,
     `│ Coin: ${coin.toLocaleString('id-ID')}`,
     `│ Limit: ${limit.toLocaleString('id-ID')}`,
     `│ Tier: ${tier}`,
