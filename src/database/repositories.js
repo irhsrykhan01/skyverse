@@ -110,7 +110,7 @@ export function createRepositories(database) {
   function getUser(jid) {
     return jid ? database.get(
       `SELECT jid, number, push_name, is_bot, created_at, updated_at,
-              is_premium, premium_until
+              is_premium, premium_until, coins, limits
        FROM users WHERE jid = ?`,
       [jid],
     ) : undefined;
@@ -121,14 +121,42 @@ export function createRepositories(database) {
     if (!normalized) return undefined;
     return database.get(
       `SELECT jid, number, push_name, is_bot, created_at, updated_at,
-              is_premium, premium_until
+              is_premium, premium_until, coins, limits
        FROM users WHERE number = ? LIMIT 1`,
       [normalized],
     );
   }
 
+  function getWallet(jid) {
+    const user = getUser(jid);
+    return user ? { coins: Number(user.coins) || 0, limits: Number(user.limits) || 0 } : undefined;
+  }
+
+  function consumeLimit(jid, amount = 1) {
+    const cost = safeInteger(amount, 0);
+    if (!jid || cost <= 0) return false;
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user || Number(user.limits) < cost) return false;
+      database.exec('UPDATE users SET limits = limits - ?, updated_at = ? WHERE jid = ? AND limits >= ?', [cost, Date.now(), jid, cost]);
+      return true;
+    });
+  }
+
+  function refundLimit(jid, amount = 1) {
+    const refund = safeInteger(amount, 0);
+    if (!jid || refund <= 0) return false;
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user) return false;
+      database.exec('UPDATE users SET limits = limits + ?, updated_at = ? WHERE jid = ?', [refund, Date.now(), jid]);
+      return true;
+    });
+  }
+
   return Object.freeze({
     users: Object.freeze({ upsert: upsertUser, get: getUser, findByNumber: findUserByNumber }),
+    economy: Object.freeze({ get: getWallet, consumeLimit, refundLimit }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
