@@ -1,8 +1,8 @@
-import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
+import { sendTikTokDownload, sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'tiktok',
-  description: 'Download video atau photo carousel TikTok melalui TikWM.',
+  description: 'Download video atau photo carousel TikTok.',
   category: 'downloader',
   aliases: ['tt'],
   usage: 'tiktok <url>',
@@ -11,29 +11,11 @@ export const command = {
   maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.tiktok(ctx.parsed.args[0]);
-    const result = response?.result ?? {};
-    const images = Array.isArray(result.images) ? result.images.filter(Boolean) : [];
-
-    if (images.length && !result.video) {
-      for (const url of images.slice(0, 10)) {
-        await replyWithDownloaderMedia(ctx, { result: { image: url } }, { kind: 'image' });
-      }
-      return;
-    }
-
-    if (result.video) {
-      await replyWithDownloaderMedia(ctx, { result: { video: result.video } }, { kind: 'video' });
-      return;
-    }
-
-    if (images.length) {
-      for (const url of images.slice(0, 10)) {
-        await replyWithDownloaderMedia(ctx, { result: { image: url } }, { kind: 'image' });
-      }
-      return;
-    }
-
-    throw new Error('TikWM tidak mengembalikan video atau foto.');
+    const url = ctx.parsed.args[0];
+    await sendWithFallback(ctx, [
+      { name: 'TikWM', run: () => ctx.providers.tikwm.tiktok(url) },
+      { name: 'Deline', run: () => ctx.providers.deline.call('/downloader/tiktok', { url }) },
+      { name: 'Zenzxz', run: () => ctx.providers.zenzxz.call('/downloader/tiktok', { url }) },
+    ], (response) => sendTikTokDownload(ctx, response));
   },
 };
