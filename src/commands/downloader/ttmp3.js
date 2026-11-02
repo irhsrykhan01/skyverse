@@ -1,5 +1,4 @@
-import { findDownloaderUrl } from '../../services/providers/downloader-response.js';
-import { downloadMediaSource } from '../../services/providers/media-response.js';
+import { sendAudioDownload, sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'ttmp3',
@@ -12,14 +11,11 @@ export const command = {
   maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.tiktok(ctx.parsed.args[0]);
-    const audioUrl = findDownloaderUrl(response, { kind: 'audio' });
-    const videoUrl = findDownloaderUrl(response, { kind: 'video' });
-    const sourceUrl = audioUrl ?? videoUrl;
-    if (!sourceUrl) throw new Error(response?.error?.message ?? 'TikTok tidak mengembalikan media audio/video yang dapat diproses.');
-
-    const source = await downloadMediaSource({ kind: 'url', value: sourceUrl, expectedType: audioUrl ? 'audio' : 'video' });
-    const audio = await ctx.media.toMp3(source);
-    await ctx.media.send(audio, 'audio', { mimetype: 'audio/mpeg', fileName: 'skyverse-tiktok.mp3' });
+    const url = ctx.parsed.args[0];
+    await sendWithFallback(ctx, [
+      { name: 'TikWM', run: () => ctx.providers.tikwm.tiktok(url) },
+      { name: 'Deline', run: () => ctx.providers.deline.call('/downloader/tiktok', { url }) },
+      { name: 'Zenzxz', run: () => ctx.providers.zenzxz.call('/downloader/tiktok', { url }) },
+    ], (response) => sendAudioDownload(ctx, response, 'skyverse-tiktok.mp3'));
   },
 };
