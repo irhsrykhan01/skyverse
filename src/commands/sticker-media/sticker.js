@@ -8,6 +8,7 @@ export const command = {
   minArgs: 0,
   maxArgs: 0,
   cooldown: 3000,
+  limitCost: 1,
   async execute(ctx) {
     const media = await ctx.media.download();
 
