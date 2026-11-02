@@ -8,6 +8,6 @@ export const command = {
   async execute(ctx) {
     const wallet = ctx.repositories.economy.get(ctx.senderJid);
     if (!wallet) throw new Error('Data pengguna tidak ditemukan. Coba jalankan command lagi.');
-    await ctx.reply(`⚡ *SISA LIMIT*\\n\\n${wallet.limits.toLocaleString('id-ID')} Limit`);
+    await ctx.reply(`⚡ *SISA LIMIT*\n\n${wallet.limits.toLocaleString('id-ID')} Limit`);
   },
 };
