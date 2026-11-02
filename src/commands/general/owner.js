@@ -18,7 +18,7 @@ export const command = {
       'FN:Owner SkyLabs',
       `TEL;type=CELL;type=VOICE;waid=${international}:+${international}`,
       'END:VCARD',
-    ].join('\\n');
+    ].join('\n');
 
     await ctx.socket.sendMessage(ctx.chatId, {
       contacts: {
