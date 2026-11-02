@@ -18,14 +18,11 @@ export const command = {
     const lines = ['╭─〔 *SKYVERSE LEADERBOARD* 〕'];
     rows.forEach((row, index) => {
       const jid = String(row.user_jid || '');
-      const mention = jid.includes('@') ? `@${jid.split('@')[0]}` : jid;
-      lines.push(`│ ${index + 1}. ${mention} — ${Number(row.usage_count || 0)} command`);
+      const user = ctx.repositories.users.get(jid);
+      const label = user?.push_name || (user?.number ? `+${user.number}` : 'Pengguna');
+      lines.push(`│ ${index + 1}. ${label} — ${Number(row.usage_count || 0)} command`);
     });
     lines.push('╰────────────────────');
-    await ctx.reply(lines.join('\n'), {
-      sendOptions: {
-        mentions: rows.map((row) => row.user_jid).filter((jid) => String(jid).includes('@')),
-      },
-    });
+    await ctx.reply(lines.join('\n'));
   },
 };
