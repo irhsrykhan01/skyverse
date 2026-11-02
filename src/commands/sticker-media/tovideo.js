@@ -1,7 +1,7 @@
 export const command = {
   name: 'tovideo',
   description: 'Mengubah sticker bergerak menjadi video MP4.',
-  category: 'sticker',
+  category: 'media',
   aliases: ['vid'],
   usage: 'tovideo (reply sticker bergerak)',
   permission: 'user',
