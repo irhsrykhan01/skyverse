@@ -9,6 +9,7 @@ export const command = {
   permission: 'user',
   minArgs: 1,
   cooldown: 3000,
+  limitCost: 1,
   async execute(ctx) {
     const response = await ctx.providers.makers.iqc(ctx.parsed.args.join(' '));
     await replyWithProviderMedia(ctx, response, 'image', null, { baseUrl: ctx.config.delineBaseUrl });
