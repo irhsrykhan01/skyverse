@@ -7,6 +7,7 @@ export const command = {
   permission: 'user',
   minArgs: 1,
   cooldown: 5000,
+  limitCost: 1,
   async execute(ctx) {
     const text = ctx.parsed.args.join(' ').trim();
     const frames = await ctx.providers.makers.bratFrames(text);
