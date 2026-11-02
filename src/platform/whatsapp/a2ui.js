@@ -78,10 +78,18 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null,
     id: `${config.prefix}categorymenu ${category}`,
   }));
 
+  const categorySections = [];
+  for (let index = 0; index < rows.length; index += 10) {
+    categorySections.push({
+      title: index === 0 ? 'SkyVerse Menu' : 'Menu Lanjutan',
+      rows: rows.slice(index, index + 10),
+    });
+  }
+
   const buttons = [
     button('single_select', {
       title: 'Pilih Kategori',
-      sections: [{ title: 'SkyVerse Menu', rows: rows.slice(0, 10) }],
+      sections: categorySections,
     }),
     button('cta_url', {
       display_text: 'Support SkyVerse',
@@ -106,7 +114,7 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
   if (!commands.length) throw new Error(`Kategori tidak ditemukan: ${category}`);
 
   const label = getMenuCategoryLabel(normalizedCategory);
-  const rows = commands.slice(0, 10).map((item) => ({
+  const rows = commands.map((item) => ({
     header: item.aliases?.[0] ? `${config.prefix}${item.aliases[0]}` : `${config.prefix}${item.name}`,
     title: `${config.prefix}${item.name}`,
     description: item.description,
@@ -118,7 +126,13 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
     body: `SkyVerse • ${label}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
     footer: 'SkyLabs • SkyVerse',
     buttons: [
-      button('single_select', { title: `${label} Commands`, sections: [{ title: `${label} Menu`, rows }] }),
+      button('single_select', {
+        title: `${label} Commands`,
+        sections: Array.from({ length: Math.ceil(rows.length / 10) }, (_, index) => ({
+          title: index === 0 ? `${label} Menu` : `${label} Menu (lanjutan)`,
+          rows: rows.slice(index * 10, (index + 1) * 10),
+        })),
+      }),
       button('quick_reply', { display_text: 'Kembali ke Menu', id: `${config.prefix}menu` }),
     ],
   });
