@@ -26,6 +26,6 @@ export const command = {
       ...suggestions.map((name) => `• ${ctx.config.prefix}${name}`),
       '',
       `Ketik ${ctx.config.prefix}help <command> untuk melihat cara penggunaan.`,
-    ].join('\\n'));
+    ].join('\n'));
   },
 };
