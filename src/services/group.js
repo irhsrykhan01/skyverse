@@ -141,14 +141,27 @@ export function createGroupService() {
   async function tagAll(context, text = '') {
     const ctx = getGroupContext(context);
     const group = await metadata(ctx);
-    const participants = (group?.participants ?? []).map((item) => item.id).filter(Boolean);
+    const participants = [...new Map((group?.participants ?? [])
+      .filter((item) => item?.id)
+      .map((item) => [String(item.id), item])).values()];
     if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
-    const unique = [...new Set(participants)];
+
     const body = String(text).trim() || 'Tag all';
-    const visibleMentions = unique.map((jid) => `@${String(jid).split('@')[0]}`).join('\n');
+    const mentionTokens = participants.map((participant) => {
+      const phoneJid = participant.pn
+        ?? ([participant.id, participant.lid].find((jid) => String(jid ?? '').endsWith('@s.whatsapp.net')) ?? null);
+      const number = phoneJid ? digitsOnly(phoneJid) : null;
+      const name = participant.notify ?? participant.name ?? 'anggota';
+      return number ? `@${number}` : `@${String(name).replace(/\s+/g, '')}`;
+    });
+    const mentionJids = participants.map((participant) =>
+      participant.pn
+        ?? ([participant.id, participant.lid].find((jid) => String(jid ?? '').endsWith('@s.whatsapp.net')) ?? participant.id)
+    );
+
     await ctx.socket.sendMessage(ctx.chatId, {
-      text: `${body}\n\n${visibleMentions}`,
-      mentions: unique,
+      text: `${body}\n\n${mentionTokens.join('\n')}`,
+      mentions: [...new Set(mentionJids)],
     });
   }
 
