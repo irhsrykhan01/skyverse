@@ -1,5 +1,3 @@
-import { createCapabilityEngine } from './capabilities.js';
-
 function getGroupContext(context) {
   if (!context.isGroup) throw new Error('Command ini hanya dapat digunakan di group.');
   return context;
@@ -74,14 +72,12 @@ export function createGroupService() {
   }
 
   async function assertBotAdmin(ctx, action) {
-    const capability = await ctx.capabilities.requireAdmin(ctx.chatId);
+    const capability = await ctx.capabilities.check(ctx.chatId);
     if (!capability.known) {
-      // Do not reject when WhatsApp returned metadata but the bot identity
-      // cannot be matched. The operation itself is the final authority.
-      return capability.metadata ?? metadata(ctx);
+      throw new Error('Status admin bot tidak dapat dipastikan. Pastikan bot sudah menjadi admin group, lalu coba lagi.');
     }
     if (!capability.isAdmin) {
-      throw new Error(`Bot harus menjadi admin group untuk ${action}.`);
+      throw new Error(`Bot belum menjadi admin group untuk ${action}.`);
     }
     return capability.metadata ?? metadata(ctx);
   }
@@ -104,17 +100,32 @@ export function createGroupService() {
     const jids = await resolveTargetJids(ctx);
     if (!jids.length) throw new Error(`Tag member atau isi nomor setelah ${ctx.config.prefix}kick.`);
 
-    const botJids = [ctx.socket.user?.id, ctx.socket.user?.lid, ctx.socket.user?.pn].filter(Boolean).map(String);
-    if (jids.some((jid) => [...botJids, ctx.senderJid].includes(jid))) {
+    const participants = group?.participants ?? [];
+    const targets = jids.map((jid) => participants.find((item) =>
+      [item?.id, item?.pn, item?.lid].filter(Boolean).map(String).includes(String(jid))
+    )).filter(Boolean);
+    if (!targets.length) throw new Error('Target tidak ditemukan sebagai anggota group.');
+
+    const accountIds = (participant) => new Set(
+      [participant?.id, participant?.pn, participant?.lid].filter(Boolean).map((value) => String(value).split(':')[0])
+    );
+    const botIds = accountIds({ id: ctx.socket.user?.id, pn: ctx.socket.user?.pn, lid: ctx.socket.user?.lid });
+    const senderIds = accountIds({ id: ctx.senderJid, pn: ctx.senderPhoneJid });
+    if (targets.some((target) => {
+      const ids = accountIds(target);
+      return [...ids].some((id) => botIds.has(id) || senderIds.has(id));
+    })) {
       throw new Error('Target kick tidak boleh merupakan bot atau pengirim command.');
     }
 
-    const members = new Set((group?.participants ?? []).map((item) => String(item?.id ?? '')));
-    const validMembers = jids.filter((jid) => members.has(String(jid)));
-    if (!validMembers.length) throw new Error('Target tidak ditemukan sebagai anggota group.');
-
+    const validMembers = [...new Set(targets.map((item) => item.id).filter(Boolean))];
     try {
-      return await ctx.socket.groupParticipantsUpdate(ctx.chatId, validMembers, 'remove');
+      const result = await ctx.socket.groupParticipantsUpdate(ctx.chatId, validMembers, 'remove');
+      const failed = Array.isArray(result) ? result.filter((item) => item?.status && !['200', '201'].includes(String(item.status))) : [];
+      if (failed.length) {
+        throw new Error(failed.map((item) => `${item.jid ?? 'member'}: ${item.content?.[0]?.attrs?.reason ?? item.status}`).join('; '));
+      }
+      return result;
     } catch (error) {
       throw new Error(describeGroupOperationError(error, 'mengeluarkan'));
     }
@@ -132,8 +143,13 @@ export function createGroupService() {
     const group = await metadata(ctx);
     const participants = (group?.participants ?? []).map((item) => item.id).filter(Boolean);
     if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
+    const unique = [...new Set(participants)];
     const body = String(text).trim() || 'Tag all';
-    await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: [...new Set(participants)] });
+    const visibleMentions = unique.map((jid) => `@${String(jid).split('@')[0]}`).join('\\n');
+    await ctx.socket.sendMessage(ctx.chatId, {
+      text: `${body}\\n\\n${visibleMentions}`,
+      mentions: unique,
+    });
   }
 
   async function hideTag(context, text = '') {
