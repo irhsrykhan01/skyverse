@@ -1,5 +1,5 @@
 function retryable(status) {
-  return status === 408 || status === 425 || status === 429 || status >= 500;
+  return status === 408 || status === 425 || status >= 500;
 }
 
 export function buildUrl(baseUrl, path = '', params = {}) {
