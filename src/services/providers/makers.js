@@ -54,9 +54,9 @@ export function createMakerProvider({
   const brat = (text) => {
     const value = validateText(text, 'Teks Brat');
     return fallback([
-      () => deline.brat(value),
-      () => zenzxz.brat(value),
-      () => aqulBrat(value),
+      async () => resolveImage(await deline.brat(value), delineBaseUrl),
+      async () => resolveImage(await zenzxz.brat(value), zenzxzBaseUrl),
+      async () => resolveImage(await aqulBrat(value), bratBaseUrl),
     ]);
   };
 
@@ -67,18 +67,7 @@ export function createMakerProvider({
       ? [words[0], words[0]]
       : words.map((_, index) => words.slice(0, index + 1).join(' '));
     const frames = [];
-
-    for (const phrase of phrases) {
-      const frame = await fallback([
-        async () => resolveImage(await deline.brat(phrase), delineBaseUrl),
-        async () => resolveImage(await zenzxz.brat(phrase), zenzxzBaseUrl),
-        async () => resolveImage(await aqulBrat(phrase), bratBaseUrl),
-      ]);
-      if (!Buffer.isBuffer(frame) || frame.length < 16) {
-        throw new Error('Maker API tidak mengembalikan frame gambar yang valid.');
-      }
-      frames.push(frame);
-    }
+    for (const phrase of phrases) frames.push(await brat(phrase));
     return frames;
   };
 
@@ -95,8 +84,8 @@ export function createMakerProvider({
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     return fallback([
-      () => deline.iqc(value, time),
-      () => nexrayIqc(value),
+      async () => resolveImage(await deline.iqc(value, time), delineBaseUrl),
+      async () => resolveImage(await nexrayIqc(value), nexrayBaseUrl),
     ]);
   };
 
