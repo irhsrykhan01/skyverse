@@ -183,7 +183,15 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (!parsed) return;
     logger.info(`Dari ${displaySender(senderJid, senderPhoneJid, chatId)} = ${parsed.raw}`);
     const command = registry.resolve(parsed.name);
-    if (!command) return;
+    if (!command) {
+      const suggestions = registry.suggest(parsed.name).filter((name) => registry.resolve(name));
+      if (suggestions.length) {
+        await socket.sendMessage(chatId, {
+          text: `Command .${parsed.name} tidak ditemukan. Mungkin maksud kamu:\\n${suggestions.map((name) => `• ${config.prefix}${name}`).join('\\n')}\\n\\nKetik ${config.prefix}help <command> untuk melihat cara penggunaan.`,
+        }, { quoted: message });
+      }
+      return;
+    }
 
     const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, resolveNewsletterMessage, resolveGroupMessage });
     const permission = await context.permissionLevel(command.permission);
