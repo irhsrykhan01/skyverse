@@ -81,7 +81,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   async function rememberGroupMessage(socket, message) {
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
-    if (!chatId?.endsWith('@g.us') || !messageId) return;
+    if (!chatId?.endsWith('@g.us') || !messageId || message.key?.fromMe) return;
     const settings = antidelete.get(chatId);
     if (!settings.enabled) return;
     if (await isPrivilegedMessageAuthor(socket, chatId, message)) return;
@@ -262,7 +262,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       logger.debug('Anti-delete could not verify message author role', {
         error: error?.message ?? String(error),
       });
-      return false;
+      return true;
     }
   }
 
