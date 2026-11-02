@@ -18,7 +18,7 @@ export const command = {
     if (action === 'on') {
       const destination = ctx.parsed.args[1] || ctx.chatId;
       const value = service.set(ctx.chatId, { enabled: true, destination });
-      await ctx.reply(`✅ Anti-delete aktif.\nTujuan log: ${value.destination === ctx.chatId ? 'group ini' : value.destination}`);
+      await ctx.reply(`✅ Anti-delete aktif.\nHanya pesan baru di grup ini yang dicache sementara. Pesan sebelum aktivasi tidak dapat dipulihkan.\nTujuan log: ${value.destination === ctx.chatId ? 'group ini' : value.destination}`);
       return;
     }
 
