@@ -37,6 +37,7 @@ export function createMakerProvider({
   bratBaseUrl = 'https://aqul-brat.hf.space',
   nexrayBaseUrl = 'https://api.nexray.web.id',
   delineBaseUrl = 'https://api.deline.web.id',
+  zenzxzBaseUrl = 'https://api.zenzxz.my.id',
   deline,
   zenzxz,
 } = {}) {
@@ -70,7 +71,7 @@ export function createMakerProvider({
     for (const phrase of phrases) {
       const frame = await fallback([
         async () => resolveImage(await deline.brat(phrase), delineBaseUrl),
-        async () => resolveImage(await zenzxz.brat(phrase), 'https://api.zenzxz.my.id'),
+        async () => resolveImage(await zenzxz.brat(phrase), zenzxzBaseUrl),
         async () => resolveImage(await aqulBrat(phrase), bratBaseUrl),
       ]);
       if (!Buffer.isBuffer(frame) || frame.length < 16) {
