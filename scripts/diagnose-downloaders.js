@@ -32,6 +32,19 @@ let passed = 0;
 let failed = 0;
 let skipped = 0;
 
+function describeError(error) {
+  const parts = [];
+  let current = error;
+  for (let depth = 0; current && depth < 3; depth += 1) {
+    const message = String(current.message ?? current);
+    const code = current.code ? String(current.code) : '';
+    const detail = [message, code && code !== message ? '[' + code + ']' : ''].filter(Boolean).join(' ');
+    if (detail && !parts.includes(detail)) parts.push(detail);
+    current = current.cause;
+  }
+  return parts.join(' <- ').replace(/\s+/g, ' ').slice(0, 320) || 'Unknown request error';
+}
+
 function candidates(response, kinds, baseUrl) {
   const result = [];
   for (const kind of kinds) result.push(...findDownloaderUrls(response, { kind }));
@@ -70,7 +83,7 @@ async function check(label, platform, url, run, kinds = ['video', 'image', 'audi
     response = await run(url);
   } catch (error) {
     failed += 1;
-    console.log('[API FAIL] ' + label + ' — ' + String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 240));
+    console.log('[API FAIL] ' + label + ' — ' + describeError(error));
     return;
   }
 
