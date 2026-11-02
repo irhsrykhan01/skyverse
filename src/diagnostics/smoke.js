@@ -59,6 +59,12 @@ for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'lim
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
+assert(registry.resolve('balance')?.name === 'balance', 'Coin and Limit balance command is missing.');
+assert(registry.resolve('limit')?.name === 'limit', 'Limit balance command is missing.');
+for (const name of ['brat', 'bratvid', 'iqc', 'sticker', 'stickerwatermark']) {
+  assert(registry.resolve(name)?.limitCost === 1, `Paid feature ${name} must cost exactly one Limit.`);
+}
+assert((registry.resolve('ping')?.limitCost ?? 0) === 0, 'Free commands must not consume Limit.');
 assert(registry.resolve('bratvid')?.name === 'bratvid', 'Rebuilt bratvid command is not enabled.');
 assert(registry.resolve('fb')?.name === 'facebook', 'Facebook command alias regression.');
 assert(registry.resolve('facebook')?.name === 'facebook', 'Facebook command name regression.');
