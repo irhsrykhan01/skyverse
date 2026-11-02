@@ -47,6 +47,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   const cooldowns = new Map();
   const newsletterMessages = new Map();
   const groupMessages = new Map();
+  const groupMetadataCache = new Map();
   const lidToPn = new Map();
   const seenTtl = 60_000;
   const slowCommandDelay = 900;
@@ -58,6 +59,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     for (const [id, timestamp] of seen) if (now - timestamp > seenTtl) seen.delete(id);
     for (const [key, until] of cooldowns) if (until <= now) cooldowns.delete(key);
     for (const [key, value] of newsletterMessages) if (value.expiresAt <= now) newsletterMessages.delete(key);
+    for (const [key, value] of groupMetadataCache) if (value.expiresAt <= now) groupMetadataCache.delete(key);
     for (const [groupJid, messages] of groupMessages) {
       for (const [id, value] of messages) if (value.expiresAt <= now) messages.delete(id);
       while (messages.size > MAX_GROUP_CACHED_MESSAGES) messages.delete(messages.keys().next().value);
@@ -76,12 +78,13 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (!remoteJid?.endsWith('@newsletter') || !messageId) return null;
     return newsletterMessages.get(`${remoteJid}:${messageId}`) ?? null;
   }
-  function rememberGroupMessage(message) {
+  async function rememberGroupMessage(socket, message) {
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
     if (!chatId?.endsWith('@g.us') || !messageId) return;
     const settings = antidelete.get(chatId);
     if (!settings.enabled) return;
+    if (await isPrivilegedMessageAuthor(socket, chatId, message)) return;
     let cache = groupMessages.get(chatId);
     if (!cache) { cache = new Map(); groupMessages.set(chatId, cache); }
     cache.set(messageId, { message, senderJid: message.key?.participant ?? chatId, pushName: getPushName(message, message.key?.participant ?? chatId), createdAt: Date.now(), expiresAt: Date.now() + settings.ttl });
@@ -116,7 +119,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
   async function handleMessage(socket, message) {
     if (!message?.message) return;
-    prune(); rememberNewsletterMessage(message); rememberGroupMessage(message);
+    prune(); rememberNewsletterMessage(message); await rememberGroupMessage(socket, message);
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
     const senderJid = message.key?.participant ?? chatId;
@@ -245,7 +248,11 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (identity.isOwner(senderPhone ?? storedPhone ?? sender)) return true;
 
     try {
-      const metadata = await socket.groupMetadata(groupJid);
+      const cached = groupMetadataCache.get(groupJid);
+      const metadata = cached && cached.expiresAt > Date.now()
+        ? cached.metadata
+        : await socket.groupMetadata(groupJid);
+      groupMetadataCache.set(groupJid, { metadata, expiresAt: Date.now() + 30_000 });
       const candidates = new Set([sender, senderPhone, storedPhone].filter(Boolean).map(String));
       const participant = (metadata?.participants ?? []).find((item) =>
         [item?.id, item?.pn, item?.lid].filter(Boolean).some((jid) => candidates.has(String(jid)))
