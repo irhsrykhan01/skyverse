@@ -80,6 +80,7 @@ export function createProviderManager(config) {
 
   const makers = createMakerProvider({
     bratBaseUrl: config.bratBaseUrl,\n    delineBaseUrl: config.delineBaseUrl,
+    zenzxzBaseUrl: config.zenzxzBaseUrl,
     nexrayBaseUrl: config.nexrayBaseUrl,
     deline,
     zenzxz,
