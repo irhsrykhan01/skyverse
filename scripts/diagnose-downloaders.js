@@ -21,7 +21,7 @@ const urls = {
   gdrive: process.env.SKYVERSE_TEST_GDRIVE_URL || '',
 };
 
-const deline = createDelineProvider({ baseUrl: config.delineBaseUrl });
+const deline = createDelineProvider({ baseUrl: config.delineBaseUrl, apiKey: config.delineApiKey });
 const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
 const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
 const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
@@ -35,7 +35,7 @@ let skipped = 0;
 function candidates(response, kinds, baseUrl) {
   const result = [];
   for (const kind of kinds) result.push(...findDownloaderUrls(response, { kind }));
-  const source = findMediaSource(response?.result ?? response, { baseUrl });
+  const source = findMediaSource(response?.result ?? response, { baseUrl: baseUrl ?? config.delineBaseUrl });
   if (source?.kind === 'url') result.push(source.value);
   return [...new Set(result.filter((value) => typeof value === 'string' && /^https?:\/\//i.test(value)))];
 }
