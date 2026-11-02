@@ -154,7 +154,7 @@ async function framesToAnimatedWebp(frames) {
       '-framerate', '3',
       '-i', join(dir, 'frame-%04d.png'),
       '-vf', 'format=rgba',
-      '-c:v', 'libwebp', '-lossless', '1',
+      '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
       '-compression_level', '6', '-pix_fmt', 'yuva420p',
       '-loop', '0', '-an', '-f', 'webp', outputPath,
     ]);
@@ -228,11 +228,11 @@ export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = '
 export function toSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker kosong atau tidak valid.');
   if (isWebp(buffer)) return throwOversize(buffer, isAnimatedWebp(buffer) ? MAX_ANIMATED_STICKER_BYTES : MAX_STATIC_STICKER_BYTES, isAnimatedWebp(buffer) ? 'Sticker animasi' : 'Sticker');
-  return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', `${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '1', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
+  return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', `${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
 }
 export function toAnimatedSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker animasi kosong atau tidak valid.');
   if (isAnimatedWebp(buffer)) return throwOversize(buffer, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
-  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '1', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
+  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
 }
 export { framesToAnimatedWebp as toAnimatedStickerFromFrames };
