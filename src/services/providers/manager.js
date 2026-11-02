@@ -79,7 +79,8 @@ export function createProviderManager(config) {
   const reelsvideo = createReelsVideoProvider({ baseUrl: config.reelsVideoBaseUrl });
 
   const makers = createMakerProvider({
-    bratBaseUrl: config.bratBaseUrl,\n    delineBaseUrl: config.delineBaseUrl,
+    bratBaseUrl: config.bratBaseUrl,
+    delineBaseUrl: config.delineBaseUrl,
     zenzxzBaseUrl: config.zenzxzBaseUrl,
     nexrayBaseUrl: config.nexrayBaseUrl,
     deline,
