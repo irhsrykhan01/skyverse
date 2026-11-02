@@ -48,6 +48,7 @@ export const command = {
 
     const sent = await ctx.socket.sendMessage(ctx.chatId, {
       text: buildAllMenu(ctx),
+      mentions: ctx.senderJid ? [ctx.senderJid] : [],
       contextInfo: {
         externalAdReply: {
           title: 'SkyVerse',
