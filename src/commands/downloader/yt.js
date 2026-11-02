@@ -1,4 +1,5 @@
 import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
+import { sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'youtube',
@@ -10,7 +11,12 @@ export const command = {
   minArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.youtube(ctx.parsed.args[0]);
-    await replyWithDownloaderMedia(ctx, response, { kind: 'video' });
+    const url = ctx.parsed.args[0];
+    await sendWithFallback(ctx, [
+      { name: 'Siputzx', run: () => ctx.providers.siputzx.youtube(url) },
+      { name: 'Deline', run: () => ctx.providers.deline.youtube(url) },
+      { name: 'Zenzxz', run: () => ctx.providers.zenzxz.youtube(url) },
+      { name: 'Vreden', run: () => ctx.providers.vreden.youtube(url) },
+    ], (response) => replyWithDownloaderMedia(ctx, response, { kind: 'video' }));
   },
 };
