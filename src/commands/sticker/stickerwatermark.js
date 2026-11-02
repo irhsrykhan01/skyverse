@@ -12,6 +12,7 @@ export const command = {
   minArgs: 1,
   maxArgs: null,
   cooldown: 3000,
+  limitCost: 1,
   async execute(ctx) {
     const raw = ctx.parsed.args.join(' ').trim();
     if (!raw) throw new Error('Masukkan nama pack. Contoh: stickerwatermark SkyVerse | rashii');
