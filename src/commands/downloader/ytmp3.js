@@ -1,5 +1,4 @@
-import { findDownloaderUrl } from '../../services/providers/downloader-response.js';
-import { downloadMediaSource } from '../../services/providers/media-response.js';
+import { sendAudioDownload, sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'ytmp3',
@@ -12,14 +11,12 @@ export const command = {
   maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.youtubeMp3(ctx.parsed.args[0]);
-    const audioUrl = findDownloaderUrl(response, { kind: 'audio' });
-    const videoUrl = findDownloaderUrl(response, { kind: 'video' });
-    const sourceUrl = audioUrl ?? videoUrl;
-    if (!sourceUrl) throw new Error(response?.error?.message ?? 'YouTube tidak mengembalikan media audio/video yang dapat diproses.');
-
-    const source = await downloadMediaSource({ kind: 'url', value: sourceUrl, expectedType: audioUrl ? 'audio' : 'video' });
-    const audio = await ctx.media.toMp3(source);
-    await ctx.media.send(audio, 'audio', { mimetype: 'audio/mpeg', fileName: 'skyverse-youtube.mp3' });
+    const url = ctx.parsed.args[0];
+    await sendWithFallback(ctx, [
+      { name: 'Siputzx', run: () => ctx.providers.siputzx.youtubeMp3(url) },
+      { name: 'Deline', run: () => ctx.providers.deline.youtubeMp3(url) },
+      { name: 'Zenzxz', run: () => ctx.providers.zenzxz.youtubeMp3(url) },
+      { name: 'Vreden', run: () => ctx.providers.vreden.youtubeMp3(url) },
+    ], (response) => sendAudioDownload(ctx, response, 'skyverse-youtube.mp3'));
   },
 };
