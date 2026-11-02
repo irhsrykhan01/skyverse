@@ -15,6 +15,7 @@ import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryRe
 import { renderMockUi } from '../services/mock-ui.js';
 import { resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
+import { sendWithFallback } from '../commands/downloader/_generic.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -101,6 +102,16 @@ assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloa
 assert(typeof providers.downloader?.twitter === 'function', 'Twitter downloader is missing.');
 assert(typeof providers.downloader?.mediafire === 'function', 'MediaFire downloader is missing.');
 assert(typeof providers.downloader?.googleDrive === 'function', 'Google Drive downloader is missing.');
+let downloaderFallbackAttempts = 0;
+const downloaderFallbackResult = await sendWithFallback({}, [
+  { name: 'primary', run: async () => 'primary-response' },
+  { name: 'fallback', run: async () => 'fallback-response' },
+], async (response) => {
+  downloaderFallbackAttempts += 1;
+  if (response === 'primary-response') throw new Error('primary media URL unreachable');
+  return response;
+});
+assert(downloaderFallbackResult === 'fallback-response' && downloaderFallbackAttempts === 2, 'Downloader must try the next provider when media fetch/send fails.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
 assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
