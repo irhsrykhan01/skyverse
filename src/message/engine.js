@@ -187,7 +187,8 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     logger.info(`Dari ${displaySender(senderJid, senderPhoneJid, chatId)} = ${parsed.raw}`);
     const command = registry.resolve(parsed.name);
     if (!command) {
-      const suggestions = registry.suggest(parsed.name).filter((name) => registry.resolve(name));
+      const visibleNames = new Set(registry.all({ includeHidden: false }).map((item) => item.name));
+      const suggestions = registry.suggest(parsed.name).filter((name) => visibleNames.has(name));
       if (suggestions.length) {
         await socket.sendMessage(chatId, {
           text: `Command .${parsed.name} tidak ditemukan. Mungkin maksud kamu:\n${suggestions.map((name) => `• ${config.prefix}${name}`).join('\n')}\n\nKetik ${config.prefix}help <command> untuk melihat cara penggunaan.`,
@@ -257,7 +258,8 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       const participant = (metadata?.participants ?? []).find((item) =>
         [item?.id, item?.pn, item?.lid].filter(Boolean).some((jid) => candidates.has(String(jid)))
       );
-      return Boolean(participant?.admin);
+      if (!participant) return true;
+      return Boolean(participant.admin);
     } catch (error) {
       logger.debug('Anti-delete could not verify message author role', {
         error: error?.message ?? String(error),
