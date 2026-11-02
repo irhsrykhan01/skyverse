@@ -71,7 +71,7 @@ function requireDownloaderMedia(response, providerName, kinds) {
 }
 
 export function createProviderManager(config) {
-  const deline = createDelineProvider({ baseUrl: config.delineBaseUrl });
+  const deline = createDelineProvider({ baseUrl: config.delineBaseUrl, apiKey: config.delineApiKey });
   const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
   const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
