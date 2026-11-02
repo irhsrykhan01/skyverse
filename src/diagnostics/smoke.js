@@ -55,7 +55,7 @@ assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contr
 assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
 assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
 assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'limit', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -115,7 +115,7 @@ assert(recoveryDelay(1) === 1000 && recoveryDelay(4) === 8000, 'WhatsApp recover
 assert(recoveryReason(401) === 'logged_out', 'WhatsApp recovery reason mapping failed.');
 assert(recoveryReason(440) === 'connection_replaced', 'WhatsApp connection-replaced reason mapping failed.');
 
-for (const removed of ['balance', 'coin', 'coins', 'bal', 'claim', 'daily', 'harian', 'pay', 'transfer', 'kirimcoin', 'coinlog', 'coinhistory', 'transactions', 'coinlb', 'coinleaderboard', 'rich']) {
+for (const removed of ['coin', 'coins', 'claim', 'daily', 'harian', 'pay', 'transfer', 'kirimcoin', 'coinlog', 'coinhistory', 'transactions', 'coinlb', 'coinleaderboard', 'rich']) {
   assert(registry.resolve(removed) === undefined, 'Removed economy command is still resolvable: ' + removed);
 }
 
@@ -234,6 +234,13 @@ try {
   const restored = createRepositories(dbSmoke);
   assert(restored.users.get(smokeJid)?.push_name === 'Smoke User', 'Database user data did not survive a close/reopen cycle.');
   assert(restored.users.get(smokeJid)?.number === '628123456789', 'Database phone number did not survive a close/reopen cycle.');
+  const wallet = restored.economy.get(smokeJid);
+  assert(wallet?.coins === 500 && wallet?.limits === 10, 'New user wallet defaults are incorrect.');
+  assert(restored.economy.consumeLimit(smokeJid, 1), 'Wallet could not consume one Limit.');
+  assert(restored.economy.get(smokeJid)?.limits === 9, 'Limit deduction was not persisted in the repository.');
+  assert(restored.economy.refundLimit(smokeJid, 1), 'Wallet could not refund one Limit.');
+  assert(restored.economy.get(smokeJid)?.limits === 10, 'Limit refund did not restore the original balance.');
+  assert(!restored.economy.consumeLimit(smokeJid, 11), 'Wallet allowed a negative Limit balance.');
   assert(restored.settings.get('group', '120000000000000@g.us', 'group.welcome') === JSON.stringify({ enabled: true }), 'Database settings did not survive a close/reopen cycle.');
   assert(restored.commands.stats().some((item) => item.command === 'ping' && item.usage_count === 1), 'Database command stats did not survive a close/reopen cycle.');
   await dbSmoke.close();
