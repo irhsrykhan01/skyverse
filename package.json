@@ -12,7 +12,7 @@
     "dev": "node --watch src/index.js",
     "check": "find src -type f -name '*.js' -print0 | xargs -0 -n1 node --check",
     "smoke": "node src/diagnostics/smoke.js",
-    "check-media-tools": "sh -c 'command -v ffmpeg >/dev/null && command -v webpmux >/dev/null'",
+    "check-media-tools": "sh -c 'command -v ffmpeg >/dev/null && command -v webpmux >/dev/null && ffmpeg -hide_banner -filters 2>/dev/null | grep -q drawtext && ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libwebp'",
     "check-newsletter": "node scripts/check-baileys-newsletter-support.js",
     "diagnose-downloaders": "node scripts/diagnose-downloaders.js"
   },
