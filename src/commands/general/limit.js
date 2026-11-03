@@ -1,7 +1,7 @@
 export const command = {
   name: 'limit',
   description: 'Melihat sisa Limit untuk fitur SkyVerse.',
-  category: 'general',
+  category: 'economy',
   aliases: [],
   usage: 'limit',
   permission: 'user',
