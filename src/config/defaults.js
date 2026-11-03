@@ -10,6 +10,7 @@ export const defaults = Object.freeze({
   vredenBaseUrl: 'https://api.vreden.my.id',
   siputzxBaseUrl: 'https://api.siputzx.my.id',
   tikwmBaseUrl: 'https://www.tikwm.com/api/',
+  ytDlpPath: 'yt-dlp',
   reelsVideoBaseUrl: 'https://reelsvideo.io',
   keyraBaseUrl: 'https://www.keyrafara.com',
   keyraApiKey: null,
