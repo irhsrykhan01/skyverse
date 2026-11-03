@@ -21,13 +21,25 @@ export async function createDatabase(databasePath, logger) {
       created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
       is_premium INTEGER NOT NULL DEFAULT 0, premium_until INTEGER,
       coins INTEGER NOT NULL DEFAULT 500, limits INTEGER NOT NULL DEFAULT 10,
-      
+      last_daily_at INTEGER NOT NULL DEFAULT 0,
       last_active_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS groups (jid TEXT PRIMARY KEY, subject TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS settings (scope TEXT NOT NULL, scope_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT, updated_at INTEGER NOT NULL, PRIMARY KEY (scope, scope_id, key));
     CREATE TABLE IF NOT EXISTS command_stats (command TEXT PRIMARY KEY, usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS user_command_stats (user_jid TEXT NOT NULL, command TEXT NOT NULL, usage_count INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY (user_jid, command));
+    CREATE TABLE IF NOT EXISTS economy_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_jid TEXT NOT NULL,
+      currency TEXT NOT NULL CHECK (currency IN ('coin', 'limit')),
+      amount INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      metadata TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_economy_transactions_user_created
+      ON economy_transactions(user_jid, created_at DESC);
   `);
 
   const migrationStatement = database.prepare('PRAGMA table_info(users)');
@@ -39,6 +51,7 @@ export async function createDatabase(databasePath, logger) {
     ['last_active_at', 'ALTER TABLE users ADD COLUMN last_active_at INTEGER NOT NULL DEFAULT 0'],
     ['coins', 'ALTER TABLE users ADD COLUMN coins INTEGER NOT NULL DEFAULT 500'],
     ['limits', 'ALTER TABLE users ADD COLUMN limits INTEGER NOT NULL DEFAULT 10'],
+    ['last_daily_at', 'ALTER TABLE users ADD COLUMN last_daily_at INTEGER NOT NULL DEFAULT 0'],
   ];
   let migrated = false;
   for (const [name, sql] of migrations) { if (!userColumns.includes(name)) { database.exec(sql); migrated = true; } }
