@@ -5,6 +5,7 @@ import { createRemoveBgProvider } from './removebg.js';
 import { createSiputzxProvider } from './siputzx.js';
 import { findDownloaderUrl } from './downloader-response.js';
 import { createTikwmProvider } from './tikwm.js';
+import { createYtDlpProvider } from './ytdlp.js';
 import { createVredenProvider } from './vreden.js';
 import { createZenzxzProvider } from './zenzxz.js';
 
@@ -76,6 +77,7 @@ export function createProviderManager(config) {
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
   const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
   const tikwm = createTikwmProvider({ baseUrl: config.tikwmBaseUrl });
+  const ytdlp = createYtDlpProvider({ binaryPath: config.ytDlpPath });
   const reelsvideo = createReelsVideoProvider({ baseUrl: config.reelsVideoBaseUrl });
 
   const makers = createMakerProvider({
@@ -88,24 +90,10 @@ export function createProviderManager(config) {
   });
 
   const downloader = Object.freeze({
-    tiktok: (url) => withFallbackChain([
-      { name: 'TikWM', run: async () => normalizeTikTokResponse(await tikwm.tiktok(url), 'TikWM') },
-      { name: 'Deline', run: async () => normalizeTikTokResponse(await deline.call('/downloader/tiktok', { url }), 'Deline') },
-      { name: 'Zenzxz', run: async () => normalizeTikTokResponse(await zenzxz.call('/downloader/tiktok', { url }), 'Zenzxz') },
-    ]),
-    instagram: (url) => reelsvideo.instagram(url),
-    youtube: (url) => withFallbackChain([
-      { name: 'Siputzx', run: async () => requireDownloaderMedia(await siputzx.youtube(url), 'Siputzx', ['video']) },
-      { name: 'Deline', run: async () => requireDownloaderMedia(await deline.youtube(url), 'Deline', ['video']) },
-      { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.youtube(url), 'Zenzxz', ['video']) },
-      { name: 'Vreden', run: async () => requireDownloaderMedia(await vreden.youtube(url), 'Vreden', ['video']) },
-    ]),
-    youtubeMp3: (url) => withFallbackChain([
-      { name: 'Siputzx', run: async () => requireDownloaderMedia(await siputzx.youtubeMp3(url), 'Siputzx', ['audio', 'video']) },
-      { name: 'Deline', run: async () => requireDownloaderMedia(await deline.youtubeMp3(url), 'Deline', ['audio', 'video']) },
-      { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.youtubeMp3(url), 'Zenzxz', ['audio', 'video']) },
-      { name: 'Vreden', run: async () => requireDownloaderMedia(await vreden.youtubeMp3(url), 'Vreden', ['audio', 'video']) },
-    ]),
+    tiktok: async (url) => normalizeTikTokResponse(await tikwm.tiktok(url), 'TikWM'),
+    instagram: (url) => ytdlp.instagram(url),
+    youtube: (url) => ytdlp.youtube(url),
+    youtubeMp3: (url) => ytdlp.youtube(url),
     facebook: (url) => withFallbackChain([
       { name: 'Deline', run: async () => requireDownloaderMedia(await deline.facebook(url), 'Deline', ['video']) },
       { name: 'Zenzxz', run: async () => requireDownloaderMedia(await zenzxz.facebook(url), 'Zenzxz', ['video']) },
@@ -124,6 +112,7 @@ export function createProviderManager(config) {
     vreden,
     siputzx,
     tikwm,
+    ytdlp,
     reelsvideo,
     makers,
     downloader,
