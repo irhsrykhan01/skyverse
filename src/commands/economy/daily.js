@@ -38,7 +38,7 @@ export const command = {
       '🎁 *DAILY REWARD BERHASIL!*',
       '',
       `🪙 Hadiah: +${result.reward.toLocaleString('id-ID')} Coin`,
-      `💰 Saldo sekarang: ${result.coins.toLocaleString('id-ID')} Coin`,
+      `💰 Saldo sekarang: ${ctx.isOwner ? 'Unlimited (Owner)' : result.coins.toLocaleString('id-ID') + ' Coin'}`,
       '',
       'Kembali lagi 24 jam dari sekarang untuk klaim berikutnya!',
     ].join('\n'));
