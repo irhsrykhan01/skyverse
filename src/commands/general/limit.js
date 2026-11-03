@@ -9,7 +9,7 @@ export const command = {
     const wallet = ctx.repositories.economy.get(ctx.senderJid);
     if (!wallet) throw new Error('Data pengguna tidak ditemukan. Coba jalankan command lagi.');
     await ctx.reply(ctx.isOwner
-      ? '⚡ *SISA LIMIT*\\n\\nUnlimited (Owner)'
-      : `⚡ *SISA LIMIT*\\n\\n${wallet.limits.toLocaleString('id-ID')} Limit`);
+      ? '⚡ *SISA LIMIT*\n\nUnlimited (Owner)'
+      : `⚡ *SISA LIMIT*\n\n${wallet.limits.toLocaleString('id-ID')} Limit`);
   },
 };
