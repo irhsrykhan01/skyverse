@@ -1,7 +1,7 @@
 export const command = {
   name: 'economystats',
   description: 'Melihat statistik ekonomi SkyVerse dan statistik akun kamu.',
-  category: 'economy',
+  category: 'general',
   aliases: ['estats'],
   permission: 'user',
   usage: 'economystats',
