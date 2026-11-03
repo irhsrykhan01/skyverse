@@ -13,6 +13,8 @@ export const command = {
     const global = stats.global || {};
     const personal = stats.personal || {};
     const wallet = stats.wallet || { coins: 0, limits: 0 };
+    const coinBalance = ctx.isOwner ? 'Unlimited (Owner)' : wallet.coins.toLocaleString('id-ID') + ' Coin';
+    const limitBalance = ctx.isOwner ? 'Unlimited (Owner)' : wallet.limits.toLocaleString('id-ID');
 
     await ctx.reply([
       '📊 *SKYVERSE ECONOMY STATS*',
@@ -28,8 +30,8 @@ export const command = {
       '🧾 Total transaksi: ' + Number(global.transaction_count || 0).toLocaleString('id-ID'),
       '',
       '*Statistik Akun Kamu*',
-      '🪙 Saldo: ' + wallet.coins.toLocaleString('id-ID') + ' Coin',
-      '⚡ Limit: ' + wallet.limits.toLocaleString('id-ID'),
+      '🪙 Saldo: ' + coinBalance,
+      '⚡ Limit: ' + limitBalance,
       '📥 Coin diperoleh: ' + Number(personal.coin_earned || 0).toLocaleString('id-ID'),
       '📤 Coin terpakai: ' + Number(personal.coin_spent || 0).toLocaleString('id-ID'),
       '🎮 Hadiah game: ' + Number(personal.game_rewards || 0).toLocaleString('id-ID') + ' Coin',
