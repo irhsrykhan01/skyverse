@@ -235,7 +235,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     let slowReactionShown = false;
     let chargedLimit = 0;
     try {
-      if (command.limitCost > 0) {
+      if (command.limitCost > 0 && !context.isOwner) {
         const charged = repositories.economy.consumeLimit(senderJid, command.limitCost);
         if (!charged) {
           const wallet = repositories.economy.get(senderJid);
