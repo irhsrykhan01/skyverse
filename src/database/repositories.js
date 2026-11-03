@@ -196,6 +196,55 @@ export function createRepositories(database) {
     );
   }
 
+  function purchaseLimits(jid, amount, cost) {
+    const quantity = safeInteger(amount, 0);
+    const price = safeInteger(cost, 0);
+    if (!jid || quantity <= 0 || price <= 0) return { ok: false, reason: 'invalid_request' };
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user) return { ok: false, reason: 'user_not_found' };
+      if (Number(user.coins) < price) {
+        return { ok: false, reason: 'insufficient_funds', coins: Number(user.coins) };
+      }
+      const coins = Number(user.coins) - price;
+      const limits = Number(user.limits) + quantity;
+      const now = Date.now();
+      database.exec('UPDATE users SET coins = ?, limits = ?, updated_at = ? WHERE jid = ?', [coins, limits, now, jid]);
+      recordTransaction(jid, 'coin', -price, coins, 'limit_shop', { limits: quantity });
+      recordTransaction(jid, 'limit', quantity, limits, 'limit_purchase', { cost: price });
+      return { ok: true, coins, limits, amount: quantity, cost: price };
+    });
+  }
+
+  function getEconomyStats(jid) {
+    const globalWallet = database.get(
+      `SELECT COUNT(*) AS wallet_count,
+              COALESCE(SUM(coins), 0) AS coin_circulation,
+              COALESCE(SUM(limits), 0) AS limit_circulation
+       FROM users`,
+    );
+    const globalTransactions = database.get(
+      `SELECT COUNT(*) AS transaction_count,
+              COALESCE(SUM(CASE WHEN currency = 'coin' AND amount > 0 THEN amount ELSE 0 END), 0) AS coin_earned,
+              COALESCE(SUM(CASE WHEN currency = 'coin' AND amount < 0 THEN -amount ELSE 0 END), 0) AS coin_spent,
+              COALESCE(SUM(CASE WHEN type = 'game_reward' THEN amount ELSE 0 END), 0) AS game_rewards,
+              COALESCE(SUM(CASE WHEN type = 'daily' THEN 1 ELSE 0 END), 0) AS daily_claims
+       FROM economy_transactions`,
+    );
+    const personal = jid ? database.get(
+      `SELECT COUNT(*) AS transaction_count,
+              COALESCE(SUM(CASE WHEN currency = 'coin' AND amount > 0 THEN amount ELSE 0 END), 0) AS coin_earned,
+              COALESCE(SUM(CASE WHEN currency = 'coin' AND amount < 0 THEN -amount ELSE 0 END), 0) AS coin_spent,
+              COALESCE(SUM(CASE WHEN type = 'game_reward' THEN amount ELSE 0 END), 0) AS game_rewards,
+              COALESCE(SUM(CASE WHEN type = 'daily' THEN 1 ELSE 0 END), 0) AS daily_claims,
+              COALESCE(SUM(CASE WHEN type = 'limit_shop' THEN 1 ELSE 0 END), 0) AS limit_purchases
+       FROM economy_transactions WHERE user_jid = ?`,
+      [jid],
+    ) : undefined;
+    const wallet = jid ? getWallet(jid) : undefined;
+    return { global: { ...globalWallet, ...globalTransactions }, personal, wallet };
+  }
+
   function consumeLimit(jid, amount = 1) {
     const cost = safeInteger(amount, 0);
     if (!jid || cost <= 0) return false;
@@ -224,7 +273,7 @@ export function createRepositories(database) {
 
   return Object.freeze({
     users: Object.freeze({ upsert: upsertUser, get: getUser, findByNumber: findUserByNumber }),
-    economy: Object.freeze({ get: getWallet, creditCoins, spendCoins, claimDaily, getTransactions, consumeLimit, refundLimit }),
+    economy: Object.freeze({ get: getWallet, creditCoins, spendCoins, claimDaily, getTransactions, purchaseLimits, getEconomyStats, consumeLimit, refundLimit }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
