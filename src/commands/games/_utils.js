@@ -14,7 +14,10 @@ export async function startGamePrompt(ctx, { type, answer = null, state = {}, te
     return false;
   }
 
-  const sent = await ctx.socket.sendMessage(ctx.chatId, { text }, { quoted: ctx.message });
+  const promptText = ctx.isGroup
+    ? text + '\n\n👥 Semua anggota grup boleh ikut! Setiap pemain punya kesempatan sendiri dan hadiah Coin masuk ke akun masing-masing.'
+    : text;
+  const sent = await ctx.socket.sendMessage(ctx.chatId, { text: promptText }, { quoted: ctx.message });
   if (!sent?.key?.id) {
     await ctx.reply('Game gagal dimulai karena pesan game tidak mendapatkan ID.');
     return false;
