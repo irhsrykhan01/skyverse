@@ -178,15 +178,21 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (result.matched) {
         let responseText = result.text;
         if (Number.isSafeInteger(result.reward) && result.reward > 0) {
-          const credited = repositories.economy.creditCoins(
+          const credited = repositories.economy.creditGameReward(
             senderJid,
             result.reward,
-            'game_reward',
+            150,
+            86_400_000,
             { game: result.game ?? 'unknown' },
           );
-          if (credited) {
-            responseText += '\\n\\n🪙 Hadiah: +' + result.reward.toLocaleString('id-ID') + ' Coin'
-              + '\\n💰 Saldo Coin: ' + credited.coins.toLocaleString('id-ID');
+          if (credited?.reward > 0) {
+            responseText += '\n\n🪙 Hadiah: +' + credited.reward.toLocaleString('id-ID') + ' Coin'
+              + '\n💰 Saldo Coin: ' + credited.coins.toLocaleString('id-ID');
+            if (credited.capped) {
+              responseText += '\nℹ️ Sisa hadiah game dibatasi oleh batas 150 Coin dalam 24 jam.';
+            }
+          } else if (credited?.capped) {
+            responseText += '\n\nℹ️ Batas hadiah game 150 Coin dalam 24 jam sudah tercapai.';
           }
         }
         const sent = await socket.sendMessage(chatId, { text: responseText }, { quoted: message });
