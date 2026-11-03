@@ -24,7 +24,7 @@ export const command = {
   category: 'economy',
   aliases: ['shoplimit'],
   permission: 'user',
-  usage: 'limitshop <5|10|25>',
+  usage: 'limitshop [5|10|25]',
   minArgs: 0,
   maxArgs: 1,
   cooldown: 3000,
