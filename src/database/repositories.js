@@ -110,7 +110,7 @@ export function createRepositories(database) {
   function getUser(jid) {
     return jid ? database.get(
       `SELECT jid, number, push_name, is_bot, created_at, updated_at,
-              is_premium, premium_until, coins, limits
+              is_premium, premium_until, coins, limits, last_daily_at
        FROM users WHERE jid = ?`,
       [jid],
     ) : undefined;
@@ -132,13 +132,79 @@ export function createRepositories(database) {
     return user ? { coins: Number(user.coins) || 0, limits: Number(user.limits) || 0 } : undefined;
   }
 
+  function recordTransaction(jid, currency, amount, balanceAfter, type, metadata = null) {
+    database.exec(
+      `INSERT INTO economy_transactions
+       (user_jid, currency, amount, balance_after, type, metadata, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [jid, currency, amount, balanceAfter, type, metadata ? JSON.stringify(metadata) : null, Date.now()],
+    );
+  }
+
+  function creditCoins(jid, amount, type = 'credit', metadata = null) {
+    const value = safeInteger(amount, 0);
+    if (!jid || value <= 0) return false;
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user) return false;
+      const balance = Number(user.coins) + value;
+      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, Date.now(), jid]);
+      recordTransaction(jid, 'coin', value, balance, type, metadata);
+      return { coins: balance };
+    });
+  }
+
+  function spendCoins(jid, amount, type = 'spend', metadata = null) {
+    const value = safeInteger(amount, 0);
+    if (!jid || value <= 0) return { ok: false, reason: 'invalid_amount' };
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user) return { ok: false, reason: 'user_not_found' };
+      if (Number(user.coins) < value) return { ok: false, reason: 'insufficient_funds', coins: Number(user.coins) };
+      const balance = Number(user.coins) - value;
+      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, Date.now(), jid]);
+      recordTransaction(jid, 'coin', -value, balance, type, metadata);
+      return { ok: true, coins: balance };
+    });
+  }
+
+  function claimDaily(jid, reward = 200, cooldownMs = 86_400_000) {
+    const value = safeInteger(reward, 0);
+    const cooldown = safeInteger(cooldownMs, 0);
+    if (!jid || value <= 0 || cooldown <= 0) return { ok: false, reason: 'invalid_request' };
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user) return { ok: false, reason: 'user_not_found' };
+      const now = Date.now();
+      const lastClaim = Number(user.last_daily_at) || 0;
+      const nextAt = lastClaim + cooldown;
+      if (lastClaim > 0 && now < nextAt) return { ok: false, reason: 'cooldown', nextAt };
+      const balance = Number(user.coins) + value;
+      database.exec('UPDATE users SET coins = ?, last_daily_at = ?, updated_at = ? WHERE jid = ?', [balance, now, now, jid]);
+      recordTransaction(jid, 'coin', value, balance, 'daily', { cooldownMs: cooldown });
+      return { ok: true, reward: value, coins: balance, nextAt: now + cooldown };
+    });
+  }
+
+  function getTransactions(jid, limit = 10) {
+    const count = Math.max(1, Math.min(50, safeInteger(limit, 10)));
+    return database.all(
+      `SELECT currency, amount, balance_after, type, metadata, created_at
+       FROM economy_transactions WHERE user_jid = ?
+       ORDER BY id DESC LIMIT ?`,
+      [jid, count],
+    );
+  }
+
   function consumeLimit(jid, amount = 1) {
     const cost = safeInteger(amount, 0);
     if (!jid || cost <= 0) return false;
     return database.transaction(() => {
       const user = getUser(jid);
       if (!user || Number(user.limits) < cost) return false;
-      database.exec('UPDATE users SET limits = limits - ?, updated_at = ? WHERE jid = ? AND limits >= ?', [cost, Date.now(), jid, cost]);
+      const balance = Number(user.limits) - cost;
+      database.exec('UPDATE users SET limits = ?, updated_at = ? WHERE jid = ? AND limits >= ?', [balance, Date.now(), jid, cost]);
+      recordTransaction(jid, 'limit', -cost, balance, 'consume');
       return true;
     });
   }
@@ -149,14 +215,16 @@ export function createRepositories(database) {
     return database.transaction(() => {
       const user = getUser(jid);
       if (!user) return false;
-      database.exec('UPDATE users SET limits = limits + ?, updated_at = ? WHERE jid = ?', [refund, Date.now(), jid]);
+      const balance = Number(user.limits) + refund;
+      database.exec('UPDATE users SET limits = ?, updated_at = ? WHERE jid = ?', [balance, Date.now(), jid]);
+      recordTransaction(jid, 'limit', refund, balance, 'refund');
       return true;
     });
   }
 
   return Object.freeze({
     users: Object.freeze({ upsert: upsertUser, get: getUser, findByNumber: findUserByNumber }),
-    economy: Object.freeze({ get: getWallet, consumeLimit, refundLimit }),
+    economy: Object.freeze({ get: getWallet, creditCoins, spendCoins, claimDaily, getTransactions, consumeLimit, refundLimit }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
