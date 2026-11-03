@@ -1,6 +1,7 @@
 export const MENU_CATEGORY_DEFINITIONS = Object.freeze([
   { key: 'downloader', label: 'Downloader' },
   { key: 'general', label: 'General Menu' },
+  { key: 'economy', label: 'Economy' },
   { key: 'maker', label: 'Maker' },
   { key: 'sticker', label: 'Sticker Maker' },
   { key: 'sticker-media', label: 'Media Tools' },
