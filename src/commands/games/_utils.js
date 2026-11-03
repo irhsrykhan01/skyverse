@@ -3,14 +3,14 @@ import { getMiniGame, startMiniGame } from '../../games/mini-games.js';
 export async function canStartMiniGame(ctx) {
   const active = getMiniGame(ctx.senderJid, ctx.chatId);
   if (!active) return true;
-  await ctx.reply('Kamu masih punya game ' + active.type + ' yang aktif. Selesaikan lewat reply pesan game itu dulu ya.');
+  await ctx.reply('Masih ada game *' + active.type + '* yang aktif di chat ini. Semua anggota bisa ikut dengan me-reply pesan game tersebut. Tunggu sampai sesi berakhir sebelum memulai game baru.');
   return false;
 }
 
 export async function startGamePrompt(ctx, { type, answer = null, state = {}, text, expiresIn }) {
   const active = getMiniGame(ctx.senderJid, ctx.chatId);
   if (active) {
-    await ctx.reply('Kamu masih punya game ' + active.type + ' yang aktif. Selesaikan lewat reply pesan game itu dulu ya.');
+    await ctx.reply('Masih ada game *' + active.type + '* yang aktif di chat ini. Semua anggota bisa ikut dengan me-reply pesan game tersebut.');
     return false;
   }
 
