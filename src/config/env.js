@@ -21,6 +21,7 @@ export function loadConfig(env = process.env) {
     vredenBaseUrl: clean(env.VREDEN_BASE_URL) ?? defaults.vredenBaseUrl,
     siputzxBaseUrl: clean(env.SIPUTZX_BASE_URL) ?? defaults.siputzxBaseUrl,
     tikwmBaseUrl: clean(env.TIKWM_BASE_URL) ?? defaults.tikwmBaseUrl,
+    ytDlpPath: clean(env.YTDLP_PATH) ?? defaults.ytDlpPath,
     reelsVideoBaseUrl: clean(env.REELSVIDEO_BASE_URL) ?? defaults.reelsVideoBaseUrl,
     keyraBaseUrl: clean(env.KEYRA_BASE_URL) ?? defaults.keyraBaseUrl,
     keyraApiKey: clean(env.KEYRA_API_KEY) ?? defaults.keyraApiKey,
