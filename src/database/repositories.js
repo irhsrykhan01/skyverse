@@ -154,6 +154,35 @@ export function createRepositories(database) {
     });
   }
 
+  function creditGameReward(jid, amount, dailyCap = 150, windowMs = 86_400_000, metadata = null) {
+    const value = safeInteger(amount, 0);
+    const cap = safeInteger(dailyCap, 0);
+    const window = safeInteger(windowMs, 0);
+    if (!jid || value <= 0 || cap <= 0 || window <= 0) return false;
+    return database.transaction(() => {
+      const user = getUser(jid);
+      if (!user) return false;
+      const now = Date.now();
+      const recent = database.get(
+        `SELECT COALESCE(SUM(amount), 0) AS earned
+         FROM economy_transactions
+         WHERE user_jid = ? AND type = 'game_reward' AND created_at >= ?`,
+        [jid, now - window],
+      );
+      const earned = Number(recent?.earned) || 0;
+      const reward = Math.min(value, Math.max(0, cap - earned));
+      if (reward <= 0) return { coins: Number(user.coins), reward: 0, capped: true };
+      const balance = Number(user.coins) + reward;
+      database.exec('UPDATE users SET coins = ?, updated_at = ? WHERE jid = ?', [balance, now, jid]);
+      recordTransaction(jid, 'coin', reward, balance, 'game_reward', {
+        ...(metadata && typeof metadata === 'object' ? metadata : {}),
+        dailyCap: cap,
+        windowMs: window,
+      });
+      return { coins: balance, reward, capped: reward < value };
+    });
+  }
+
   function spendCoins(jid, amount, type = 'spend', metadata = null) {
     const value = safeInteger(amount, 0);
     if (!jid || value <= 0) return { ok: false, reason: 'invalid_amount' };
@@ -273,7 +302,7 @@ export function createRepositories(database) {
 
   return Object.freeze({
     users: Object.freeze({ upsert: upsertUser, get: getUser, findByNumber: findUserByNumber }),
-    economy: Object.freeze({ get: getWallet, creditCoins, spendCoins, claimDaily, getTransactions, purchaseLimits, getEconomyStats, consumeLimit, refundLimit }),
+    economy: Object.freeze({ get: getWallet, creditCoins, creditGameReward, spendCoins, claimDaily, getTransactions, purchaseLimits, getEconomyStats, consumeLimit, refundLimit }),
     groups: Object.freeze({ upsert: upsertGroup }),
     commands: Object.freeze({ increment: incrementCommand, stats, userStats }),
     settings: Object.freeze({ get: getSetting, set: setSetting }),
