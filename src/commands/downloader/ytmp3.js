@@ -1,4 +1,4 @@
-import { sendAudioDownload } from './_generic.js';
+import { sendVideoAsMp3 } from './_generic.js';
 
 export const command = {
   name: 'ytmp3',
@@ -12,6 +12,6 @@ export const command = {
   cooldown: 5000,
   async execute(ctx) {
     const response = await ctx.providers.downloader.youtube(ctx.parsed.args[0]);
-    await sendAudioDownload(ctx, response, 'skyverse-youtube.mp3');
+    await sendVideoAsMp3(ctx, response, 'skyverse-youtube.mp3');
   },
 };
