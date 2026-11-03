@@ -176,7 +176,20 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (!plainText.startsWith(config.prefix) && quotedStanzaId && isMiniGameReply(senderJid, { chatId, stanzaId: quotedStanzaId })) {
       const result = answerMiniGame(senderJid, chatId, quotedStanzaId, plainText);
       if (result.matched) {
-        const sent = await socket.sendMessage(chatId, { text: result.text }, { quoted: message });
+        let responseText = result.text;
+        if (Number.isSafeInteger(result.reward) && result.reward > 0) {
+          const credited = repositories.economy.creditCoins(
+            senderJid,
+            result.reward,
+            'game_reward',
+            { game: result.game ?? 'unknown' },
+          );
+          if (credited) {
+            responseText += '\\n\\n🪙 Hadiah: +' + result.reward.toLocaleString('id-ID') + ' Coin'
+              + '\\n💰 Saldo Coin: ' + credited.coins.toLocaleString('id-ID');
+          }
+        }
+        const sent = await socket.sendMessage(chatId, { text: responseText }, { quoted: message });
         if (result.keep && sent?.key?.id) updateMiniGameMessage(senderJid, chatId, sent.key.id);
         return;
       }
