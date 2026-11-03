@@ -1,18 +1,13 @@
 export const command = {
-  name: 'balance',
-  description: 'Melihat saldo Coin dan Limit.',
-  category: 'general',
+  name: 'coin',
+  description: 'Melihat saldo Coin kamu.',
+  category: 'economy',
   aliases: ['bal'],
-  usage: 'balance',
+  usage: 'coin',
   permission: 'user',
   async execute(ctx) {
     const wallet = ctx.repositories.economy.get(ctx.senderJid);
     if (!wallet) throw new Error('Data pengguna tidak ditemukan. Coba jalankan command lagi.');
-    await ctx.reply([
-      '💳 *SKYVERSE WALLET*',
-      '',
-      `🪙 Coin  : ${wallet.coins.toLocaleString('id-ID')}`,
-      `⚡ Limit : ${wallet.limits.toLocaleString('id-ID')}`,
-    ].join('\n'));
+    await ctx.reply('🪙 *SALDO COIN*\\n\\n' + wallet.coins.toLocaleString('id-ID') + ' Coin');
   },
 };
