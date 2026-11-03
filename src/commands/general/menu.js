@@ -6,16 +6,16 @@ const BANNER_PATH = new URL('../../../assets/SkyLabs_banner.jpg', import.meta.ur
 
 function buildMenuBody(ctx) {
   const user = ctx.user ?? {};
-  const coin = Number(user.coins ?? 0);
-  const limit = Number(user.limits ?? 0);
+  const coin = ctx.isOwner ? 'Unlimited' : Number(user.coins ?? 0).toLocaleString('id-ID');
+  const limit = ctx.isOwner ? 'Unlimited' : Number(user.limits ?? 0).toLocaleString('id-ID');
   const tier = user.is_premium ? 'Premium User' : 'Free User';
   const tag = ctx.senderNumber ? `+${ctx.senderNumber}` : (ctx.message?.pushName || 'User');
 
   return [
     '╭── ＳＫＹＶＥＲＳＥ ──',
     `│ Halo, ${tag}!`,
-    `│ Coin: ${coin.toLocaleString('id-ID')}`,
-    `│ Limit: ${limit.toLocaleString('id-ID')}`,
+    `│ Coin: ${coin}`,
+    `│ Limit: ${limit}`,
     `│ Tier: ${tier}`,
     '╰───────────────',
     'Selamat datang di Skyverse Bot!. ☁',
