@@ -28,7 +28,8 @@ const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
 assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still present.');
 assert(providers.depay === undefined, 'Removed Depay provider is still exposed.');
-assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Siputzx YouTube provider is not exposed.');
+assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Legacy Siputzx provider should remain isolated from the main downloader.');
+assert(providers.ytdlp && typeof providers.ytdlp.youtube === 'function' && typeof providers.ytdlp.instagram === 'function', 'Local yt-dlp provider is missing.');
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
 assert(resolveMenuCategory('media') === 'media', 'Media menu category is missing.');
 const visibleCommands = registry.all({ includeHidden: false });
@@ -57,7 +58,7 @@ assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contr
 assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
 assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
 assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
-for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'balance', 'limit', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'balance', 'limit', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -94,9 +95,9 @@ assert(config.vredenBaseUrl === 'https://api.vreden.my.id', 'Default Vreden URL 
 assert(config.tikwmBaseUrl === 'https://www.tikwm.com/api/', 'Default TikWM URL regression.');
 assert(config.reelsVideoBaseUrl === 'https://reelsvideo.io', 'Default ReelsVideo URL regression.');
 assert(typeof providers.downloader?.tiktok === 'function', 'TikWM downloader is missing.');
-assert(typeof providers.downloader?.instagram === 'function', 'ReelsVideo downloader is missing.');
-assert(typeof providers.downloader?.youtube === 'function', 'YouTube fallback chain is missing.');
-assert(typeof providers.downloader?.youtubeMp3 === 'function', 'YouTube MP3 fallback chain is missing.');
+assert(typeof providers.downloader?.instagram === 'function', 'yt-dlp Instagram downloader is missing.');
+assert(typeof providers.downloader?.youtube === 'function', 'yt-dlp YouTube downloader is missing.');
+assert(typeof providers.downloader?.youtubeMp3 === 'function', 'YouTube local MP3 downloader alias is missing.');
 assert(typeof providers.downloader?.facebook === 'function', 'Facebook fallback chain is missing.');
 assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloader is missing.');
 assert(typeof providers.downloader?.twitter === 'function', 'Twitter downloader is missing.');
