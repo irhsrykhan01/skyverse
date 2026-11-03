@@ -21,7 +21,7 @@ function formatPackages(prefix) {
 export const command = {
   name: 'limitshop',
   description: 'Membeli Limit menggunakan Coin.',
-  category: 'economy',
+  category: 'general',
   aliases: ['shoplimit'],
   permission: 'user',
   usage: 'limitshop [5|10|25]',
