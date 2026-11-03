@@ -13,7 +13,7 @@ import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
 import { renderMockUi } from '../services/mock-ui.js';
-import { resolveMenuCategory } from '../core/menu-categories.js';
+import { MENU_CATEGORY_DEFINITIONS, resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
 import { sendWithFallback, sendVideoAsMp3 } from '../commands/downloader/_generic.js';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -36,6 +36,12 @@ assert(resolveMenuCategory('economy') === null, 'Removed economy menu category i
 assert(resolveMenuCategory('media') === 'media', 'Media menu category is missing.');
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
+const registeredCategories = registry.byCategory({ includeHidden: false });
+const definedCategories = new Set(MENU_CATEGORY_DEFINITIONS.map(({ key }) => key));
+assert(!registeredCategories.has('economy'), 'Removed economy menu category is still registered in command registry.');
+for (const category of registeredCategories.keys()) {
+  assert(definedCategories.has(category), `Command category is missing from menu definitions: ${category}`);
+}
 
 const allmenuPayloads = [];
 await allmenuCommand.execute({
@@ -65,6 +71,7 @@ for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { a
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
 assert(registry.resolve('coin')?.name === 'coin', 'Coin balance command is missing.');
+assert(registry.resolve('bal')?.name === 'coin', 'Coin command alias is missing.');
 assert(registry.resolve('balance') === undefined, 'Deprecated balance command should not be resolvable.');
 assert(registry.resolve('limit')?.name === 'limit', 'Limit balance command is missing.');
 assert(registry.resolve('daily')?.name === 'daily', 'Daily reward command is missing.');
