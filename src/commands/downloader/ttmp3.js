@@ -1,8 +1,8 @@
-import { sendAudioDownload, sendWithFallback } from './_generic.js';
+import { sendVideoAsMp3, sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'ttmp3',
-  description: 'Mengambil audio MP3 dari TikTok.',
+  description: 'Konversi video TikTok menjadi MP3 melalui FFmpeg lokal.',
   category: 'downloader',
   aliases: [],
   usage: 'ttmp3 <url>',
@@ -14,6 +14,6 @@ export const command = {
     const url = ctx.parsed.args[0];
     await sendWithFallback(ctx, [
       { name: 'TikWM', run: () => ctx.providers.tikwm.tiktok(url) },
-    ], (response) => sendAudioDownload(ctx, response, 'skyverse-tiktok.mp3'));
+    ], (response) => sendVideoAsMp3(ctx, response, 'skyverse-tiktok.mp3'));
   },
 };
