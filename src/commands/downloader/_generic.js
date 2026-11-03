@@ -2,6 +2,7 @@ import { downloadMediaSource, findMediaSource } from '../../services/providers/m
 import {
   findDownloaderUrl,
   findDownloaderUrls,
+  replyWithDownloaderAudio,
   replyWithDownloaderMedia,
 } from '../../services/providers/downloader-response.js';
 
@@ -51,6 +52,19 @@ export async function sendTikTokDownload(ctx, response) {
 }
 
 export async function sendAudioDownload(ctx, response, filename) {
+  const audioUrl = findDownloaderUrl(response, { kind: 'audio' });
+  if (audioUrl) {
+    return replyWithDownloaderAudio(ctx, { result: { audio: audioUrl } }, { filename });
+  }
+
+  const videoUrl = findDownloaderUrl(response, { kind: 'video' });
+  if (!videoUrl) throw new Error('Provider tidak mengembalikan URL audio atau video yang dapat diproses.');
+  const buffer = await downloadMediaSource({ kind: 'url', value: videoUrl }, { expectedType: 'video' });
+  const audio = await ctx.media.toMp3(buffer);
+  return ctx.media.send(audio, 'audio', { mimetype: 'audio/mpeg', fileName: filename });
+}
+
+export async function sendVideoAsMp3(ctx, response, filename) {
   const videoUrl = findDownloaderUrl(response, { kind: 'video' });
   if (!videoUrl) throw new Error('Provider tidak mengembalikan URL video untuk dikonversi menjadi MP3.');
   const buffer = await downloadMediaSource(
