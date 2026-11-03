@@ -64,7 +64,11 @@ function formatQuickQuizPrompt(session, player) {
     question.source === 'Open Trivia DB'
       ? 'Sumber soal: Open Trivia DB (opentdb.com).'
       : 'Sumber soal: bank offline SkyVerse.',
-  ].join('\n');
+    '🪙 Hadiah: 3–6 Coin untuk setiap jawaban benar.',
+    session.chatId.endsWith('@g.us')
+      ? '👥 Semua anggota grup boleh ikut; progres dan hadiah setiap pemain terpisah.'
+      : '',
+  ].filter(Boolean).join('\n');
 }
 
 export function startMiniGame({ userId, chatId, gameMessageId, type, answer = null, state = {}, expiresIn = DEFAULT_TTL }) {
