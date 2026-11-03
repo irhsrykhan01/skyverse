@@ -60,13 +60,20 @@ assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contr
 assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
 assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
 assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
-for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'daily', 'limitshop', 'economystats', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
 assert(registry.resolve('coin')?.name === 'coin', 'Coin balance command is missing.');
 assert(registry.resolve('balance') === undefined, 'Deprecated balance command should not be resolvable.');
 assert(registry.resolve('limit')?.name === 'limit', 'Limit balance command is missing.');
+assert(registry.resolve('daily')?.name === 'daily', 'Daily reward command is missing.');
+assert(registry.resolve('harian')?.name === 'daily', 'Daily command alias is missing.');
+assert(registry.resolve('limitshop')?.name === 'limitshop', 'Limit Shop command is missing.');
+assert(registry.resolve('economystats')?.name === 'economystats', 'Economy stats command is missing.');
+for (const name of ['coin', 'limit', 'daily', 'limitshop', 'economystats']) {
+  assert(registry.resolve(name)?.category === 'general', `Economy command ${name} must appear under General.`);
+}
 for (const name of ['brat', 'bratvid', 'iqc', 'sticker', 'stickerwatermark']) {
   assert(registry.resolve(name)?.limitCost === 1, `Paid feature ${name} must cost exactly one Limit.`);
 }
@@ -144,7 +151,7 @@ assert(recoveryDelay(1) === 1000 && recoveryDelay(4) === 8000, 'WhatsApp recover
 assert(recoveryReason(401) === 'logged_out', 'WhatsApp recovery reason mapping failed.');
 assert(recoveryReason(440) === 'connection_replaced', 'WhatsApp connection-replaced reason mapping failed.');
 
-for (const removed of ['coins', 'claim', 'harian', 'pay', 'transfer', 'kirimcoin', 'coinlog', 'coinhistory', 'transactions', 'coinlb', 'coinleaderboard', 'rich']) {
+for (const removed of ['coins', 'balance', 'claim', 'pay', 'transfer', 'kirimcoin', 'coinlog', 'coinhistory', 'transactions', 'coinlb', 'coinleaderboard', 'rich']) {
   assert(registry.resolve(removed) === undefined, 'Removed economy command is still resolvable: ' + removed);
 }
 
