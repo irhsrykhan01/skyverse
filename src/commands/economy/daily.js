@@ -13,7 +13,7 @@ function formatRemaining(milliseconds) {
 export const command = {
   name: 'daily',
   description: 'Klaim hadiah harian sebesar 200 Coin setiap 24 jam.',
-  category: 'economy',
+  category: 'general',
   aliases: ['harian'],
   permission: 'user',
   usage: 'daily',
