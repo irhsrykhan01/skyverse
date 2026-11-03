@@ -2,7 +2,7 @@ import { sendTikTokDownload, sendWithFallback } from './_generic.js';
 
 export const command = {
   name: 'tiktok',
-  description: 'Download video atau photo carousel TikTok.',
+  description: 'Download video atau photo carousel TikTok melalui TikWM.',
   category: 'downloader',
   aliases: ['tt'],
   usage: 'tiktok <url>',
@@ -14,8 +14,6 @@ export const command = {
     const url = ctx.parsed.args[0];
     await sendWithFallback(ctx, [
       { name: 'TikWM', run: () => ctx.providers.tikwm.tiktok(url) },
-      { name: 'Deline', run: () => ctx.providers.deline.call('/downloader/tiktok', { url }) },
-      { name: 'Zenzxz', run: () => ctx.providers.zenzxz.call('/downloader/tiktok', { url }) },
     ], (response) => sendTikTokDownload(ctx, response));
   },
 };
