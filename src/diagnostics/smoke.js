@@ -15,7 +15,7 @@ import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryRe
 import { renderMockUi } from '../services/mock-ui.js';
 import { resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
-import { sendWithFallback } from '../commands/downloader/_generic.js';
+import { sendWithFallback, sendVideoAsMp3 } from '../commands/downloader/_generic.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,6 +30,8 @@ assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still 
 assert(providers.depay === undefined, 'Removed Depay provider is still exposed.');
 assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Legacy Siputzx provider should remain isolated from the main downloader.');
 assert(providers.ytdlp && typeof providers.ytdlp.youtube === 'function' && typeof providers.ytdlp.instagram === 'function', 'Local yt-dlp provider is missing.');
+assert(config.ytDlpPath === 'yt-dlp', 'Default yt-dlp executable path is incorrect.');
+assert(typeof sendVideoAsMp3 === 'function', 'Local video-to-MP3 conversion helper is missing.');
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
 assert(resolveMenuCategory('media') === 'media', 'Media menu category is missing.');
 const visibleCommands = registry.all({ includeHidden: false });
