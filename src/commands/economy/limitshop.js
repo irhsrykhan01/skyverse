@@ -29,6 +29,11 @@ export const command = {
   maxArgs: 1,
   cooldown: 3000,
   async execute(ctx) {
+    if (ctx.isOwner) {
+      await ctx.reply('👑 Owner sudah memiliki akses Limit unlimited dan tidak perlu membeli paket.');
+      return;
+    }
+
     const requested = ctx.parsed.args[0];
     if (!requested) {
       await ctx.reply(formatPackages(ctx.config.prefix));
