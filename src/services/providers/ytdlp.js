@@ -69,6 +69,7 @@ export function createYtDlpProvider({ binaryPath = 'yt-dlp', timeout = 90_000 } 
     const safeUrl = validateUrl(url, platform);
     const output = await runYtDlp(binaryPath, [
       '--ignore-config', '--no-warnings', '--no-progress', '--no-playlist',
+      '--js-runtimes', 'node', '--remote-components', 'ejs:github',
       '--socket-timeout', '20', '--retries', '1', '--extractor-retries', '1',
       '--format', 'best[ext=mp4]/best', '--get-url', '--', safeUrl,
     ], timeout);
