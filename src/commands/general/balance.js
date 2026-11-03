@@ -1,7 +1,7 @@
 export const command = {
   name: 'coin',
   description: 'Melihat saldo Coin kamu.',
-  category: 'economy',
+  category: 'general',
   aliases: ['bal'],
   usage: 'coin',
   permission: 'user',
