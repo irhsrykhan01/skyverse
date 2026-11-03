@@ -205,7 +205,13 @@ assert(numberHint.matched && numberHint.keep && numberHint.text.includes('Terlal
 assert(updateMiniGameMessage('mini-game-smoke', 'mini-chat-smoke', 'MINI-GAME-2'), 'Mini-game message ID did not update.');
 const numberWin = answerMiniGame('mini-game-smoke', 'mini-chat-smoke', 'MINI-GAME-2', '12');
 assert(numberWin.matched && numberWin.complete && numberWin.text.includes('12'), 'Number-guessing win contract failed.');
-assert(getMiniGame('mini-game-smoke', 'mini-chat-smoke') === null, 'Completed mini-game session was not removed.');
+const completedMiniSession = getMiniGame('mini-game-smoke', 'mini-chat-smoke');
+assert(completedMiniSession?.players.get('mini-game-smoke')?.finished === true, 'Completed player was not marked as finished.');
+assert(completedMiniSession?.type === 'tebakangka', 'Mini-game session must remain available for other participants.');
+const secondPlayerWin = answerMiniGame('mini-game-smoke-2', 'mini-chat-smoke', 'MINI-GAME-1', '12');
+assert(secondPlayerWin.matched && secondPlayerWin.complete, 'Another participant could not complete the active mini-game.');
+stopMiniGame('mini-game-smoke-2', 'mini-chat-smoke');
+assert(getMiniGame('mini-game-smoke', 'mini-chat-smoke') === null, 'Stopped mini-game session was not removed.');
 
 startMiniGame({
   userId: 'mini-quiz-smoke',
