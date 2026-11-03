@@ -1,8 +1,18 @@
 const sessions = new Map();
 const DEFAULT_TTL = 3 * 60 * 1000;
+const REWARD_RANGES = Object.freeze({
+  trivia: [10, 20],
+  benarsalah: [5, 12],
+  quizcepat: [3, 6],
+  susunkata: [12, 24],
+  tebakkata: [12, 24],
+  tebakemoji: [10, 20],
+  tebakangka: [8, 18],
+  rps: [3, 8],
+});
 
-function keyFor(userId, chatId) {
-  return String(chatId) + '\u0000' + String(userId);
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function normalizeAnswer(value) {
@@ -14,12 +24,18 @@ function normalizeAnswer(value) {
     .replace(/[.,!?;:]+/g, '');
 }
 
-function removeSession(userId, chatId) {
-  sessions.delete(keyFor(userId, chatId));
+function getSession(chatId) {
+  return sessions.get(String(chatId));
 }
 
-function answerCredit(session) {
-  return session.state?.attribution ? '\n\n' + session.state.attribution : '';
+function playerState(session, userId, defaults = {}) {
+  const key = String(userId);
+  if (!session.players.has(key)) session.players.set(key, { ...defaults, finished: false });
+  return session.players.get(key);
+}
+
+function completedMessage() {
+  return 'Kamu sudah menyelesaikan game ini. Peserta lain masih bisa ikut sampai sesi berakhir.';
 }
 
 function choiceResult(input, question) {
@@ -27,18 +43,17 @@ function choiceResult(input, question) {
   if (/^[a-d]$/.test(value)) {
     return { valid: true, correct: value.toUpperCase() === question.correctLetter };
   }
-
   const index = (question.choices || []).findIndex((choice) => normalizeAnswer(choice) === value);
   if (index < 0) return { valid: false, correct: false };
   return { valid: true, correct: 'ABCD'[index] === question.correctLetter };
 }
 
-function formatQuickQuizPrompt(session) {
+function formatQuickQuizPrompt(session, player) {
   const state = session.state;
-  const question = state.questions[state.index];
+  const question = state.questions[player.index];
   return [
     '⚡ *QUIZ CEPAT*',
-    'Soal ' + (state.index + 1) + '/' + state.questions.length + ' • Skor: ' + state.score,
+    'Soal ' + (player.index + 1) + '/' + state.questions.length + ' • Skor: ' + player.score,
     'Kategori: ' + (question.category || 'General Knowledge'),
     '',
     question.question,
@@ -54,27 +69,29 @@ function formatQuickQuizPrompt(session) {
 
 export function startMiniGame({ userId, chatId, gameMessageId, type, answer = null, state = {}, expiresIn = DEFAULT_TTL }) {
   if (!userId || !chatId || !gameMessageId || !type) return null;
+  const ttl = Math.max(30_000, Number(expiresIn) || DEFAULT_TTL);
   const session = {
-    userId: String(userId),
+    ownerId: String(userId),
     chatId: String(chatId),
     gameMessageId: String(gameMessageId),
+    playerMessageIds: new Map(),
     type: String(type),
     answer,
     state,
-    expiresIn: Math.max(30_000, Number(expiresIn) || DEFAULT_TTL),
+    players: new Map(),
+    expiresIn: ttl,
     startedAt: Date.now(),
-    expiresAt: Date.now() + Math.max(30_000, Number(expiresIn) || DEFAULT_TTL),
+    expiresAt: Date.now() + ttl,
   };
-  sessions.set(keyFor(userId, chatId), session);
+  sessions.set(String(chatId), session);
   return session;
 }
 
-export function getMiniGame(userId, chatId) {
-  const key = keyFor(userId, chatId);
-  const session = sessions.get(key);
+export function getMiniGame(_userId, chatId) {
+  const session = getSession(chatId);
   if (!session) return null;
   if (session.expiresAt <= Date.now()) {
-    sessions.delete(key);
+    sessions.delete(String(chatId));
     return null;
   }
   return session;
@@ -82,19 +99,22 @@ export function getMiniGame(userId, chatId) {
 
 export function isMiniGameReply(userId, { chatId, stanzaId } = {}) {
   const session = getMiniGame(userId, chatId);
-  return Boolean(session && stanzaId && session.gameMessageId === String(stanzaId));
+  if (!session || !stanzaId) return false;
+  const id = String(stanzaId);
+  if (session.gameMessageId === id) return true;
+  return session.playerMessageIds.get(String(userId)) === id;
 }
 
 export function updateMiniGameMessage(userId, chatId, gameMessageId) {
   const session = getMiniGame(userId, chatId);
   if (!session || !gameMessageId) return false;
-  session.gameMessageId = String(gameMessageId);
+  session.playerMessageIds.set(String(userId), String(gameMessageId));
   session.expiresAt = Date.now() + session.expiresIn;
   return true;
 }
 
-export function stopMiniGame(userId, chatId) {
-  removeSession(userId, chatId);
+export function stopMiniGame(_userId, chatId) {
+  sessions.delete(String(chatId));
 }
 
 function invalidReply(session) {
@@ -107,24 +127,47 @@ function invalidReply(session) {
   return 'Jawaban belum terbaca. Coba lagi dengan me-reply pesan game.';
 }
 
+function completedResult(session, player, text, reward = 0) {
+  player.finished = true;
+  session.expiresAt = Date.now() + session.expiresIn;
+  return {
+    matched: true,
+    complete: true,
+    keep: false,
+    game: session.type,
+    reward,
+    text,
+  };
+}
+
 export function answerMiniGame(userId, chatId, stanzaId, input) {
   const session = getMiniGame(userId, chatId);
-  if (!session || !stanzaId || session.gameMessageId !== String(stanzaId)) return { matched: false };
+  if (!session || !stanzaId) return { matched: false };
+  const replyId = String(stanzaId);
+  if (session.gameMessageId !== replyId && session.playerMessageIds.get(String(userId)) !== replyId) {
+    return { matched: false };
+  }
 
   const value = normalizeAnswer(input);
   const state = session.state || {};
+  const player = playerState(session, userId, session.type === 'quizcepat'
+    ? { index: 0, score: 0, earned: 0 }
+    : { attempts: 0 });
+
+  if (player.finished) {
+    return { matched: true, keep: false, text: completedMessage() };
+  }
 
   if (session.type === 'trivia') {
     const result = choiceResult(value, state);
     if (!result.valid) return { matched: true, keep: true, text: invalidReply(session) };
-    removeSession(userId, chatId);
-    return {
-      matched: true,
-      complete: true,
-      text: result.correct
-        ? '✅ Benar! Jawabannya: ' + state.correctAnswer + '.'
-        : '❌ Belum tepat. Jawaban yang benar: ' + state.correctAnswer + '.',
-    };
+    if (result.correct) {
+      const range = REWARD_RANGES.trivia;
+      return completedResult(session, player,
+        '✅ Benar! Jawabannya: ' + state.correctAnswer + '.', randomInt(range[0], range[1]));
+    }
+    return completedResult(session, player,
+      '❌ Belum tepat. Jawaban yang benar: ' + state.correctAnswer + '.');
   }
 
   if (session.type === 'benarsalah') {
@@ -132,41 +175,41 @@ export function answerMiniGame(userId, chatId, stanzaId, input) {
     if (['benar', 'betul', 'true', 'ya', 'y', 'b'].includes(value)) valueBoolean = true;
     if (['salah', 'false', 'tidak', 'nggak', 'enggak', 'ga', 'f', 's'].includes(value)) valueBoolean = false;
     if (valueBoolean === null) return { matched: true, keep: true, text: invalidReply(session) };
-    removeSession(userId, chatId);
     const correct = valueBoolean === Boolean(session.answer);
-    return {
-      matched: true,
-      complete: true,
-      text: (correct ? '✅ Betul!' : '❌ Belum tepat.') + ' Jawaban yang benar: ' + (session.answer ? 'BENAR' : 'SALAH') + '.',
-    };
+    const rewardRange = REWARD_RANGES.benarsalah;
+    return completedResult(session, player,
+      (correct ? '✅ Betul!' : '❌ Belum tepat.') + ' Jawaban yang benar: ' + (session.answer ? 'BENAR' : 'SALAH') + '.',
+      correct ? randomInt(rewardRange[0], rewardRange[1]) : 0);
   }
 
   if (session.type === 'quizcepat') {
-    const question = state.questions?.[state.index];
-    if (!question) {
-      removeSession(userId, chatId);
-      return { matched: true, complete: true, text: 'Quiz sudah selesai.' };
-    }
-
+    const question = state.questions?.[player.index];
+    if (!question) return completedResult(session, player, 'Quiz sudah selesai. Skor kamu: ' + player.score + '/' + state.questions.length + '.', player.earned);
     const result = choiceResult(value, question);
     if (!result.valid) return { matched: true, keep: true, text: invalidReply(session) };
 
-    if (result.correct) state.score += 1;
+    if (result.correct) {
+      player.score += 1;
+      const range = REWARD_RANGES.quizcepat;
+      player.earned += randomInt(range[0], range[1]);
+    }
     const feedback = result.correct
       ? '✅ Benar!'
       : '❌ Salah. Jawaban: ' + question.correctAnswer + '.';
-    state.index += 1;
+    player.index += 1;
 
-    if (state.index < state.questions.length) {
-      return { matched: true, keep: true, text: feedback + '\n\n' + formatQuickQuizPrompt(session) };
+    if (player.index < state.questions.length) {
+      return {
+        matched: true,
+        keep: true,
+        game: session.type,
+        text: feedback + '\n\n' + formatQuickQuizPrompt(session, player),
+      };
     }
 
-    removeSession(userId, chatId);
-    return {
-      matched: true,
-      complete: true,
-      text: feedback + '\n\n🏁 *Quiz selesai!* Skor kamu: ' + state.score + '/' + state.questions.length + '.',
-    };
+    return completedResult(session, player,
+      feedback + '\n\n🏁 *Quiz selesai!* Skor kamu: ' + player.score + '/' + state.questions.length + '.',
+      player.earned);
   }
 
   if (session.type === 'tebakangka') {
@@ -182,86 +225,72 @@ export function answerMiniGame(userId, chatId, stanzaId, input) {
       };
     }
 
-    state.attempts = Number(state.attempts || 0) + 1;
+    player.attempts = Number(player.attempts || 0) + 1;
     if (guess === Number(session.answer)) {
-      removeSession(userId, chatId);
-      return {
-        matched: true,
-        complete: true,
-        text: '🎉 Tepat! Angkanya ' + session.answer + '. Kamu berhasil dalam ' + state.attempts + ' percobaan.',
-      };
+      const range = REWARD_RANGES.tebakangka;
+      return completedResult(session, player,
+        '🎉 Tepat! Angkanya ' + session.answer + '. Kamu berhasil dalam ' + player.attempts + ' percobaan.',
+        randomInt(range[0], range[1]));
     }
 
     const maxAttempts = Number(state.maxAttempts ?? 6);
-    if (state.attempts >= maxAttempts) {
-      removeSession(userId, chatId);
-      return {
-        matched: true,
-        complete: true,
-        text: 'Game selesai! Angka yang benar adalah ' + session.answer + '.',
-      };
+    if (player.attempts >= maxAttempts) {
+      return completedResult(session, player, 'Game selesai! Angka yang benar adalah ' + session.answer + '.');
     }
 
     return {
       matched: true,
       keep: true,
       text: (guess < Number(session.answer) ? '📈 Terlalu kecil!' : '📉 Terlalu besar!')
-        + ' Percobaan ' + state.attempts + '/' + maxAttempts + '. Coba angka lain dengan me-reply pesan ini.',
+        + ' Percobaan ' + player.attempts + '/' + maxAttempts + '. Coba angka lain dengan me-reply pesan ini.',
     };
   }
 
   if (session.type === 'susunkata' || session.type === 'tebakkata') {
     const accepted = [session.answer, ...(Array.isArray(state.accepted) ? state.accepted : [])].map(normalizeAnswer);
     if (accepted.includes(value)) {
-      removeSession(userId, chatId);
-      return {
-        matched: true,
-        complete: true,
-        text: '🎉 Benar! Kata yang dicari: ' + session.answer + '.'
+      const range = REWARD_RANGES[session.type];
+      return completedResult(session, player,
+        '🎉 Benar! Kata yang dicari: ' + session.answer + '.'
           + (state.definition ? '\nArti: ' + state.definition : '')
-          + answerCredit(session),
-      };
+          + (state.attribution ? '\n\n' + state.attribution : ''),
+        randomInt(range[0], range[1]));
     }
 
-    state.attempts = Number(state.attempts || 0) + 1;
+    player.attempts = Number(player.attempts || 0) + 1;
     const maxAttempts = Number(state.maxAttempts ?? 3);
-    if (state.attempts >= maxAttempts) {
-      removeSession(userId, chatId);
-      return {
-        matched: true,
-        complete: true,
-        text: 'Kesempatan habis! Jawabannya: ' + session.answer + '.'
+    if (player.attempts >= maxAttempts) {
+      return completedResult(session, player,
+        'Kesempatan habis! Jawabannya: ' + session.answer + '.'
           + (state.definition ? '\nArti: ' + state.definition : '')
-          + answerCredit(session),
-      };
+          + (state.attribution ? '\n\n' + state.attribution : ''));
     }
 
     return {
       matched: true,
       keep: true,
-      text: 'Belum tepat 😅 Sisa kesempatan: ' + (maxAttempts - state.attempts)
-        + '. Coba lagi dengan me-reply pesan ini.' + answerCredit(session),
+      text: 'Belum tepat 😅 Sisa kesempatan: ' + (maxAttempts - player.attempts)
+        + '. Coba lagi dengan me-reply pesan ini.',
     };
   }
 
   if (session.type === 'tebakemoji') {
     const accepted = [session.answer, ...(Array.isArray(state.accepted) ? state.accepted : [])].map(normalizeAnswer);
     if (accepted.includes(value)) {
-      removeSession(userId, chatId);
-      return { matched: true, complete: true, text: '🎉 Betul! Jawabannya: ' + session.answer + '.' };
+      const range = REWARD_RANGES.tebakemoji;
+      return completedResult(session, player, '🎉 Betul! Jawabannya: ' + session.answer + '.', randomInt(range[0], range[1]));
     }
 
-    state.attempts = Number(state.attempts || 0) + 1;
+    player.attempts = Number(player.attempts || 0) + 1;
     const maxAttempts = Number(state.maxAttempts ?? 3);
-    if (state.attempts >= maxAttempts) {
-      removeSession(userId, chatId);
-      return { matched: true, complete: true, text: 'Kesempatan habis! Jawabannya: ' + session.answer + '.' };
+    if (player.attempts >= maxAttempts) {
+      return completedResult(session, player, 'Kesempatan habis! Jawabannya: ' + session.answer + '.');
     }
 
     return {
       matched: true,
       keep: true,
-      text: 'Belum tepat 😅 Sisa kesempatan: ' + (maxAttempts - state.attempts)
+      text: 'Belum tepat 😅 Sisa kesempatan: ' + (maxAttempts - player.attempts)
         + '. Coba lagi dengan me-reply pesan ini.',
     };
   }
@@ -277,21 +306,17 @@ export function answerMiniGame(userId, chatId, stanzaId, input) {
 
     const moves = ['batu', 'gunting', 'kertas'];
     const botMove = moves[Math.floor(Math.random() * moves.length)];
+    const won = ((playerMove === 'batu' && botMove === 'gunting')
+      || (playerMove === 'gunting' && botMove === 'kertas')
+      || (playerMove === 'kertas' && botMove === 'batu'));
     const outcome = playerMove === botMove
       ? 'Seri! 🤝'
-      : ((playerMove === 'batu' && botMove === 'gunting')
-        || (playerMove === 'gunting' && botMove === 'kertas')
-        || (playerMove === 'kertas' && botMove === 'batu'))
-        ? 'Kamu menang! 🎉'
-        : 'SkyVerse menang! 😎';
-    removeSession(userId, chatId);
-    return {
-      matched: true,
-      complete: true,
-      text: '✊ *BATU GUNTING KERTAS*\nKamu: ' + playerMove + '\nSkyVerse: ' + botMove + '\n\n' + outcome,
-    };
+      : won ? 'Kamu menang! 🎉' : 'SkyVerse menang! 😎';
+    const range = REWARD_RANGES.rps;
+    return completedResult(session, player,
+      '✊ *BATU GUNTING KERTAS*\nKamu: ' + playerMove + '\nSkyVerse: ' + botMove + '\n\n' + outcome,
+      won ? randomInt(range[0], range[1]) : 0);
   }
 
-  removeSession(userId, chatId);
-  return { matched: true, complete: true, text: 'Game ditutup karena tipe game tidak dikenal.' };
+  return completedResult(session, player, 'Game ditutup karena tipe game tidak dikenal.');
 }
