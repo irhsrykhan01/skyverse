@@ -13,7 +13,7 @@ function requestTikwm(baseUrl, url) {
       '--header', 'x-requested-with: XMLHttpRequest',
       '--data-urlencode', 'url=' + url,
       '--data-urlencode', 'hd=1',
-      '--write-out', '\\n__SKYVERSE_HTTP_STATUS__:%{http_code}',
+      '--write-out', '\n__SKYVERSE_HTTP_STATUS__:%{http_code}',
       '--url', baseUrl,
     ];
 
@@ -53,7 +53,7 @@ function requestTikwm(baseUrl, url) {
     });
     child.once('close', (code) => {
       if (settled) return;
-      const marker = '\\n__SKYVERSE_HTTP_STATUS__:';
+      const marker = '\n__SKYVERSE_HTTP_STATUS__:';
       const markerIndex = stdout.lastIndexOf(marker);
       if (markerIndex < 0) {
         finish(new Error('Request TikWM gagal' + (code ? ' (' + code + ')' : '') + ': ' + (stderr.trim() || 'Status HTTP tidak ditemukan.')));
