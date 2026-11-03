@@ -101,8 +101,8 @@ export function isMiniGameReply(userId, { chatId, stanzaId } = {}) {
   const session = getMiniGame(userId, chatId);
   if (!session || !stanzaId) return false;
   const id = String(stanzaId);
-  if (session.gameMessageId === id) return true;
-  return session.playerMessageIds.get(String(userId)) === id;
+  const playerPromptId = session.playerMessageIds.get(String(userId));
+  return playerPromptId ? playerPromptId === id : session.gameMessageId === id;
 }
 
 export function updateMiniGameMessage(userId, chatId, gameMessageId) {
@@ -144,9 +144,9 @@ export function answerMiniGame(userId, chatId, stanzaId, input) {
   const session = getMiniGame(userId, chatId);
   if (!session || !stanzaId) return { matched: false };
   const replyId = String(stanzaId);
-  if (session.gameMessageId !== replyId && session.playerMessageIds.get(String(userId)) !== replyId) {
-    return { matched: false };
-  }
+  const playerPromptId = session.playerMessageIds.get(String(userId));
+  const expectedPromptId = playerPromptId || session.gameMessageId;
+  if (expectedPromptId !== replyId) return { matched: false };
 
   const value = normalizeAnswer(input);
   const state = session.state || {};
