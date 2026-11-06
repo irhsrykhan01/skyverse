@@ -38,6 +38,9 @@ export async function sendVisualDownload(ctx, response) {
 
 export async function sendTikTokDownload(ctx, response) {
   const result = response?.result ?? response?.data ?? response ?? {};
+  if (Buffer.isBuffer(result.buffer)) {
+    return ctx.socket.sendMessage(ctx.chatId, { video: result.buffer }, { quoted: ctx.message });
+  }
   const video = result.video ?? result.play ?? result.video_url ?? result.videoUrl
     ?? findDownloaderUrl(response, { kind: 'video' });
   if (video) return replyWithDownloaderMedia(ctx, { result: { video } }, { kind: 'video' });
@@ -65,12 +68,16 @@ export async function sendAudioDownload(ctx, response, filename) {
 }
 
 export async function sendVideoAsMp3(ctx, response, filename) {
-  const videoUrl = findDownloaderUrl(response, { kind: 'video' });
-  if (!videoUrl) throw new Error('Provider tidak mengembalikan URL video untuk dikonversi menjadi MP3.');
-  const buffer = await downloadMediaSource(
-    { kind: 'url', value: videoUrl },
-    { expectedType: 'video', maxBytes: 50 * 1024 * 1024 },
-  );
+  const result = response?.result ?? response?.data ?? response ?? {};
+  let buffer = result.buffer;
+  if (!Buffer.isBuffer(buffer)) {
+    const videoUrl = findDownloaderUrl(response, { kind: 'video' });
+    if (!videoUrl) throw new Error('Provider tidak mengembalikan URL video untuk dikonversi menjadi MP3.');
+    buffer = await downloadMediaSource(
+      { kind: 'url', value: videoUrl },
+      { expectedType: 'video', maxBytes: 50 * 1024 * 1024 },
+    );
+  }
   const audio = await ctx.media.toMp3(buffer);
   if (!Buffer.isBuffer(audio) || audio.length < 1024 || audio.subarray(0, 3).toString('ascii') !== 'ID3') {
     throw new Error('FFmpeg tidak menghasilkan file MP3 yang valid.');
