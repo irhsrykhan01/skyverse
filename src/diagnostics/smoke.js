@@ -29,7 +29,7 @@ const providers = createProviderManager(config);
 assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still present.');
 assert(providers.depay === undefined, 'Removed Depay provider is still exposed.');
 assert(providers.siputzx && typeof providers.siputzx.youtube === 'function', 'Legacy Siputzx provider should remain isolated from the main downloader.');
-assert(providers.ytdlp && typeof providers.ytdlp.youtube === 'function' && typeof providers.ytdlp.instagram === 'function', 'Local yt-dlp provider is missing.');
+assert(providers.ytdlp && typeof providers.ytdlp.youtube === 'function' && typeof providers.ytdlp.instagram === 'function' && typeof providers.ytdlp.tiktok === 'function', 'Local yt-dlp provider is missing TikTok support.');
 assert(config.ytDlpPath === 'yt-dlp', 'Default yt-dlp executable path is incorrect.');
 assert(typeof sendVideoAsMp3 === 'function', 'Local video-to-MP3 conversion helper is missing.');
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
