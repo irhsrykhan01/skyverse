@@ -14,6 +14,7 @@ export const command = {
     const url = ctx.parsed.args[0];
     await sendWithFallback(ctx, [
       { name: 'TikWM', run: () => ctx.providers.tikwm.tiktok(url) },
+      { name: 'yt-dlp', run: () => ctx.providers.ytdlp.tiktok(url) },
     ], (response) => sendVideoAsMp3(ctx, response, 'skyverse-tiktok.mp3'));
   },
 };
