@@ -60,6 +60,59 @@ function runYtDlp(binaryPath, args, timeout) {
   });
 }
 
+function runYtDlpBuffer(binaryPath, args, timeout, maxBytes = 50 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(binaryPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const chunks = [];
+    let size = 0;
+    let stderr = '';
+    let settled = false;
+    let timer;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(value);
+    };
+    timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(new Error('yt-dlp melewati batas waktu. Coba lagi nanti.'));
+    }, timeout);
+    timer.unref?.();
+
+    child.stdout.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        child.kill('SIGKILL');
+        finish(new Error('Ukuran video TikTok melebihi batas 50 MB.'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    child.stderr.on('data', (chunk) => { stderr = (stderr + chunk.toString()).slice(-5000); });
+    child.once('error', (error) => {
+      if (error.code === 'ENOENT') {
+        finish(new Error('yt-dlp belum terpasang atau tidak ada di PATH. Install yt-dlp lalu restart SkyVerse.'));
+        return;
+      }
+      finish(new Error('Gagal menjalankan yt-dlp: ' + error.message));
+    });
+    child.once('close', (code, signal) => {
+      if (code !== 0) {
+        finish(new Error('yt-dlp gagal' + (code === null ? ' (' + signal + ')' : ' (' + code + ')') + ': ' + (stderr.trim() || 'Tidak ada detail error.').slice(-1800)));
+        return;
+      }
+      const buffer = Buffer.concat(chunks, size);
+      if (buffer.length < 16) {
+        finish(new Error('yt-dlp tidak menghasilkan data video.'));
+        return;
+      }
+      finish(null, buffer);
+    });
+  });
+}
+
 export function createYtDlpProvider({ binaryPath = 'yt-dlp', timeout = 90_000 } = {}) {
   async function version() {
     const output = await runYtDlp(binaryPath, ['--version'], 10_000);
@@ -80,10 +133,21 @@ export function createYtDlpProvider({ binaryPath = 'yt-dlp', timeout = 90_000 } 
     return { result: { video: mediaUrl, source: 'yt-dlp' } };
   }
 
+  async function downloadTikTok(url) {
+    const safeUrl = validateUrl(url, 'tiktok');
+    const buffer = await runYtDlpBuffer(binaryPath, [
+      '--ignore-config', '--quiet', '--no-warnings', '--no-progress', '--no-playlist',
+      '--js-runtimes', 'node', '--remote-components', 'ejs:github',
+      '--socket-timeout', '20', '--retries', '2', '--extractor-retries', '2',
+      '--format', 'best[ext=mp4]/best', '--output', '-', '--', safeUrl,
+    ], timeout);
+    return { result: { buffer, source: 'yt-dlp' } };
+  }
+
   return Object.freeze({
     version,
     youtube: (url) => download(url, 'youtube'),
     instagram: (url) => download(url, 'instagram'),
-    tiktok: (url) => download(url, 'tiktok'),
+    tiktok: downloadTikTok,
   });
 }
