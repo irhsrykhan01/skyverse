@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 const PLATFORM_HOSTS = Object.freeze({
   youtube: new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com']),
   instagram: new Set(['instagram.com', 'www.instagram.com', 'm.instagram.com']),
+  tiktok: new Set(['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com']),
 });
 
 function validateUrl(value, platform) {
@@ -11,7 +12,8 @@ function validateUrl(value, platform) {
   catch { throw new Error('URL tidak valid.'); }
   if (url.protocol !== 'https:') throw new Error('Downloader hanya menerima URL HTTPS.');
   if (!PLATFORM_HOSTS[platform]?.has(url.hostname.toLowerCase())) {
-    throw new Error('URL bukan tautan ' + (platform === 'youtube' ? 'YouTube' : 'Instagram') + ' yang didukung.');
+    const label = platform === 'youtube' ? 'YouTube' : platform === 'instagram' ? 'Instagram' : 'TikTok';
+    throw new Error('URL bukan tautan ' + label + ' yang didukung.');
   }
   return url.toString();
 }
@@ -82,5 +84,6 @@ export function createYtDlpProvider({ binaryPath = 'yt-dlp', timeout = 90_000 } 
     version,
     youtube: (url) => download(url, 'youtube'),
     instagram: (url) => download(url, 'instagram'),
+    tiktok: (url) => download(url, 'tiktok'),
   });
 }
