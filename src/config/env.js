@@ -16,6 +16,8 @@ export function loadConfig(env = process.env) {
     authPath: clean(env.AUTH_PATH) ?? defaults.authPath,
     databasePath: clean(env.DATABASE_PATH) ?? defaults.databasePath,
     delineBaseUrl: clean(env.DELINE_BASE_URL) ?? defaults.delineBaseUrl,
+    sairiHostBaseUrl: clean(env.SAIRIHOST_BASE_URL) ?? defaults.sairiHostBaseUrl,
+    sairiHostApiKey: clean(env.SAIRIHOST_API_KEY) ?? null,
     delineApiKey: clean(env.DELINE_API_KEY) ?? null,
     zenzxzBaseUrl: clean(env.ZENZXZ_BASE_URL) ?? defaults.zenzxzBaseUrl,
     vredenBaseUrl: clean(env.VREDEN_BASE_URL) ?? defaults.vredenBaseUrl,
