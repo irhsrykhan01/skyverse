@@ -7,6 +7,7 @@ export const defaults = Object.freeze({
   databasePath: './data/skyverse.sqlite',
   delineBaseUrl: 'https://api.deline.web.id',
   sairiHostBaseUrl: 'https://api.sairihost.com',
+  berakNewBaseUrl: 'https://api.beraknew.web.id/api',
   zenzxzBaseUrl: 'https://api.zenzxz.my.id',
   vredenBaseUrl: 'https://api.vreden.my.id',
   siputzxBaseUrl: 'https://api.siputzx.my.id',
