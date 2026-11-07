@@ -267,10 +267,11 @@ function memeTextFilter(text, position, fontFile) {
 }
 
 export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
+  if (!top && !bottom) throw new Error('Teks meme tidak boleh kosong.');
+  const fontFile = await resolveMemeFontFile();
   const filters = [];
-  if (top) filters.push(memeTextFilter(top, 'top', await resolveMemeFontFile()));
-  if (bottom) filters.push(memeTextFilter(bottom, 'bottom', await resolveMemeFontFile()));
-  if (!filters.length) throw new Error('Teks meme tidak boleh kosong.');
+  if (top) filters.push(memeTextFilter(top, 'top', fontFile));
+  if (bottom) filters.push(memeTextFilter(bottom, 'bottom', fontFile));
   return withTempMedia(buffer, '.jpg', (input, output) => [
     '-i', input,
     '-vf', `scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,${filters.join(',')}`,
