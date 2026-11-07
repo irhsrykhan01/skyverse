@@ -8,6 +8,7 @@ import { createTikwmProvider } from './tikwm.js';
 import { createYtDlpProvider } from './ytdlp.js';
 import { createVredenProvider } from './vreden.js';
 import { createZenzxzProvider } from './zenzxz.js';
+import { createSairiHostMakerProvider } from './sairihost-makers.js';
 
 function describeError(error) {
   return String(error?.message ?? error ?? 'Unknown provider error').replace(/\s+/g, ' ').trim();
@@ -74,6 +75,7 @@ function requireDownloaderMedia(response, providerName, kinds) {
 export function createProviderManager(config) {
   const deline = createDelineProvider({ baseUrl: config.delineBaseUrl, apiKey: config.delineApiKey });
   const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
+  const sairiHostMakers = createSairiHostMakerProvider({ baseUrl: config.sairiHostBaseUrl, apiKey: config.sairiHostApiKey });
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
   const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
   const tikwm = createTikwmProvider({ baseUrl: config.tikwmBaseUrl });
@@ -115,6 +117,7 @@ export function createProviderManager(config) {
     ytdlp,
     reelsvideo,
     makers,
+    sairiHostMakers,
     downloader,
     removebg,
   });
