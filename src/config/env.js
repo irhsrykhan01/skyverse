@@ -18,6 +18,8 @@ export function loadConfig(env = process.env) {
     delineBaseUrl: clean(env.DELINE_BASE_URL) ?? defaults.delineBaseUrl,
     sairiHostBaseUrl: clean(env.SAIRIHOST_BASE_URL) ?? defaults.sairiHostBaseUrl,
     sairiHostApiKey: clean(env.SAIRIHOST_API_KEY) ?? null,
+    berakNewBaseUrl: clean(env.BERAKNEW_BASE_URL) ?? defaults.berakNewBaseUrl,
+    berakNewApiKey: clean(env.BERAKNEW_API_KEY) ?? null,
     delineApiKey: clean(env.DELINE_API_KEY) ?? null,
     zenzxzBaseUrl: clean(env.ZENZXZ_BASE_URL) ?? defaults.zenzxzBaseUrl,
     vredenBaseUrl: clean(env.VREDEN_BASE_URL) ?? defaults.vredenBaseUrl,
