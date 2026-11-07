@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,6 +6,19 @@ import { join } from 'node:path';
 const MAX_STATIC_STICKER_BYTES = 100 * 1024;
 const MAX_ANIMATED_STICKER_BYTES = 500 * 1024;
 const MAX_ANIMATED_FRAMES = 180;
+
+const MEME_FONT_CANDIDATES = Object.freeze([
+  '/system/fonts/Roboto-Bold.ttf',
+  '/system/fonts/NotoSans-Bold.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+  '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
+  '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
+  '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+  '/Library/Fonts/Arial Bold.ttf',
+  'C:/Windows/Fonts/arialbd.ttf',
+]);
 
 function runProcess(command, args) {
   return new Promise((resolve, reject) => {
@@ -232,8 +245,39 @@ export async function toVideo(buffer, { sourceType = 'sticker', animated = false
 export function toVoiceNote(buffer) { return withTempMedia(buffer, '.ogg', (input, output) => ['-i', input, '-map', '0:a:0', '-vn', '-map_metadata', '-1', '-af', 'aresample=async=1:first_pts=0', '-ac', '1', '-ar', '48000', '-c:a', 'libopus', '-b:a', '32k', '-vbr', 'on', '-application', 'voip', '-frame_duration', '20', '-avoid_negative_ts', 'make_zero', '-f', 'ogg', output]); }
 export function toHd(buffer, { scale = 2 } = {}) { const multiplier = Number(scale); if (![2, 4].includes(multiplier)) throw new Error('HD hanya mendukung scale 2x atau 4x.'); return withTempMedia(buffer, '.jpg', (input, output) => ['-i', input, '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv420p`, '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '2', '-f', 'image2', output]); }
 function wrapMemeText(value, maxChars = 20) { const words = String(value).trim().toUpperCase().split(/\s+/).filter(Boolean); const lines = []; let line = ''; for (const word of words) { const next = line ? `${line} ${word}` : word; if (line && next.length > maxChars) { lines.push(line); line = word; } else line = next; } if (line) lines.push(line); return lines.join('\\n'); }
-function memeTextFilter(text, position) { const wrapped = escapeDrawtext(wrapMemeText(text)); const y = position === 'top' ? '24' : 'h-text_h-24'; return `drawtext=font='DejaVu Sans:style=Bold':text='${wrapped}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=${y}:line_spacing=4`; }
-export function toSmeme(buffer, { top = '', bottom = '' } = {}) { const filters = []; if (top) filters.push(memeTextFilter(top, 'top')); if (bottom) filters.push(memeTextFilter(bottom, 'bottom')); if (!filters.length) throw new Error('Teks meme tidak boleh kosong.'); return withTempMedia(buffer, '.jpg', (input, output) => ['-i', input, '-vf', `scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,${filters.join(',')}`, '-frames:v', '1', '-map_metadata', '-1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output]); }
+async function resolveMemeFontFile() {
+  for (const fontPath of MEME_FONT_CANDIDATES) {
+    try {
+      await access(fontPath);
+      return fontPath;
+    } catch {}
+  }
+  throw new Error('Font Bold untuk smeme tidak ditemukan. Pastikan Roboto-Bold (Android) atau DejaVuSans-Bold (Linux) tersedia.');
+}
+
+function escapeDrawtextFontFile(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
+}
+
+function memeTextFilter(text, position, fontFile) {
+  const wrapped = escapeDrawtext(wrapMemeText(text));
+  const font = escapeDrawtextFontFile(fontFile);
+  const y = position === 'top' ? '24' : 'h-text_h-24';
+  return `drawtext=fontfile='${font}':text='${wrapped}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=${y}:line_spacing=4`;
+}
+
+export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
+  const filters = [];
+  if (top) filters.push(memeTextFilter(top, 'top', await resolveMemeFontFile()));
+  if (bottom) filters.push(memeTextFilter(bottom, 'bottom', await resolveMemeFontFile()));
+  if (!filters.length) throw new Error('Teks meme tidak boleh kosong.');
+  return withTempMedia(buffer, '.jpg', (input, output) => [
+    '-i', input,
+    '-vf', `scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,${filters.join(',')}`,
+    '-frames:v', '1', '-map_metadata', '-1',
+    '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
+  ]);
+}
 export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = 'SkyVerse Bot' } = {}) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-vf', `${scaleFilter()},format=rgba`, '-frames:v', '1', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-preset', 'picture', '-metadata', `comment=${pack} | ${author}`, '-f', 'webp', output]); }
 export function toSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker kosong atau tidak valid.');
