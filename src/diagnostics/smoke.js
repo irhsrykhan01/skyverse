@@ -12,7 +12,6 @@ import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
-import { renderMockUi } from '../services/mock-ui.js';
 import { MENU_CATEGORY_DEFINITIONS, resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
 import { sendWithFallback, sendVideoAsMp3 } from '../commands/downloader/_generic.js';
@@ -57,16 +56,11 @@ await allmenuCommand.execute({
     },
   },
 });
-const allmenuTextPayload = allmenuPayloads.find((payload) => typeof payload.text === 'string');
-assert(typeof allmenuTextPayload?.text === 'string' && allmenuTextPayload.text.includes('Dukung SkyVerse:'), 'Allmenu plain-text delivery contract failed.');
-const allmenuAdReply = allmenuTextPayload?.contextInfo?.externalAdReply;
-assert(allmenuAdReply?.title === 'SkyVerse', 'Allmenu externalAdReply title contract failed.');
-assert(allmenuAdReply?.body === 'All-in-one WhatsApp virtual bot assistant.', 'Allmenu externalAdReply body contract failed.');
-assert(allmenuAdReply?.mediaType === 1, 'Allmenu externalAdReply mediaType contract failed.');
-assert(Buffer.isBuffer(allmenuAdReply?.thumbnail) && allmenuAdReply.thumbnail.length > 0, 'Allmenu externalAdReply thumbnail contract failed.');
-assert(allmenuAdReply?.sourceUrl === 'https://saweria.co/irhsrykhn', 'Allmenu externalAdReply sourceUrl contract failed.');
-assert(allmenuAdReply?.renderLargerThumbnail === true, 'Allmenu externalAdReply renderLargerThumbnail contract failed.');
-for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'daily', 'limitshop', 'economystats', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewagroup', 'fakewachannel', 'fakettprofile', 'fakettcomment', 'fakefbcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+const allmenuImagePayload = allmenuPayloads.find((payload) => Buffer.isBuffer(payload.image) && typeof payload.caption === 'string');
+assert(Buffer.isBuffer(allmenuImagePayload?.image) && allmenuImagePayload.image.length > 0, 'Allmenu must send a real image payload.');
+assert(typeof allmenuImagePayload?.caption === 'string' && allmenuImagePayload.caption.includes('Dukung SkyVerse:'), 'Allmenu image caption contract failed.');
+assert(!allmenuImagePayload?.text && !allmenuImagePayload?.contextInfo?.externalAdReply, 'Allmenu must not rely on a link-preview image.');
+for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'daily', 'limitshop', 'economystats', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewachannel', 'fakettcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
@@ -104,6 +98,9 @@ assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name re
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
+assert(typeof providers.sairiHostMakers?.fakeCall === 'function' && typeof providers.sairiHostMakers?.fakeChannel === 'function' && typeof providers.sairiHostMakers?.fakeTikTokComment === 'function', 'SairiHost maker API methods are missing.');
+assert(typeof providers.berakNewMakers?.fakeDana === 'function', 'BerakNew fake-DANA API method is missing.');
+for (const name of ['fakefbcomment', 'fakettprofile', 'fakewagroup']) assert(registry.resolve(name) === undefined, `Maker command without a matching API must stay disabled: ${name}`);
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
 assert(config.nexrayBaseUrl === 'https://api.nexray.web.id', 'Default Nexray provider URL regression.');
 assert(config.delineBaseUrl === 'https://api.deline.web.id', 'Default Deline URL regression.');
@@ -141,9 +138,6 @@ assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
-const mockPng = renderMockUi({ title: 'SMOKE TEST', fields: [{ label: 'Status', value: 'OK' }] });
-assert(Buffer.isBuffer(mockPng) && mockPng.length > 1000 && mockPng.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), 'Mock maker renderer failed.');
-
 assert(disconnectStatus(undefined) === null, 'Missing WhatsApp disconnect error must not be treated as HTTP 500.');
 assert(disconnectStatus(new Error('network failure')) === null, 'Generic errors must not be treated as bad sessions.');
 assert(disconnectStatus({ output: { statusCode: 401 } }) === 401, 'Boom disconnect status extraction failed.');
