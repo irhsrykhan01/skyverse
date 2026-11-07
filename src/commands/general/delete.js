@@ -45,7 +45,7 @@ export const command = {
       if (ctx.isGroup) {
         const capability = await ctx.capabilities.check(ctx.chatId);
         if (!capability.known || !capability.isAdmin) {
-          throw new Error('Bot harus menjadi admin group untuk menggunakan delete.');
+          throw new Error('USER_INPUT:Bot belum menjadi admin grup. Jadikan bot admin terlebih dahulu untuk menggunakan .delete.');
         }
       }
 
@@ -68,6 +68,7 @@ export const command = {
       });
       await ctx.react('✅');
     } catch (error) {
+      if (String(error?.message ?? '').startsWith('USER_INPUT:')) throw error;
       const where = ctx.isChannel ? 'channel' : ctx.isGroup ? 'grup' : 'chat';
       throw new Error(`Pesan tidak bisa dihapus di ${where}: ${error?.message ?? String(error)}`);
     }
