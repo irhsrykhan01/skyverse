@@ -1,25 +1,18 @@
-import { sendMock, splitFields } from './_mock.js';
+import { sendApiImage, splitFields } from './_fields.js';
 
 export const command = {
   name: 'mockwallet',
-  description: 'Membuat kartu e-wallet generik ber-watermark DEMO; bukan bukti pembayaran.',
+  description: 'Membuat gambar mockup saldo DANA melalui API; hanya untuk demo/parodi.',
   category: 'maker',
   aliases: ['demowallet'],
-  usage: 'mockwallet <nama> | <nominal> | <catatan>',
+  usage: 'mockwallet <nominal>',
   permission: 'user',
   minArgs: 1,
+  maxArgs: 1,
   cooldown: 3000,
   async execute(ctx) {
-    const [name, amount = 'Rp0', note = 'Demo only'] = splitFields(ctx.parsed.argumentText, 3);
-    await sendMock(ctx, {
-      title: 'E-WALLET DEMO',
-      subtitle: 'Bukan bukti transaksi',
-      fields: [
-        { label: 'Nama', value: name },
-        { label: 'Nominal contoh', value: amount },
-        { label: 'Catatan', value: note },
-        { label: 'Status', value: 'DEMO — TIDAK VALID UNTUK PEMBAYARAN' },
-      ],
-    });
+    const [nominal] = splitFields(ctx.parsed.argumentText, 1);
+    const result = await ctx.providers.berakNewMakers.fakeDana(nominal);
+    await sendApiImage(ctx, result, 'DEMO / PARODY — saldo fiktif, bukan bukti saldo atau pembayaran.');
   },
 };
