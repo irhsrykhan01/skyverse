@@ -129,6 +129,7 @@ async function framesToAnimatedWebp(frames) {
 
   const dir = await mkdtemp(join(tmpdir(), 'skyverse-bratvid-'));
   try {
+    const framePaths = [];
     for (let index = 0; index < frames.length; index += 1) {
       const frame = frames[index];
       if (!Buffer.isBuffer(frame) || frame.length < 16) throw new Error(`Frame ${index + 1} tidak valid.`);
@@ -146,13 +147,21 @@ async function framesToAnimatedWebp(frames) {
       if (normalized.length < 16 || !normalized.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
         throw new Error(`Frame ${index + 1} gagal dinormalisasi menjadi PNG.`);
       }
+      framePaths.push(framePath);
     }
+
+    const escapeConcatPath = (value) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const lastFrame = framePaths[framePaths.length - 1];
+    const concatEntries = framePaths.map((framePath) => `file '${escapeConcatPath(framePath)}'\\nduration 0.4`);
+    concatEntries.push(`file '${escapeConcatPath(lastFrame)}'\\nduration 3`);
+    const concatPath = join(dir, 'frames.txt');
+    await writeFile(concatPath, `${concatEntries.join('\\n')}\\n`);
 
     const outputPath = join(dir, 'bratvid.webp');
     await runProcess('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-      '-framerate', '3',
-      '-i', join(dir, 'frame-%04d.png'),
+      '-f', 'concat', '-safe', '0', '-i', concatPath,
+      '-vsync', 'vfr',
       '-vf', 'format=rgba',
       '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
       '-compression_level', '6', '-pix_fmt', 'yuva420p',
@@ -160,8 +169,9 @@ async function framesToAnimatedWebp(frames) {
     ]);
 
     const output = await readFile(outputPath);
-    if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan BratVid yang valid.');
-    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
+    if (!isAnimatedWebp(output) || countAnimatedFrames(output) < 2) {
+      throw new Error('FFmpeg tidak menghasilkan WebP animasi dengan beberapa frame Brat.');
+    }
     return throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
