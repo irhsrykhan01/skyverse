@@ -9,6 +9,7 @@ import { createYtDlpProvider } from './ytdlp.js';
 import { createVredenProvider } from './vreden.js';
 import { createZenzxzProvider } from './zenzxz.js';
 import { createSairiHostMakerProvider } from './sairihost-makers.js';
+import { createBerakNewMakerProvider } from './beraknew-makers.js';
 
 function describeError(error) {
   return String(error?.message ?? error ?? 'Unknown provider error').replace(/\s+/g, ' ').trim();
@@ -76,6 +77,7 @@ export function createProviderManager(config) {
   const deline = createDelineProvider({ baseUrl: config.delineBaseUrl, apiKey: config.delineApiKey });
   const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
   const sairiHostMakers = createSairiHostMakerProvider({ baseUrl: config.sairiHostBaseUrl, apiKey: config.sairiHostApiKey });
+  const berakNewMakers = createBerakNewMakerProvider({ baseUrl: config.berakNewBaseUrl, apiKey: config.berakNewApiKey });
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
   const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
   const tikwm = createTikwmProvider({ baseUrl: config.tikwmBaseUrl });
@@ -118,6 +120,7 @@ export function createProviderManager(config) {
     reelsvideo,
     makers,
     sairiHostMakers,
+    berakNewMakers,
     downloader,
     removebg,
   });
