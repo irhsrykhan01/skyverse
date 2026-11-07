@@ -47,17 +47,8 @@ export const command = {
     }
 
     const sent = await ctx.socket.sendMessage(ctx.chatId, {
-      text: buildAllMenu(ctx),
-      contextInfo: {
-        externalAdReply: {
-          title: 'SkyVerse',
-          body: 'All-in-one WhatsApp virtual bot assistant.',
-          mediaType: 1,
-          thumbnail,
-          sourceUrl: SUPPORT_URL,
-          renderLargerThumbnail: true,
-        },
-      },
+      image: thumbnail,
+      caption: buildAllMenu(ctx),
     });
 
     if (!sent?.key?.id) {
