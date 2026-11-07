@@ -6,6 +6,7 @@ export const defaults = Object.freeze({
   authPath: './sessions/whatsapp',
   databasePath: './data/skyverse.sqlite',
   delineBaseUrl: 'https://api.deline.web.id',
+  sairiHostBaseUrl: 'https://api.sairihost.com',
   zenzxzBaseUrl: 'https://api.zenzxz.my.id',
   vredenBaseUrl: 'https://api.vreden.my.id',
   siputzxBaseUrl: 'https://api.siputzx.my.id',
