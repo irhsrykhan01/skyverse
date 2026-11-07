@@ -1,8 +1,8 @@
-import { sendMock, splitFields } from './_mock.js';
+import { sendApiImage, splitFields } from './_fields.js';
 
 export const command = {
   name: 'fakecall',
-  description: 'Membuat mockup panggilan ber-watermark DEMO.',
+  description: 'Membuat tampilan panggilan WhatsApp melalui API maker.',
   category: 'maker',
   aliases: ['mockcall'],
   usage: 'fakecall <nama> | <durasi>',
@@ -10,14 +10,9 @@ export const command = {
   minArgs: 1,
   cooldown: 3000,
   async execute(ctx) {
-    const [name, duration = '06:52'] = splitFields(ctx.parsed.argumentText, 2);
-    await sendMock(ctx, {
-      title: 'CALL MOCKUP',
-      fields: [
-        { label: 'Nama', value: name || ctx.message?.pushName || 'User' },
-        { label: 'Durasi', value: duration || '06:52' },
-        { label: 'Status', value: 'Demo call screen' },
-      ],
-    });
+    const [rawName, duration = ''] = splitFields(ctx.parsed.argumentText, 2);
+    const name = rawName || ctx.message?.pushName || 'User';
+    const result = await ctx.providers.sairiHostMakers.fakeCall(name, duration);
+    await sendApiImage(ctx, result);
   },
 };
