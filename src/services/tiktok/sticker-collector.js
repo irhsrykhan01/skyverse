@@ -6,10 +6,10 @@ const CACHE_DIR = resolve(process.cwd(), 'data', 'tiktok-stickers');
 const INDEX_PATH = join(CACHE_DIR, 'index.json');
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MAX_PAGE_BYTES = 6 * 1024 * 1024;
-const MAX_ASSET_BYTES = 5 * 1024 * 1024;
-const MAX_TRENDING_VIDEOS = 4;
-const MAX_COMMENTS_PER_VIDEO = 30;
-const MAX_STICKERS_PER_SCAN = 30;
+const MAX_ASSET_BYTES = 3 * 1024 * 1024;
+const MAX_TRENDING_VIDEOS = 3;
+const MAX_COMMENTS_PER_VIDEO = 25;
+const MAX_STICKERS_PER_SCAN = 10;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 let activeRefresh = null;
@@ -259,7 +259,7 @@ async function downloadSticker(candidate) {
   const response = await requestBuffer(parsed.toString(), {
     referer: 'https://www.tiktok.com/',
     maxBytes: MAX_ASSET_BYTES,
-    timeoutMs: 15000,
+    timeoutMs: 8000,
   });
 
   const extension = guessExtension(parsed.toString(), response.contentType, response.buffer);
