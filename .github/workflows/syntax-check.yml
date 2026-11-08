@@ -15,6 +15,12 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Install FFmpeg test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg webp fonts-dejavu-core
+      - name: Check media tools
+        run: npm run check-media-tools
       - name: Check JavaScript syntax
         run: npm run check
       - name: Run smoke test
