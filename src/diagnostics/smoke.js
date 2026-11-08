@@ -82,6 +82,7 @@ const mockParticipants = [
   }),
 ];
 const groupMessages = [];
+const groupActions = [];
 const mockGroupContext = {
   isGroup: true,
   chatId: '120363000000000000@g.us',
@@ -100,12 +101,39 @@ const mockGroupContext = {
       groupMessages.push(payload);
       return { key: { id: 'GROUP-SMOKE-' + groupMessages.length } };
     },
-    groupParticipantsUpdate: async (_jid, jids, action) =>
-      jids.map((jid) => ({ jid, status: action === 'remove' ? '200' : '200' })),
+    groupParticipantsUpdate: async (_jid, jids, action) => {
+      groupActions.push({ jids: [...jids], action });
+      return jids.map((jid) => ({ jid, status: action === 'remove' ? '200' : '500' }));
+    },
   },
 };
 const kickResult = await groupService.kick(mockGroupContext);
 assert(kickResult.removed === 1, 'Kick must report confirmed removal count.');
+assert(groupActions.length === 1 && groupActions[0].action === 'remove', 'Kick must call Baileys with the remove action.');
+assert(groupActions[0].jids.includes('628222222222@s.whatsapp.net'), 'Kick must send the resolved member JID to Baileys.');
+let rejectedFailedKick = false;
+try {
+  await groupService.kick({
+    ...mockGroupContext,
+    socket: {
+      ...mockGroupContext.socket,
+      groupParticipantsUpdate: async (_jid, jids) => jids.map((jid) => ({ jid, status: '403' })),
+    },
+  });
+} catch {
+  rejectedFailedKick = true;
+}
+assert(rejectedFailedKick, 'Kick must reject when WhatsApp reports a failed removal.');
+let rejectedAdminKick = false;
+try {
+  await groupService.kick({
+    ...mockGroupContext,
+    parsed: { args: ['628111111111'] },
+  });
+} catch (error) {
+  rejectedAdminKick = String(error?.message ?? '').includes('Target adalah admin grup');
+}
+assert(rejectedAdminKick, 'Kick must refuse to remove a group admin.');
 assert(groupMessages.length === 0, 'Kick must not send tag-all messages.');
 await groupService.tagAll(mockGroupContext, 'SMOKE TAG ALL');
 assert(groupMessages.length === 2, 'Tagall must split large groups into bounded mention batches.');
