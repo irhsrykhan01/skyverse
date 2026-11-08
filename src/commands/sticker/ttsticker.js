@@ -53,7 +53,7 @@ function emptyMessage(result) {
   if (result.lastError) {
     return '⚠️ Koleksi stiker TikTok belum bisa diperbarui.\nDetail: ' + result.lastError;
   }
-  return 'Belum ada file stiker TikTok yang berhasil dikumpulkan. Collector akan mencoba lagi pada pembaruan berikutnya.';
+  return 'Belum ada file stiker TikTok di cache. Gunakan .ttsticker refresh untuk mencoba memperbarui koleksi secara manual.';
 }
 
 async function sendCachedSticker(ctx, item) {
@@ -130,7 +130,7 @@ export const command = {
       return;
     }
 
-    const result = await getTikTokStickerLibrary({ refreshIfStale: true });
+    const result = await getTikTokStickerLibrary({ refreshIfStale: false });
     const items = result.items ?? [];
 
     if (!items.length) {
