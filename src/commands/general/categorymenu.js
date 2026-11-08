@@ -11,8 +11,8 @@ export const command = {
   usage: 'categorymenu <category>',
   async execute(ctx) {
     const requested = String(ctx.parsed.args[0] ?? '').trim();
-    const category = resolveMenuCategory(requested);
     const groups = ctx.registry.byCategory({ includeHidden: false });
+    const category = resolveMenuCategory(requested, groups);
     const commands = category ? groups.get(category) ?? [] : [];
 
     if (!commands.length) {
