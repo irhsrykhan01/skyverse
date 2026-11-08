@@ -4,13 +4,13 @@ function getGroupContext(context) {
 }
 
 function digitsOnly(value) {
-  return String(value ?? '').split('@')[0].split(':')[0].replace(/\\D/g, '');
+  return String(value ?? '').split('@')[0].split(':')[0].replace(/\D/g, '');
 }
 
 function normalizeMention(value) {
   const input = String(value ?? '').trim();
   if (!input) return null;
-  if (/^\\d{7,15}@(s\\.whatsapp\\.net|lid)$/.test(input)) return input;
+  if (/^\d{7,15}@(s\.whatsapp\.net|lid)$/.test(input)) return input;
   const digits = digitsOnly(input);
   return /^\\d{7,15}$/.test(digits) ? `${digits}@s.whatsapp.net` : null;
 }
@@ -196,7 +196,7 @@ export function createGroupService() {
     for (let index = 0; index < mentions.length; index += batchSize) {
       const batch = mentions.slice(index, index + batchSize);
       const messageText = index === 0
-        ? `${body}\\n\\n${batch.map((item) => item.token).join(' ')}`
+        ? `${body}\n\n${batch.map((item) => item.token).join(' ')}`
         : batch.map((item) => item.token).join(' ');
       await ctx.socket.sendMessage(ctx.chatId, {
         text: messageText,
