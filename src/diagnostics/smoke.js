@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events';
+import { WAMessageStubType } from '@whiskeysockets/baileys';
 import { createCommandRegistry } from '../commands/registry.js';
 import { loadConfig } from '../config/env.js';
 import { createProviderManager } from '../services/providers/manager.js';
@@ -15,11 +17,13 @@ import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryRe
 import { resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
 import { sendWithFallback, sendVideoAsMp3 } from '../commands/downloader/_generic.js';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createDatabase, createRepositories } from '../database/index.js';
 import { createGroupService } from '../services/group.js';
+import { createMessageEngine } from '../message/engine.js';
+import { createSairiHostMakerProvider } from '../services/providers/sairihost-makers.js';
 import { command as antideleteCommand } from '../commands/group/antidelete.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
@@ -152,6 +156,74 @@ try {
 }
 assert(unprivilegedLogGroupRejected, 'Anti-delete must require the configuring sender to be admin in the log group.');
 
+const antiDeleteGroupJid = '120363000000000002@g.us';
+const antiDeleteSent = [];
+const antiDeleteMembers = [
+  { id: '628700000001@s.whatsapp.net', admin: null },
+  { id: '628700000002@s.whatsapp.net', admin: 'admin' },
+];
+const antiDeleteRepositories = {
+  settings: {
+    get: (scope, jid, key, fallback) => scope === 'group' && jid === antiDeleteGroupJid && key === 'group.antidelete'
+      ? JSON.stringify({ enabled: true, destination: antiDeleteGroupJid, ttl: 1800000 })
+      : fallback,
+  },
+  users: { upsert: () => {}, get: () => null },
+  groups: { upsert: () => {} },
+};
+const antiDeleteSocket = {
+  ev: new EventEmitter(),
+  user: { id: '628700000003@s.whatsapp.net' },
+  groupMetadata: async () => ({ participants: antiDeleteMembers }),
+  sendMessage: async (jid, payload) => {
+    antiDeleteSent.push({ jid, payload });
+    return { key: { id: 'ANTI-DELETE-SMOKE-' + antiDeleteSent.length } };
+  },
+};
+const antiDeleteEngine = createMessageEngine({
+  config: { prefix: '.', autoRead: false, autoOnline: false },
+  logger: { info: () => {}, debug: () => {}, error: () => {} },
+  identity: { isOwner: () => false },
+  registry: {},
+  repositories: antiDeleteRepositories,
+  providers: {},
+});
+antiDeleteEngine.attach(antiDeleteSocket);
+const onUpsertForAntiDelete = antiDeleteSocket.ev.listeners('messages.upsert')[0];
+const onUpdateForAntiDelete = antiDeleteSocket.ev.listeners('messages.update')[0];
+async function cacheAntiDeleteMessage(id) {
+  await onUpsertForAntiDelete({
+    type: 'notify',
+    messages: [{
+      key: { remoteJid: antiDeleteGroupJid, id, participant: '628700000004@s.whatsapp.net', fromMe: false },
+      message: { conversation: 'Pesan smoke test ' + id },
+      pushName: 'Pengirim Smoke',
+    }],
+  });
+}
+await cacheAntiDeleteMessage('MEMBER-DELETE-SMOKE');
+await onUpdateForAntiDelete([{
+  key: { remoteJid: antiDeleteGroupJid, id: 'MEMBER-DELETE-SMOKE' },
+  update: {
+    messageStubType: WAMessageStubType.REVOKE,
+    key: { remoteJid: antiDeleteGroupJid, participant: '628700000001@s.whatsapp.net', fromMe: false },
+  },
+}]);
+assert(antiDeleteSent.length === 2, 'Anti-delete must restore a revoked message from a regular group member.');
+assert(antiDeleteSent[0].payload.text.includes('@628700000001'), 'Anti-delete notice must identify the member who deleted the message.');
+assert(antiDeleteSent[1].payload.forward?.key?.id === 'MEMBER-DELETE-SMOKE', 'Anti-delete must forward the original message content.');
+
+await cacheAntiDeleteMessage('ADMIN-DELETE-SMOKE');
+await onUpdateForAntiDelete([{
+  key: { remoteJid: antiDeleteGroupJid, id: 'ADMIN-DELETE-SMOKE' },
+  update: {
+    messageStubType: WAMessageStubType.REVOKE,
+    key: { remoteJid: antiDeleteGroupJid, participant: '628700000002@s.whatsapp.net', fromMe: false },
+  },
+}]);
+assert(antiDeleteSent.length === 2, 'Anti-delete must not restore a message deleted by a group admin.');
+
+
 
 assert(groupMessages.flatMap((item) => item.mentions).includes('104000000000@lid'), 'Tagall must use the participant JID when WhatsApp uses LID addressing.');
 assert(groupMessages[0].text.includes('@628333333333'), 'Tagall must render the visible phone number when a participant has a PN mapping.');
@@ -197,6 +269,32 @@ assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is mi
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
 assert(typeof providers.sairiHostMakers?.fakeCall === 'function' && typeof providers.sairiHostMakers?.fakeChannel === 'function' && typeof providers.sairiHostMakers?.fakeTikTokComment === 'function', 'SairiHost maker API methods are missing.');
 assert(typeof providers.berakNewMakers?.fakeDana === 'function', 'BerakNew fake-DANA API method is missing.');
+
+const nativeFetchForMakerSmoke = globalThis.fetch;
+let capturedFakeCallUrl = null;
+const fakePngForMakerSmoke = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+]);
+globalThis.fetch = async (input) => {
+  capturedFakeCallUrl = new URL(String(input));
+  return new Response(fakePngForMakerSmoke, { status: 200, headers: { 'content-type': 'image/png' } });
+};
+try {
+  const fakeCallProvider = createSairiHostMakerProvider({
+    baseUrl: 'https://api.sairihost.com',
+    apiKey: 'smoke-test-key',
+  });
+  const fakeCallResult = await fakeCallProvider.fakeCall('SkyVerse Smoke', '00:12');
+  assert(fakeCallResult.mimetype === 'image/png', 'Fakecall provider must return the downloaded image.');
+} finally {
+  globalThis.fetch = nativeFetchForMakerSmoke;
+}
+assert(capturedFakeCallUrl?.pathname === '/api/maker/fakecall', 'Fakecall provider endpoint mismatch.');
+assert(capturedFakeCallUrl?.searchParams.get('durasi') === '00:12', 'Fakecall API must receive the documented durasi parameter.');
+assert(!capturedFakeCallUrl?.searchParams.has('duration'), 'Fakecall API must not receive the undocumented duration parameter.');
+
 for (const name of ['fakefbcomment', 'fakettprofile', 'fakewagroup']) assert(registry.resolve(name) === undefined, `Maker command without a matching API must stay disabled: ${name}`);
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
 assert(config.nexrayBaseUrl === 'https://api.nexray.web.id', 'Default Nexray provider URL regression.');
@@ -233,6 +331,18 @@ assert(typeof media.toHd === 'function', 'Media toHd export is missing.');
 assert(typeof media.toSmeme === 'function', 'Media toSmeme export is missing.');
 assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark export is missing.');
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
+
+const mediaSmokeImage = await readFile(new URL('../../assets/SkyLabs_banner.jpg', import.meta.url));
+const smemeOutput = await media.toSmeme(mediaSmokeImage, { top: 'SKYVERSE SMOKE', bottom: 'MEDIA TEST' });
+assert(smemeOutput.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])), 'smeme must produce a valid JPEG image.');
+const bratVidOutput = await media.toAnimatedStickerFromFrames([mediaSmokeImage, mediaSmokeImage]);
+assert(
+  bratVidOutput.subarray(0, 4).toString('ascii') === 'RIFF'
+    && bratVidOutput.subarray(8, 12).toString('ascii') === 'WEBP'
+    && bratVidOutput.includes(Buffer.from('ANMF')),
+  'BratVid must produce an animated WebP with frame data.',
+);
+
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
 assert(disconnectStatus(undefined) === null, 'Missing WhatsApp disconnect error must not be treated as HTTP 500.');
