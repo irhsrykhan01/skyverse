@@ -36,6 +36,11 @@ export function getMathQuiz(userId) {
   return { ...session };
 }
 
+export function updateMathQuizMessage(userId, gameMessageId) {
+  const session = sessions.get(userId);
+  if (session) session.gameMessageId = gameMessageId;
+}
+
 export function isMathQuizReply(userId, { chatId, stanzaId } = {}) {
   const session = getMathQuiz(userId);
   return Boolean(session && stanzaId && session.chatId === chatId && session.gameMessageId === stanzaId);
