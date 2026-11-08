@@ -33,6 +33,7 @@ assert(providers.ytdlp && typeof providers.ytdlp.youtube === 'function' && typeo
 assert(config.ytDlpPath === 'yt-dlp', 'Default yt-dlp executable path is incorrect.');
 assert(typeof sendVideoAsMp3 === 'function', 'Local video-to-MP3 conversion helper is missing.');
 assert(resolveMenuCategory('economy') === null, 'Removed economy menu category is still registered.');
+assert(resolveMenuCategory('custom-tools', new Map([['custom-tools', []]])) === 'custom-tools', 'New menu categories must resolve from the command registry.');
 assert(resolveMenuCategory('media') === 'media', 'Media menu category is missing.');
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
