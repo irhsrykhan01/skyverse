@@ -124,6 +124,34 @@ try {
     && String(error?.message ?? '').includes('bukan chat pribadi');
 }
 assert(privateAntideleteDestinationRejected, 'Anti-delete must reject private-chat log destinations.');
+let unprivilegedLogGroupRejected = false;
+try {
+  await antideleteCommand.execute({
+    isGroup: true,
+    chatId: '120363000000000000@g.us',
+    senderJid: '628222222222@s.whatsapp.net',
+    senderPhoneJid: null,
+    parsed: { args: ['on', '120363000000000001@g.us'] },
+    repositories: { settings: {} },
+    config: { prefix: '.' },
+    socket: {
+      user: { id: '628000000000@s.whatsapp.net' },
+      groupMetadata: async () => ({
+        participants: [
+          { id: '628000000000@s.whatsapp.net', admin: 'admin' },
+          { id: '628222222222@s.whatsapp.net', admin: null },
+        ],
+      }),
+    },
+    reply: async () => {},
+    getGroupMetadata: async () => ({ participants: [] }),
+  });
+} catch (error) {
+  unprivilegedLogGroupRejected = String(error?.message ?? '').startsWith('USER_INPUT:')
+    && String(error?.message ?? '').includes('admin di grup tujuan');
+}
+assert(unprivilegedLogGroupRejected, 'Anti-delete must require the configuring sender to be admin in the log group.');
+
 
 assert(groupMessages.flatMap((item) => item.mentions).includes('104000000000@lid'), 'Tagall must use the participant JID when WhatsApp uses LID addressing.');
 assert(groupMessages[0].text.includes('@628333333333'), 'Tagall must render the visible phone number when a participant has a PN mapping.');
