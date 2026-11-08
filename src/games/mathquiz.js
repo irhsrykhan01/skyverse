@@ -3,6 +3,7 @@ const MAX_A = 50;
 const MIN_B = 2;
 const MAX_B = 20;
 const WIN_REWARD = [2, 6];
+const SESSION_TIMEOUT_MS = 2 * 60 * 1000;
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -19,15 +20,25 @@ function createQuestion() {
 
 const sessions = new Map();
 
-export function startMathQuiz(userId) {
-  const question = createQuestion();
-  const session = { ...question, startedAt: Date.now() };
+export function startMathQuiz(userId, { chatId = null, gameMessageId = null, now = Date.now() } = {}) {
+  const session = { ...createQuestion(), chatId, gameMessageId, startedAt: now };
   sessions.set(userId, session);
-  return session;
+  return { ...session };
 }
 
 export function getMathQuiz(userId) {
-  return sessions.get(userId) ?? null;
+  const session = sessions.get(userId);
+  if (!session) return null;
+  if (Date.now() - session.startedAt > SESSION_TIMEOUT_MS) {
+    sessions.delete(userId);
+    return null;
+  }
+  return { ...session };
+}
+
+export function isMathQuizReply(userId, { chatId, stanzaId } = {}) {
+  const session = getMathQuiz(userId);
+  return Boolean(session && stanzaId && session.chatId === chatId && session.gameMessageId === stanzaId);
 }
 
 export function stopMathQuiz(userId) {
@@ -35,9 +46,9 @@ export function stopMathQuiz(userId) {
 }
 
 export function answerMathQuiz(userId, answer) {
-  const session = sessions.get(userId);
+  const session = getMathQuiz(userId);
   if (!session) return { ok: false, reason: 'not_started' };
-  const value = Number(answer);
+  const value = Number(String(answer).trim());
   if (!Number.isFinite(value) || !Number.isInteger(value)) return { ok: false, reason: 'invalid' };
   stopMathQuiz(userId);
   if (value === session.answer) {
