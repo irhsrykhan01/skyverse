@@ -12,7 +12,7 @@ function normalizeMention(value) {
   if (!input) return null;
   if (/^\d{7,15}@(s\.whatsapp\.net|lid)$/.test(input)) return input;
   const digits = digitsOnly(input);
-  return /^\\d{7,15}$/.test(digits) ? `${digits}@s.whatsapp.net` : null;
+  return /^\d{7,15}$/.test(digits) ? `${digits}@s.whatsapp.net` : null;
 }
 
 function getMentionedJids(message) {
