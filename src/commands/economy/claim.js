@@ -3,7 +3,7 @@ export const command = {
   description: 'Mengambil bonus coin berkala.',
   category: 'economy',
   access: 'npc',
-  aliases: [],
+  aliases: ['daily'],
   usage: 'claim',
   permission: 'user',
   minArgs: 0,
