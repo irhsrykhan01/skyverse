@@ -39,6 +39,18 @@ export const command = {
         throw new Error('USER_INPUT:Bot harus menjadi anggota grup tujuan log terlebih dahulu.');
       }
 
+      const normalizeAccount = (jid) => normalize(jid).split('@')[0];
+      const senderIds = new Set([ctx.senderJid, ctx.senderPhoneJid].filter(Boolean).map(normalizeAccount));
+      const sender = (metadata?.participants ?? []).find((participant) =>
+        [participant?.id, participant?.pn, participant?.lid]
+          .filter(Boolean)
+          .some((jid) => senderIds.has(normalizeAccount(jid)))
+      );
+      const senderRole = String(sender?.admin ?? '').toLowerCase();
+      if (!sender || !['admin', 'superadmin'].includes(senderRole) && sender.isAdmin !== true && sender.isSuperAdmin !== true) {
+        throw new Error('USER_INPUT:Kamu juga harus menjadi admin di grup tujuan log.');
+      }
+
       const value = service.set(ctx.chatId, { enabled: true, destination });
       await ctx.reply(`✅ Anti-delete aktif.\nHanya pesan baru di grup ini yang dicache sementara. Cache disimpan di memori dan akan hilang saat bot restart.\nTujuan log: ${value.destination === ctx.chatId ? 'grup ini' : value.destination}`);
       return;
