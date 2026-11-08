@@ -75,15 +75,16 @@ function accountIds(participant) {
 }
 
 function canonicalMention(participant) {
-  const jid = [participant?.pn, participant?.id, participant?.lid]
+  const addressJid = [participant?.id, participant?.lid, participant?.pn].filter(Boolean).map(String)[0];
+  const displayJid = [participant?.pn, participant?.id, participant?.lid]
     .filter(Boolean)
     .map(String)
     .find((value) => value.endsWith('@s.whatsapp.net'))
-    ?? [participant?.id, participant?.lid, participant?.pn].filter(Boolean).map(String)[0];
-  if (!jid) return null;
-  const local = jid.split('@')[0].split(':')[0];
+    ?? addressJid;
+  if (!addressJid || !displayJid) return null;
+  const local = displayJid.split('@')[0].split(':')[0];
   if (!local) return null;
-  return { jid, token: `@${local}` };
+  return { jid: addressJid, token: `@${local}` };
 }
 
 export function createGroupService() {
