@@ -16,9 +16,31 @@ export const command = {
     const service = createAntideleteService(ctx.repositories);
 
     if (action === 'on') {
-      const destination = ctx.parsed.args[1] || ctx.chatId;
+      const destination = String(ctx.parsed.args[1] || ctx.chatId).trim();
+      if (!destination.endsWith('@g.us')) {
+        throw new Error('USER_INPUT:Tujuan log anti-delete hanya boleh berupa JID grup WhatsApp, bukan chat pribadi atau channel.');
+      }
+
+      let metadata;
+      try {
+        metadata = destination === ctx.chatId
+          ? await ctx.getGroupMetadata()
+          : await ctx.socket.groupMetadata(destination);
+      } catch {
+        throw new Error('USER_INPUT:Grup tujuan log tidak ditemukan atau bot belum tergabung di grup tersebut.');
+      }
+
+      const normalize = (jid) => String(jid ?? '').split(':')[0].toLowerCase();
+      const botIds = new Set([ctx.socket.user?.id, ctx.socket.user?.pn, ctx.socket.user?.lid].filter(Boolean).map(normalize));
+      const botIsMember = (metadata?.participants ?? []).some((participant) =>
+        [participant?.id, participant?.pn, participant?.lid].filter(Boolean).some((jid) => botIds.has(normalize(jid)))
+      );
+      if (!botIsMember) {
+        throw new Error('USER_INPUT:Bot harus menjadi anggota grup tujuan log terlebih dahulu.');
+      }
+
       const value = service.set(ctx.chatId, { enabled: true, destination });
-      await ctx.reply(`✅ Anti-delete aktif.\nHanya pesan baru di grup ini yang dicache sementara. Pesan sebelum aktivasi tidak dapat dipulihkan.\nTujuan log: ${value.destination === ctx.chatId ? 'group ini' : value.destination}`);
+      await ctx.reply(`✅ Anti-delete aktif.\nHanya pesan baru di grup ini yang dicache sementara. Cache disimpan di memori dan akan hilang saat bot restart.\nTujuan log: ${value.destination === ctx.chatId ? 'grup ini' : value.destination}`);
       return;
     }
 
