@@ -207,6 +207,26 @@ async function videoToVideoNote(buffer, { maxDuration = 60 } = {}) {
 
 function scaleFilter() { return 'scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=512:512:-1:-1:color=black@0'; }
 function throwOversize(buffer, limit, kind) { if (buffer.length > limit) throw new Error(`${kind} terlalu besar (${Math.ceil(buffer.length / 1024)} KB).`); return buffer; }
+function wrapMemeText(value, maxChars = 20) {
+  const words = String(value).trim().toUpperCase().split(/\s+/).filter(Boolean);
+  const output = [];
+  let line = '';
+  for (const word of words) {
+    const next = line ? line + ' ' + word : word;
+    if (line && next.length > maxChars) { output.push(line); line = word; }
+    else line = next;
+  }
+  if (line) output.push(line);
+  return output.join('\n');
+}
+
+async function resolveMemeFontFile() {
+  for (const fontPath of MEME_FONT_CANDIDATES) {
+    try { await access(fontPath); return fontPath; } catch {}
+  }
+  throw new Error('Font Bold untuk smeme tidak ditemukan. Pastikan Roboto-Bold (Android) atau DejaVuSans-Bold (Linux) tersedia.');
+}
+
 function escapeFilterPath(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
@@ -215,7 +235,7 @@ function memeTextFilter(textFile, position, fontFile) {
   const font = escapeFilterPath(fontFile);
   const file = escapeFilterPath(textFile);
   const y = position === 'top' ? '24' : 'h-text_h-24';
-  return \`drawtext=fontfile='\${font}':textfile='\${file}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=\${y}:line_spacing=4\`;
+  return "drawtext=fontfile='" + font + "':textfile='" + file + "':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=" + y + ':line_spacing=4';
 }
 
 export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
@@ -235,7 +255,7 @@ export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
     }
     return [
       '-i', input,
-      '-vf', \`scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,\${filters.join(',')}\`,
+      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,' + filters.join(','),
       '-frames:v', '1', '-map_metadata', '-1',
       '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
     ];
