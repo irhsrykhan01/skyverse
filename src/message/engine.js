@@ -1,3 +1,4 @@
+import { WAMessageStubType } from '@whiskeysockets/baileys';
 import { createMessageContext } from './context.js';
 import { parseIncomingMessage } from './parser.js';
 import { createAfkService } from '../services/afk.js';
@@ -78,16 +79,21 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     if (!remoteJid?.endsWith('@newsletter') || !messageId) return null;
     return newsletterMessages.get(`${remoteJid}:${messageId}`) ?? null;
   }
-  async function rememberGroupMessage(socket, message) {
+  function rememberGroupMessage(message) {
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
     if (!chatId?.endsWith('@g.us') || !messageId || message.key?.fromMe) return;
     const settings = antidelete.get(chatId);
     if (!settings.enabled) return;
-    if (await isPrivilegedMessageAuthor(socket, chatId, message)) return;
     let cache = groupMessages.get(chatId);
     if (!cache) { cache = new Map(); groupMessages.set(chatId, cache); }
-    cache.set(messageId, { message, senderJid: message.key?.participant ?? chatId, pushName: getPushName(message, message.key?.participant ?? chatId), createdAt: Date.now(), expiresAt: Date.now() + settings.ttl });
+    cache.set(messageId, {
+      message,
+      senderJid: message.key?.participant ?? chatId,
+      pushName: getPushName(message, message.key?.participant ?? chatId),
+      createdAt: Date.now(),
+      expiresAt: Date.now() + settings.ttl,
+    });
     while (cache.size > MAX_GROUP_CACHED_MESSAGES) cache.delete(cache.keys().next().value);
   }
   function resolveGroupMessage(key) {
@@ -119,7 +125,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
 
   async function handleMessage(socket, message) {
     if (!message?.message) return;
-    prune(); rememberNewsletterMessage(message); await rememberGroupMessage(socket, message);
+    prune(); rememberNewsletterMessage(message); rememberGroupMessage(message);
     const chatId = message.key?.remoteJid;
     const messageId = message.key?.id;
     const senderJid = message.key?.participant ?? chatId;
@@ -260,12 +266,19 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     } finally { if (slowReactionTimer) clearTimeout(slowReactionTimer); }
   }
 
-  async function isPrivilegedMessageAuthor(socket, groupJid, original) {
-    const sender = original.key?.participant ?? null;
-    const senderPhone = original.key?.participantAlt ?? lidToPn.get(sender) ?? null;
-    const user = sender ? repositories.users.get(sender) : null;
+  async function isPrivilegedDeleteActor(socket, groupJid, actorKey) {
+    if (!actorKey) return true;
+
+    const actor = actorKey.participant
+      ?? (actorKey.fromMe ? socket.user?.pn ?? socket.user?.id ?? socket.user?.lid : null);
+    const actorPhone = actorKey.participantAlt
+      ?? actorKey.remoteJidAlt
+      ?? (actor ? lidToPn.get(actor) : null);
+    const user = actor ? repositories.users.get(actor) : null;
     const storedPhone = user?.number ? `${user.number}@s.whatsapp.net` : null;
-    if (identity.isOwner(senderPhone ?? storedPhone ?? sender)) return true;
+
+    if (identity.isOwner(actorPhone ?? storedPhone ?? actor)) return true;
+    if (!actor && !actorPhone) return true;
 
     try {
       const cached = groupMetadataCache.get(groupJid);
@@ -273,60 +286,83 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
         ? cached.metadata
         : await socket.groupMetadata(groupJid);
       groupMetadataCache.set(groupJid, { metadata, expiresAt: Date.now() + 30_000 });
-      const candidates = new Set([sender, senderPhone, storedPhone].filter(Boolean).map(String));
+
+      const candidates = new Set([actor, actorPhone, storedPhone].filter(Boolean).map(String));
       const participant = (metadata?.participants ?? []).find((item) =>
         [item?.id, item?.pn, item?.lid].filter(Boolean).some((jid) => candidates.has(String(jid)))
       );
       if (!participant) return true;
-      return Boolean(participant.admin);
+
+      const role = String(participant.admin ?? '').toLowerCase();
+      return role === 'admin' || role === 'superadmin'
+        || participant.isAdmin === true || participant.isSuperAdmin === true;
     } catch (error) {
-      logger.debug('Anti-delete could not verify message author role', {
+      logger.debug('Anti-delete could not verify deleter role', {
         error: error?.message ?? String(error),
       });
       return true;
     }
   }
 
-  async function handleDeletedMessages(socket, keys) {
-    for (const key of keys ?? []) {
-      const jid = key?.remoteJid;
-      if (!jid?.endsWith('@g.us')) continue;
-      const settings = antidelete.get(jid);
-      if (!settings.enabled) continue;
-      const original = resolveGroupMessage(key);
-      if (!original) continue;
+  async function handleDeletedMessage(socket, key, actorKey) {
+    const jid = key?.remoteJid;
+    const messageId = key?.id;
+    if (!jid?.endsWith('@g.us') || !messageId) return;
 
-      // Do not archive or re-send messages authored by group admins or the bot owner.
-      if (await isPrivilegedMessageAuthor(socket, jid, original)) continue;
+    const settings = antidelete.get(jid);
+    if (!settings.enabled) return;
 
-      const destination = settings.destination || jid;
-      const sender = original.key?.participant ?? key.participant ?? null;
-      const user = sender ? repositories.users.get(sender) : null;
-      const senderPhoneJid = original.key?.participantAlt
-        ?? (sender ? lidToPn.get(sender) : null)
-        ?? (user?.number ? `${user.number}@s.whatsapp.net` : null);
-      const senderNumber = senderPhoneJid
-        ? String(senderPhoneJid).split('@')[0].replace(/\D/g, '')
-        : null;
-      const senderLabel = senderNumber
-        ? `@${senderNumber} (+${senderNumber})`
-        : (original.pushName || 'anggota grup');
-      const mentionJid = senderPhoneJid ?? sender;
-      const info = [
-        '🗑️ *ANTI-DELETE*',
-        'Sebuah pesan yang sebelumnya dikirim di grup telah dihapus.',
-        `Pengirim pesan: ${senderLabel}`,
-        `Waktu: ${new Date().toLocaleString('id-ID')}`,
-      ].join('\n');
-      try {
-        await socket.sendMessage(destination, {
-          text: info,
-          mentions: mentionJid && senderNumber ? [mentionJid] : [],
-        });
-        await socket.sendMessage(destination, { forward: original, force: true });
-      } catch (error) {
-        logger.error(`Error anti-delete = ${error?.message ?? String(error)}`);
-      }
+    const cached = groupMessages.get(jid);
+    const original = cached?.get(messageId)?.message ?? null;
+    if (!original) return;
+
+    // The actor is the key carried by Baileys' REVOKE messages.update event.
+    // Fail closed if the actor cannot be identified or verified.
+    if (await isPrivilegedDeleteActor(socket, jid, actorKey)) {
+      cached.delete(messageId);
+      if (!cached.size) groupMessages.delete(jid);
+      return;
+    }
+
+    const actor = actorKey.participant
+      ?? (actorKey.fromMe ? socket.user?.pn ?? socket.user?.id ?? socket.user?.lid : null);
+    const actorPhone = actorKey.participantAlt
+      ?? actorKey.remoteJidAlt
+      ?? (actor ? lidToPn.get(actor) : null);
+    const actorUser = actor ? repositories.users.get(actor) : null;
+    const actorMentionJid = actorPhone ?? actor;
+    const actorNumber = actorMentionJid
+      ? String(actorMentionJid).split('@')[0].split(':')[0].replace(/\\D/g, '')
+      : '';
+    const actorTag = actorNumber ? `@${actorNumber}` : (actorUser?.push_name || 'anggota grup');
+    const destination = settings.destination || jid;
+    const notice = [
+      '🗑️ *ANTI-DELETE*',
+      'Pesan yang dikirim di grup ini telah dihapus.',
+      `Penghapus: ${actorTag}`,
+      `Pengirim pesan asli: ${original.pushName || 'anggota grup'}`,
+      `Waktu: ${new Date().toLocaleString('id-ID')}`,
+    ].join('\\n');
+
+    // Remove it before sending so duplicate REVOKE updates cannot repost it.
+    cached.delete(messageId);
+    if (!cached.size) groupMessages.delete(jid);
+
+    try {
+      await socket.sendMessage(destination, {
+        text: notice,
+        mentions: actorMentionJid && actorNumber ? [actorMentionJid] : [],
+      });
+      await socket.sendMessage(destination, { forward: original, force: true });
+    } catch (error) {
+      logger.error(`Error anti-delete = ${error?.message ?? String(error)}`);
+    }
+  }
+
+  async function handleDeletedMessageUpdates(socket, updates) {
+    for (const item of updates ?? []) {
+      if (item?.update?.messageStubType !== WAMessageStubType.REVOKE) continue;
+      await handleDeletedMessage(socket, item.key, item.update.key);
     }
   }
 
@@ -360,9 +396,11 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (type && type !== 'notify') return;
       for (const message of messages ?? []) try { await handleMessage(socket, message); } catch (error) { logger.error(`Error = ${error?.message ?? String(error)}`); }
     });
-    socket.ev.on('messages.delete', async (event) => { try { await handleDeletedMessages(socket, Array.isArray(event?.keys) ? event.keys : []); } catch (error) { logger.error(`Error anti-delete = ${error?.message ?? String(error)}`); } });
+    socket.ev.on('messages.update', async (updates) => {
+      try { await handleDeletedMessageUpdates(socket, updates); }
+      catch (error) { logger.error(`Error anti-delete = ${error?.message ?? String(error)}`); }
+    });
     socket.ev.on('group-participants.update', async (event) => { try { await handleParticipantsUpdate(socket, event); } catch (error) { logger.error(`Error group participants = ${error?.message ?? String(error)}`); } });
-    socket.ev.on('messages.update', () => {});
     socket.ev.on('messages.reaction', () => {});
     socket.ev.on('message-receipt.update', () => {});
     socket.ev.on('presence.update', () => {});
