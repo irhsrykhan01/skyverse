@@ -79,7 +79,8 @@ async function withTempMedia(input, outputExtension, buildArgs) {
   try {
     if (!Buffer.isBuffer(input) || input.length < 16) throw new Error('Input media kosong atau tidak valid.');
     await writeFile(inputPath, input);
-    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...buildArgs(inputPath, outputPath)]);
+    const args = await buildArgs(inputPath, outputPath, dir);
+    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...args]);
     const output = await readFile(outputPath);
     if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan output yang valid.');
     await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
@@ -165,10 +166,10 @@ async function framesToAnimatedWebp(frames) {
 
     const escapeConcatPath = (value) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const lastFrame = framePaths[framePaths.length - 1];
-    const concatEntries = framePaths.map((framePath) => `file '${escapeConcatPath(framePath)}'\\nduration 0.4`);
-    concatEntries.push(`file '${escapeConcatPath(lastFrame)}'\\nduration 3`);
+    const concatEntries = framePaths.map((framePath) => `file '${escapeConcatPath(framePath)}'\nduration 0.4`);
+    concatEntries.push(`file '${escapeConcatPath(lastFrame)}'\nduration 3`);
     const concatPath = join(dir, 'frames.txt');
-    await writeFile(concatPath, `${concatEntries.join('\\n')}\\n`);
+    await writeFile(concatPath, `${concatEntries.join('\n')}\n`);
 
     const outputPath = join(dir, 'bratvid.webp');
     await runProcess('ffmpeg', [
@@ -206,78 +207,39 @@ async function videoToVideoNote(buffer, { maxDuration = 60 } = {}) {
 
 function scaleFilter() { return 'scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=512:512:-1:-1:color=black@0'; }
 function throwOversize(buffer, limit, kind) { if (buffer.length > limit) throw new Error(`${kind} terlalu besar (${Math.ceil(buffer.length / 1024)} KB).`); return buffer; }
-function escapeDrawtext(text) { return String(text).replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'").replace(/%/g, '\\%'); }
-
-function videoToMp4(buffer, { maxDuration = 60 } = {}) {
-  const duration = Math.max(1, Math.min(60, Number(maxDuration) || 60));
-  return withTempMedia(buffer, '.mp4', (input, output) => [
-    '-i', input,
-    '-t', String(duration),
-    '-map', '0:v:0',
-    '-map', '0:a:0?',
-    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,setsar=1,format=yuv420p',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-r', '30',
-    '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2',
-    '-movflags', '+faststart', '-pix_fmt', 'yuv420p', '-f', 'mp4', output,
-  ]);
-}
-
-function imageToMp4(buffer, { duration = 3 } = {}) {
-  const seconds = Math.max(1, Math.min(15, Number(duration) || 3));
-  return withTempMedia(buffer, '.mp4', (input, output) => [
-    '-loop', '1',
-    '-i', input,
-    '-t', String(seconds),
-    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,format=yuv420p',
-    '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'stillimage', '-crf', '23',
-    '-r', '30', '-an', '-movflags', '+faststart', '-pix_fmt', 'yuv420p', '-f', 'mp4', output,
-  ]);
-}
-
-export function toMp4(buffer, { sourceType = 'video', maxDuration = 60, imageDuration = 3 } = {}) {
-  if (sourceType === 'image') return imageToMp4(buffer, { duration: imageDuration });
-  if (sourceType === 'video') return videoToMp4(buffer, { maxDuration });
-  throw new Error('toMp4 hanya mendukung input gambar atau video.');
-}
-export function toMp3(buffer) { return withTempMedia(buffer, '.mp3', (input, output) => ['-i', input, '-map', '0:a:0', '-vn', '-map_metadata', '-1', '-c:a', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '192k', '-id3v2_version', '3', '-write_xing', '0', '-f', 'mp3', output]); }
-export async function toImage(buffer) { const source = isAnimatedWebp(buffer) ? await animatedWebpToFirstFrame(buffer) : buffer; return withTempMedia(source, '.jpg', (input, output) => ['-i', input, '-frames:v', '1', '-map_metadata', '-1', '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output]); }
-export async function toVideo(buffer, { sourceType = 'sticker', animated = false, videoNote = false, maxDuration = 60 } = {}) { if (videoNote) return videoToVideoNote(buffer, { maxDuration }); if (sourceType !== 'sticker') throw new Error('tovideo hanya mendukung sticker bergerak.'); if (!isAnimatedWebp(buffer)) { if (!animated) throw new Error('tovideo hanya menerima sticker bergerak.'); throw new Error('Sticker ditandai bergerak tetapi WebP tidak berisi frame animasi yang valid.'); } return animatedWebpToVideo(buffer); }
-export function toVoiceNote(buffer) { return withTempMedia(buffer, '.ogg', (input, output) => ['-i', input, '-map', '0:a:0', '-vn', '-map_metadata', '-1', '-af', 'aresample=async=1:first_pts=0', '-ac', '1', '-ar', '48000', '-c:a', 'libopus', '-b:a', '32k', '-vbr', 'on', '-application', 'voip', '-frame_duration', '20', '-avoid_negative_ts', 'make_zero', '-f', 'ogg', output]); }
-export function toHd(buffer, { scale = 2 } = {}) { const multiplier = Number(scale); if (![2, 4].includes(multiplier)) throw new Error('HD hanya mendukung scale 2x atau 4x.'); return withTempMedia(buffer, '.jpg', (input, output) => ['-i', input, '-vf', `scale=iw*${multiplier}:ih*${multiplier}:flags=lanczos,format=yuv420p`, '-frames:v', '1', '-c:v', 'mjpeg', '-q:v', '2', '-f', 'image2', output]); }
-function wrapMemeText(value, maxChars = 20) { const words = String(value).trim().toUpperCase().split(/\s+/).filter(Boolean); const lines = []; let line = ''; for (const word of words) { const next = line ? `${line} ${word}` : word; if (line && next.length > maxChars) { lines.push(line); line = word; } else line = next; } if (line) lines.push(line); return lines.join('\\n'); }
-async function resolveMemeFontFile() {
-  for (const fontPath of MEME_FONT_CANDIDATES) {
-    try {
-      await access(fontPath);
-      return fontPath;
-    } catch {}
-  }
-  throw new Error('Font Bold untuk smeme tidak ditemukan. Pastikan Roboto-Bold (Android) atau DejaVuSans-Bold (Linux) tersedia.');
-}
-
-function escapeDrawtextFontFile(value) {
+function escapeFilterPath(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
 
-function memeTextFilter(text, position, fontFile) {
-  const wrapped = escapeDrawtext(wrapMemeText(text));
-  const font = escapeDrawtextFontFile(fontFile);
+function memeTextFilter(textFile, position, fontFile) {
+  const font = escapeFilterPath(fontFile);
+  const file = escapeFilterPath(textFile);
   const y = position === 'top' ? '24' : 'h-text_h-24';
-  return `drawtext=fontfile='${font}':text='${wrapped}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=${y}:line_spacing=4`;
+  return \`drawtext=fontfile='\${font}':textfile='\${file}':fontcolor=white:fontsize=56:borderw=7:bordercolor=black:x=(w-text_w)/2:y=\${y}:line_spacing=4\`;
 }
 
 export async function toSmeme(buffer, { top = '', bottom = '' } = {}) {
   if (!top && !bottom) throw new Error('Teks meme tidak boleh kosong.');
   const fontFile = await resolveMemeFontFile();
-  const filters = [];
-  if (top) filters.push(memeTextFilter(top, 'top', fontFile));
-  if (bottom) filters.push(memeTextFilter(bottom, 'bottom', fontFile));
-  return withTempMedia(buffer, '.jpg', (input, output) => [
-    '-i', input,
-    '-vf', `scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,${filters.join(',')}`,
-    '-frames:v', '1', '-map_metadata', '-1',
-    '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
-  ]);
+  return withTempMedia(buffer, '.jpg', async (input, output, dir) => {
+    const filters = [];
+    if (top) {
+      const topFile = join(dir, 'meme-top.txt');
+      await writeFile(topFile, wrapMemeText(top));
+      filters.push(memeTextFilter(topFile, 'top', fontFile));
+    }
+    if (bottom) {
+      const bottomFile = join(dir, 'meme-bottom.txt');
+      await writeFile(bottomFile, wrapMemeText(bottom));
+      filters.push(memeTextFilter(bottomFile, 'bottom', fontFile));
+    }
+    return [
+      '-i', input,
+      '-vf', \`scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,\${filters.join(',')}\`,
+      '-frames:v', '1', '-map_metadata', '-1',
+      '-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2', output,
+    ];
+  });
 }
 export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = 'SkyVerse Bot' } = {}) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-vf', `${scaleFilter()},format=rgba`, '-frames:v', '1', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-preset', 'picture', '-metadata', `comment=${pack} | ${author}`, '-f', 'webp', output]); }
 export function toSticker(buffer) {
