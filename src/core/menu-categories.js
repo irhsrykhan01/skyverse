@@ -23,11 +23,13 @@ export function getMenuCategoryLabel(category) {
     ?? normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-export function resolveMenuCategory(category) {
+export function resolveMenuCategory(category, groups = null) {
   const normalized = String(category ?? '').trim().toLowerCase();
-  return MENU_CATEGORY_DEFINITIONS.some((item) => item.key === normalized)
+  const known = MENU_CATEGORY_DEFINITIONS.some((item) => item.key === normalized)
     ? normalized
-    : LABEL_TO_KEY.get(normalized) ?? null;
+    : LABEL_TO_KEY.get(normalized);
+  if (known) return known;
+  return groups instanceof Map && groups.has(normalized) ? normalized : null;
 }
 
 export function orderMenuCategories(groups) {
