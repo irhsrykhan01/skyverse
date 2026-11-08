@@ -110,7 +110,7 @@ async function discoverTrendingVideoIds() {
   for (const page of pages) {
     try {
       const result = await requestBuffer(page, { maxBytes: MAX_PAGE_BYTES });
-      const html = result.buffer.toString('utf8').replace(/\\\\\//g, '/');
+      const html = result.buffer.toString('utf8').replaceAll('\\/', '/');
       const patterns = [
         /\/video\/(\d{15,22})/g,
         /"aweme_id"\s*:\s*"?([0-9]{15,22})"?/g,
