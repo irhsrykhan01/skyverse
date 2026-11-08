@@ -1,4 +1,4 @@
-import { buildUrl, requestResource } from './http.js';
+import { buildUrl, requestResource, ensureProviderSuccess } from './http.js';
 
 function imageType(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 12) return null;
@@ -18,15 +18,18 @@ export function createSairiHostMakerProvider({
       throw new Error('USER_INPUT:API key maker belum dikonfigurasi. Isi SAIRIHOST_API_KEY di file .env.');
     }
 
-    const response = await requestResource(buildUrl(baseUrl, path, params), {
+    const response = ensureProviderSuccess(await requestResource(buildUrl(baseUrl, path, params), {
       headers: { 'X-Api-Key': apiKey },
       timeout: 45_000,
       retries: 1,
       maxBytes: 12 * 1024 * 1024,
-    });
+    }), 'SairiHost maker');
     const mimetype = imageType(response);
     if (!mimetype) {
-      throw new Error('API maker tidak mengembalikan file gambar yang valid.');
+      const detail = response && typeof response === 'object'
+        ? response.message ?? response.error?.message ?? response.error
+        : null;
+      throw new Error(detail ? `SairiHost maker: ${detail}` : 'API maker tidak mengembalikan file gambar yang valid.');
     }
     return { buffer: response, mimetype };
   }
