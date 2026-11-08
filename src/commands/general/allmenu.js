@@ -1,105 +1,29 @@
-import fs from 'node:fs';
-import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
-
-const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
-const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/saweria.jpg', import.meta.url);
-
-function commandMap(commands) {
-  return new Map(commands.map((command) => [command.name, command]));
-}
-
-function buildDownloaderMenu(prefix, commands) {
-  const byName = commandMap(commands);
-  const main = [
-    { name: 'facebook', label: 'facebook', children: ['fbmp3'] },
-    { name: 'instagram', label: 'instagram', children: [] },
-    { name: 'tiktok', label: 'tiktok', children: ['ttmp3'] },
-    { name: 'youtube', label: 'youtube', children: ['ytmp3'] },
-  ];
-
-  const lines = [' ❏ *Downloader*'];
-  const visibleMain = main.filter((entry) => byName.has(entry.name));
-  visibleMain.forEach((entry, index) => {
-    const isLast = index === visibleMain.length - 1;
-    lines.push(`${isLast ? '└' : '├'} ${prefix}${entry.label}`);
-    const children = entry.children.filter((name) => byName.has(name));
-    children.forEach((name, childIndex) => {
-      const childBranch = childIndex === children.length - 1 ? '└' : '├';
-      lines.push(`     ${childBranch} ${prefix}${name}`);
-    });
-  });
-  return lines;
-}
-
-function buildAllMenu(ctx) {
-  const groups = ctx.registry.byCategory({ includeHidden: false });
-  const ordered = orderMenuCategories(groups);
-  const total = ctx.registry.all({ includeHidden: false }).length;
-  const lines = [
-    '╭── ＳＫＹＶＥＲＳＥ ──',
-    `│ Halo, @${ctx.senderJid?.split('@')[0] ?? 'User'}!`,
-    `│ Koin: ${Number(ctx.user?.coins ?? 0)}`,
-    `│ Tier: ${ctx.user?.is_premium ? 'Premium User' : 'Free User'}`,
-    '╰───────────────',
-    'Selamat datang di Skyverse Bot!. ☁',
-    '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
-    '',
-    `Total Command: ${total}`,
-  ];
-
-  for (const [category, commands] of ordered) {
-    if (category === 'downloader') {
-      lines.push('', ...buildDownloaderMenu(ctx.config.prefix, commands));
-      continue;
-    }
-
-    lines.push('', ` ❏ *${getMenuCategoryLabel(category)}*`);
-    commands.forEach((item, index) => {
-      const branch = index === commands.length - 1 ? '└' : '├';
-      lines.push(`${branch} ${ctx.config.prefix}${item.name}`);
-    });
-  }
-
-  return lines.join('\n');
-}
+import { renderAllMenu } from '../../platform/whatsapp/allmenu-canvas.js';
 
 export const command = {
   name: 'allmenu',
-  description: 'Menampilkan semua command SkyVerse secara otomatis berdasarkan registry.',
+  description: 'Mengirim daftar seluruh command SkyVerse sebagai gambar.',
   category: 'general',
   aliases: [],
   permission: 'user',
   usage: 'allmenu',
+  cooldown: 5000,
   async execute(ctx) {
-    const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL);
-    if (!Buffer.isBuffer(thumbnail) || thumbnail.length === 0) {
-      throw new Error('Thumbnail allmenu tidak valid atau kosong.');
-    }
-
-    // Tambahkan cache-buster khusus saat testing agar WhatsApp tidak memakai
-    // hasil preview lama untuk URL Saweria yang sama.
-    const previewUrl = `${SUPPORT_URL}?v=${Date.now()}`;
-    const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${previewUrl}`;
-
-    const sent = await ctx.reply(text, {
-      sendOptions: {
-        contextInfo: {
-          externalAdReply: {
-            title: 'Support SkyVerse',
-            body: 'yang mau request tinggal tulis disini aja',
-            mediaType: 1,
-            previewType: 'PHOTO',
-            thumbnail,
-            renderLargerThumbnail: true,
-            sourceUrl: previewUrl,
-            mediaUrl: previewUrl,
-          },
-        },
-      },
+    const groups = ctx.registry.byCategory({ includeHidden: false });
+    const commands = ctx.registry.all({ includeHidden: false });
+    const image = renderAllMenu({
+      botName: ctx.config.botName || 'SkyVerse',
+      prefix: ctx.config.prefix,
+      userName: ctx.message?.pushName || 'User',
+      tier: ctx.user?.is_premium ? 'Premium User' : 'Free User',
+      coins: Number(ctx.user?.coins ?? 0),
+      groups,
+      total: commands.length,
     });
 
-    if (!sent?.key?.id) {
-      throw new Error('Baileys tidak mengembalikan message key untuk allmenu.');
-    }
+    await ctx.media.send(image, 'image', {
+      mimetype: 'image/png',
+      caption: '☁️ SkyVerse • All Commands\nPilih command sesuai kategori. Gunakan .menu untuk membuka menu interaktif.',
+    });
   },
 };
