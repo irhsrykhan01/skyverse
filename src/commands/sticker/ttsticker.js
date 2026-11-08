@@ -146,7 +146,7 @@ export const command = {
     let selected;
     if (action === 'random' || action === 'acak') {
       selected = items[Math.floor(Math.random() * items.length)];
-    } else if (/^\\d+$/.test(action)) {
+    } else if (/^\d+$/.test(action)) {
       const index = Number(action);
       if (index < 1 || index > items.length) {
         throw new Error('Nomor stiker tidak tersedia. Gunakan .ttsticker untuk melihat daftar.');
