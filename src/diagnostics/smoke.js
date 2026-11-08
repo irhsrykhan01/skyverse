@@ -70,7 +70,9 @@ const mockParticipants = [
   { id: '628222222222@s.whatsapp.net', pn: '628222222222@s.whatsapp.net', admin: null },
   ...Array.from({ length: 21 }, (_, index) => {
     const number = String(628333333333 + index);
-    return { id: number + '@s.whatsapp.net', pn: number + '@s.whatsapp.net', admin: null };
+    return index === 0
+      ? { id: '104000000000@lid', pn: number + '@s.whatsapp.net', admin: null }
+      : { id: number + '@s.whatsapp.net', pn: number + '@s.whatsapp.net', admin: null };
   }),
 ];
 const groupMessages = [];
@@ -103,6 +105,8 @@ await groupService.tagAll(mockGroupContext, 'SMOKE TAG ALL');
 assert(groupMessages.length === 2, 'Tagall must split large groups into bounded mention batches.');
 assert(groupMessages.reduce((total, item) => total + (item.mentions?.length ?? 0), 0) === mockParticipants.length, 'Tagall must mention every unique group participant.');
 assert(groupMessages.every((item) => typeof item.text === 'string' && item.mentions?.length > 0), 'Tagall must send visible mention tokens paired with mention JIDs.');
+assert(groupMessages.flatMap((item) => item.mentions).includes('104000000000@lid'), 'Tagall must use the participant JID when WhatsApp uses LID addressing.');
+assert(groupMessages[0].text.includes('@628333333333'), 'Tagall must render the visible phone number when a participant has a PN mapping.');
 
 
 for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'daily', 'limitshop', 'economystats', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewachannel', 'fakettcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
