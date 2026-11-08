@@ -37,7 +37,7 @@ export function createSairiHostMakerProvider({
   function fakeCall(name, duration = '', url = '') {
     const value = String(name ?? '').trim();
     if (!value) throw new Error('USER_INPUT:Nama pemanggil wajib diisi.');
-    return requestImage('/api/maker/fakecall', { name: value, duration, url });
+    return requestImage('/api/maker/fakecall', { name: value, durasi: duration, url });
   }
 
   function fakeChannel(name, followers = '', time = '') {
