@@ -279,6 +279,31 @@ assert(deletePayloads[0]?.payload?.delete?.participant === '628700000004@s.whats
 assert(deletePayloads[0]?.payload?.delete?.fromMe === false, 'Delete command must not mislabel another member message as bot-authored.');
 assert(deleteReacted, 'Delete command must confirm a successfully sent revoke request.');
 
+const ownDeletePayloads = [];
+await deleteCommand.execute({
+  isChannel: false,
+  isGroup: true,
+  chatId: antiDeleteGroupJid,
+  message: { message: { extendedTextMessage: { contextInfo: {
+    stanzaId: 'DELETE-OWN-SMOKE',
+    participant: '628700000003@s.whatsapp.net',
+  } } } },
+  capabilities: { check: async () => ({ known: true, isAdmin: false }) },
+  socket: {
+    user: {
+      id: '123456789012345@lid',
+      pn: '628700000003@s.whatsapp.net',
+    },
+    sendMessage: async (jid, payload) => {
+      ownDeletePayloads.push({ jid, payload });
+      return { key: { id: 'DELETE-OWN-SMOKE-RESULT' } };
+    },
+  },
+  react: async () => {},
+});
+assert(ownDeletePayloads[0]?.payload?.delete?.id === 'DELETE-OWN-SMOKE', 'Delete command must target the bot-owned quoted message.');
+assert(ownDeletePayloads[0]?.payload?.delete?.fromMe === true, 'Delete command must recognize bot-owned messages when its primary account JID is LID and quoted sender is PN.');
+
 let deleteWithoutBotAdminRejected = false;
 try {
   await deleteCommand.execute({
