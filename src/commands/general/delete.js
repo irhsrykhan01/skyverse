@@ -42,21 +42,30 @@ export const command = {
         return;
       }
 
-      if (ctx.isGroup) {
-        const capability = await ctx.capabilities.check(ctx.chatId);
-        if (!capability.known || !capability.isAdmin) {
-          throw new Error('USER_INPUT:Bot belum menjadi admin grup. Jadikan bot admin terlebih dahulu untuk menggunakan .delete.');
-        }
-      }
-
       const stanzaId = getQuotedStanzaId(ctx.message);
       if (!stanzaId) throw new Error('Reply pesan yang ingin dihapus.');
 
       const context = getContextInfo(ctx.message);
-      const quotedParticipant = context?.participant ?? null;
-      const ownUser = ctx.socket.user?.id ?? null;
-      const normalize = (value) => String(value ?? '').split(':')[0].split('@')[0];
-      const fromMe = Boolean(quotedParticipant && ownUser && normalize(quotedParticipant) === normalize(ownUser));
+      const quotedParticipant = context?.participant ?? context?.participantAlt ?? null;
+      const ownJids = [
+        ctx.socket.user?.id,
+        ctx.socket.user?.pn,
+        ctx.socket.user?.lid,
+      ].filter(Boolean).map((value) => String(value).split(':')[0].toLowerCase());
+      const quotedJids = [
+        context?.participant,
+        context?.participantAlt,
+      ].filter(Boolean).map((value) => String(value).split(':')[0].toLowerCase());
+      const fromMe = quotedJids.some((jid) => ownJids.includes(jid));
+
+      // A bot may revoke its own message without being a group admin.
+      // Deleting another member's message requires the bot to be an admin.
+      if (ctx.isGroup && !fromMe) {
+        const capability = await ctx.capabilities.check(ctx.chatId);
+        if (!capability.known || !capability.isAdmin) {
+          throw new Error('USER_INPUT:Bot belum menjadi admin grup. Jadikan bot admin terlebih dahulu untuk menghapus pesan anggota lain.');
+        }
+      }
 
       await ctx.socket.sendMessage(ctx.chatId, {
         delete: {
