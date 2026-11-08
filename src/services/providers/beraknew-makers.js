@@ -1,4 +1,4 @@
-import { buildUrl, requestResource } from './http.js';
+import { buildUrl, requestResource, ensureProviderSuccess } from './http.js';
 import { findMediaSource, downloadMediaSource } from './media-response.js';
 
 function imageType(buffer) {
@@ -20,12 +20,18 @@ export function createBerakNewMakerProvider({
       throw new Error('USER_INPUT:API key maker belum dikonfigurasi. Isi BERAKNEW_API_KEY di file .env.');
     }
 
-    const response = await requestResource(buildUrl(baseUrl, '/maker/fake-dana', { nominal: value }), {
+    const response = ensureProviderSuccess(await requestResource(buildUrl(baseUrl, '/maker/fake-dana', { nominal: value }), {
       headers: { 'X-Api-Key': apiKey },
       timeout: 45_000,
       retries: 1,
       maxBytes: 12 * 1024 * 1024,
-    });
+    }), 'BerakNew fake-DANA');
+    if (!Buffer.isBuffer(response) && !findMediaSource(response, { baseUrl })) {
+      const detail = response && typeof response === 'object'
+        ? response.message ?? response.error?.message ?? response.error
+        : null;
+      throw new Error(detail ? `BerakNew fake-DANA: ${detail}` : 'API fake-dana tidak mengembalikan file gambar atau URL hasil.');
+    }
     const buffer = Buffer.isBuffer(response)
       ? response
       : await downloadMediaSource(findMediaSource(response, { baseUrl }), {
