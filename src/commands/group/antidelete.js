@@ -47,7 +47,9 @@ export const command = {
           .some((jid) => senderIds.has(normalizeAccount(jid)))
       );
       const senderRole = String(sender?.admin ?? '').toLowerCase();
-      if (!sender || !['admin', 'superadmin'].includes(senderRole) && sender.isAdmin !== true && sender.isSuperAdmin !== true) {
+      const senderIsAdmin = ['admin', 'superadmin'].includes(senderRole)
+        || sender?.admin === true || sender?.isAdmin === true || sender?.isSuperAdmin === true;
+      if (!sender || !senderIsAdmin) {
         throw new Error('USER_INPUT:Kamu juga harus menjadi admin di grup tujuan log.');
       }
 
