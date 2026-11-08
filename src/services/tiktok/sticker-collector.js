@@ -94,27 +94,41 @@ async function requestBuffer(url, { referer = 'https://www.tiktok.com/', maxByte
 }
 
 async function discoverTrendingVideoIds() {
+  // Explore/FYP sering mengirim shell HTML tanpa data video pada request server-side.
+  // Hashtag publik menjadi fallback agar collector tetap punya sumber discovery.
   const pages = [
     'https://www.tiktok.com/explore?lang=id-ID',
     'https://www.tiktok.com/foryou?lang=id-ID',
+    'https://www.tiktok.com/tag/memeindonesia?lang=id-ID',
+    'https://www.tiktok.com/tag/stikerwa?lang=id-ID',
+    'https://www.tiktok.com/tag/meme?lang=id-ID',
+    'https://www.tiktok.com/tag/lucu?lang=id-ID',
   ];
   const ids = new Set();
-  let lastError = null;
+  const errors = [];
 
   for (const page of pages) {
     try {
       const result = await requestBuffer(page, { maxBytes: MAX_PAGE_BYTES });
-      const html = result.buffer.toString('utf8');
-      for (const match of html.matchAll(/\/video\/(\d{15,22})/g)) ids.add(match[1]);
-      for (const match of html.matchAll(/"aweme_id"\s*:\s*"(\d{15,22})"/g)) ids.add(match[1]);
+      const html = result.buffer.toString('utf8').replaceAll('\\/', '/');
+      const patterns = [
+        /\/video\/(\d{15,22})/g,
+        /"aweme_id"\s*:\s*"?([0-9]{15,22})"?/g,
+        /"itemId"\s*:\s*"?([0-9]{15,22})"?/g,
+      ];
+      for (const pattern of patterns) {
+        for (const match of html.matchAll(pattern)) ids.add(match[1]);
+      }
+
       if (ids.size >= MAX_TRENDING_VIDEOS) break;
     } catch (error) {
-      lastError = error;
+      errors.push(error?.message ?? String(error));
     }
   }
 
   if (!ids.size) {
-    throw new Error(lastError?.message ?? 'Halaman publik TikTok tidak memberikan daftar video Explore.');
+    const detail = errors.length ? errors[errors.length - 1] : 'TikTok mengirim halaman tanpa ID video publik.';
+    throw new Error('Sumber Explore dan hashtag publik TikTok belum menyediakan daftar video. ' + detail);
   }
 
   return [...ids].slice(0, MAX_TRENDING_VIDEOS);
@@ -362,7 +376,8 @@ async function refreshInternal() {
   } catch (error) {
     const result = {
       ...previous,
-      updatedAt: Date.now(),
+      // Preserve the last successful timestamp so the next command can retry discovery.
+      updatedAt: previous.updatedAt,
       stats,
       lastError: error?.message ?? String(error),
     };
