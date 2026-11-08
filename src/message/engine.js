@@ -332,7 +332,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const actorUser = actor ? repositories.users.get(actor) : null;
     const actorMentionJid = actorPhone ?? actor;
     const actorNumber = actorMentionJid
-      ? String(actorMentionJid).split('@')[0].split(':')[0].replace(/\\D/g, '')
+      ? String(actorMentionJid).split('@')[0].split(':')[0].replace(/\D/g, '')
       : '';
     const actorTag = actorNumber ? `@${actorNumber}` : (actorUser?.push_name || 'anggota grup');
     const destination = settings.destination || jid;
@@ -342,7 +342,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       `Penghapus: ${actorTag}`,
       `Pengirim pesan asli: ${original.pushName || 'anggota grup'}`,
       `Waktu: ${new Date().toLocaleString('id-ID')}`,
-    ].join('\\n');
+    ].join('\n');
 
     // Remove it before sending so duplicate REVOKE updates cannot repost it.
     cached.delete(messageId);
