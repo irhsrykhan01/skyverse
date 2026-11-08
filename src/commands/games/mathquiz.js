@@ -1,4 +1,4 @@
-import { startMathQuiz, getMathQuiz, formatMathQuestion } from '../../games/mathquiz.js';
+import { startMathQuiz, getMathQuiz, formatMathQuestion, updateMathQuizMessage } from '../../games/mathquiz.js';
 
 export const command = {
   name: 'mathquiz',
@@ -26,7 +26,6 @@ export const command = {
       await ctx.reply('Soal gagal dikirim. Coba lagi.');
       return;
     }
-    const updated = startMathQuiz(ctx.senderJid, { chatId: ctx.chatId, gameMessageId: sent.key.id, now: session.startedAt });
-    if (updated.answer !== session.answer) throw new Error('Math quiz session berubah saat pesan dikirim.');
+    updateMathQuizMessage(ctx.senderJid, sent.key.id);
   },
 };
