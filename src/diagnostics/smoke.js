@@ -12,7 +12,7 @@ import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { disconnectStatus, isInvalidSessionDisconnect, recoveryDelay, recoveryReason } from '../platform/whatsapp/recovery.js';
-import { MENU_CATEGORY_DEFINITIONS, resolveMenuCategory } from '../core/menu-categories.js';
+import { resolveMenuCategory } from '../core/menu-categories.js';
 import { command as allmenuCommand } from '../commands/general/allmenu.js';
 import { sendWithFallback, sendVideoAsMp3 } from '../commands/downloader/_generic.js';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -36,10 +36,9 @@ assert(resolveMenuCategory('media') === 'media', 'Media menu category is missing
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 const registeredCategories = registry.byCategory({ includeHidden: false });
-const definedCategories = new Set(MENU_CATEGORY_DEFINITIONS.map(({ key }) => key));
 assert(!registeredCategories.has('economy'), 'Removed economy menu category is still registered in command registry.');
-for (const category of registeredCategories.keys()) {
-  assert(definedCategories.has(category), `Command category is missing from menu definitions: ${category}`);
+for (const [category, items] of registeredCategories) {
+  assert(items.every((item) => item.category === category), 'Command category grouping is inconsistent: ' + category);
 }
 
 const allmenuPayloads = [];
@@ -60,6 +59,9 @@ const allmenuImagePayload = allmenuPayloads.find((payload) => Buffer.isBuffer(pa
 assert(Buffer.isBuffer(allmenuImagePayload?.image) && allmenuImagePayload.image.length > 0, 'Allmenu must send a real image payload.');
 assert(typeof allmenuImagePayload?.caption === 'string' && allmenuImagePayload.caption.includes('Dukung SkyVerse:'), 'Allmenu image caption contract failed.');
 assert(!allmenuImagePayload?.text && !allmenuImagePayload?.contextInfo?.externalAdReply, 'Allmenu must not rely on a link-preview image.');
+for (const item of visibleCommands) {
+  assert(allmenuImagePayload.caption.includes(config.prefix + item.name), 'Allmenu is missing registered command: ' + item.name);
+}
 for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'daily', 'limitshop', 'economystats', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewachannel', 'fakettcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
