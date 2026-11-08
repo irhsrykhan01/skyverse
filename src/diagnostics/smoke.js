@@ -391,8 +391,8 @@ try {
   globalThis.fetch = nativeFetchForMakerSmoke;
 }
 assert(capturedFakeCallUrl?.pathname === '/api/maker/fakecall', 'Fakecall provider endpoint mismatch.');
-assert(capturedFakeCallUrl?.searchParams.get('durasi') === '00:12', 'Fakecall API must receive the documented durasi parameter.');
-assert(!capturedFakeCallUrl?.searchParams.has('duration'), 'Fakecall API must not receive the undocumented duration parameter.');
+assert(capturedFakeCallUrl?.searchParams.get('duration') === '00:12', 'Fakecall API must receive the documented duration parameter.');
+assert(!capturedFakeCallUrl?.searchParams.has('durasi'), 'Fakecall API must not receive the undocumented durasi parameter.');
 
 for (const name of ['fakefbcomment', 'fakettprofile', 'fakewagroup']) assert(registry.resolve(name) === undefined, `Maker command without a matching API must stay disabled: ${name}`);
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
