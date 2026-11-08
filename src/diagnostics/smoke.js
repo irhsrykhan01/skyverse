@@ -25,6 +25,7 @@ import { createGroupService } from '../services/group.js';
 import { createMessageEngine } from '../message/engine.js';
 import { createSairiHostMakerProvider } from '../services/providers/sairihost-makers.js';
 import { command as antideleteCommand } from '../commands/group/antidelete.js';
+import { command as deleteCommand } from '../commands/general/delete.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -250,6 +251,50 @@ await onUpdateForAntiDelete([{
   },
 }]);
 assert(antiDeleteSent.length === 2, 'Anti-delete must not restore a message deleted by a group admin.');
+
+const deletePayloads = [];
+let deleteReacted = false;
+const deleteContextInfo = {
+  stanzaId: 'DELETE-OTHER-SMOKE',
+  participant: '628700000004@s.whatsapp.net',
+};
+await deleteCommand.execute({
+  isChannel: false,
+  isGroup: true,
+  chatId: antiDeleteGroupJid,
+  message: { message: { extendedTextMessage: { contextInfo: deleteContextInfo } } },
+  capabilities: { check: async () => ({ known: true, isAdmin: true }) },
+  socket: {
+    user: { id: '628700000003@s.whatsapp.net' },
+    sendMessage: async (jid, payload) => {
+      deletePayloads.push({ jid, payload });
+      return { key: { id: 'DELETE-SMOKE' } };
+    },
+  },
+  react: async () => { deleteReacted = true; },
+});
+assert(deletePayloads[0]?.payload?.delete?.id === 'DELETE-OTHER-SMOKE', 'Delete command must target the replied message ID.');
+assert(deletePayloads[0]?.payload?.delete?.participant === '628700000004@s.whatsapp.net', 'Delete command must preserve the original group sender JID.');
+assert(deletePayloads[0]?.payload?.delete?.fromMe === false, 'Delete command must not mislabel another member message as bot-authored.');
+assert(deleteReacted, 'Delete command must confirm a successfully sent revoke request.');
+
+let deleteWithoutBotAdminRejected = false;
+try {
+  await deleteCommand.execute({
+    isChannel: false,
+    isGroup: true,
+    chatId: antiDeleteGroupJid,
+    message: { message: { extendedTextMessage: { contextInfo: deleteContextInfo } } },
+    capabilities: { check: async () => ({ known: true, isAdmin: false }) },
+    socket: { sendMessage: async () => { throw new Error('Delete must not be sent by a non-admin bot.'); } },
+    react: async () => {},
+  });
+} catch (error) {
+  deleteWithoutBotAdminRejected = String(error?.message ?? '').startsWith('USER_INPUT:')
+    && String(error?.message ?? '').includes('Bot belum menjadi admin');
+}
+assert(deleteWithoutBotAdminRejected, 'Delete command must explain that the bot needs group admin rights.');
+
 
 
 
