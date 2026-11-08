@@ -24,6 +24,7 @@ import { createDatabase, createRepositories } from '../database/index.js';
 import { createGroupService } from '../services/group.js';
 import { createMessageEngine } from '../message/engine.js';
 import { createSairiHostMakerProvider } from '../services/providers/sairihost-makers.js';
+import { createBerakNewMakerProvider } from '../services/providers/beraknew-makers.js';
 import { command as antideleteCommand } from '../commands/group/antidelete.js';
 import { command as deleteCommand } from '../commands/general/delete.js';
 
@@ -370,14 +371,14 @@ assert(typeof providers.sairiHostMakers?.fakeCall === 'function' && typeof provi
 assert(typeof providers.berakNewMakers?.fakeDana === 'function', 'BerakNew fake-DANA API method is missing.');
 
 const nativeFetchForMakerSmoke = globalThis.fetch;
-let capturedFakeCallUrl = null;
+const capturedMakerRequests = [];
 const fakePngForMakerSmoke = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
   0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
 ]);
-globalThis.fetch = async (input) => {
-  capturedFakeCallUrl = new URL(String(input));
+globalThis.fetch = async (input, init = {}) => {
+  capturedMakerRequests.push({ url: new URL(String(input)), headers: new Headers(init.headers ?? {}) });
   return new Response(fakePngForMakerSmoke, { status: 200, headers: { 'content-type': 'image/png' } });
 };
 try {
@@ -386,13 +387,48 @@ try {
     apiKey: 'smoke-test-key',
   });
   const fakeCallResult = await fakeCallProvider.fakeCall('SkyVerse Smoke', '00:12');
+  const fakeChannelResult = await fakeCallProvider.fakeChannel('SkyVerse Channel', '1.2K', '12.10');
+  const fakeTikTokResult = await fakeCallProvider.fakeTikTokComment('SkyVerse', 'Komentar smoke', 'Video smoke', '12', 'Balasan smoke');
   assert(fakeCallResult.mimetype === 'image/png', 'Fakecall provider must return the downloaded image.');
+  assert(fakeChannelResult.mimetype === 'image/png', 'Fake-channel provider must return the downloaded image.');
+  assert(fakeTikTokResult.mimetype === 'image/png', 'Fake-TikTok-comment provider must return the downloaded image.');
 } finally {
   globalThis.fetch = nativeFetchForMakerSmoke;
 }
-assert(capturedFakeCallUrl?.pathname === '/api/maker/fakecall', 'Fakecall provider endpoint mismatch.');
-assert(capturedFakeCallUrl?.searchParams.get('duration') === '00:12', 'Fakecall API must receive the documented duration parameter.');
-assert(!capturedFakeCallUrl?.searchParams.has('durasi'), 'Fakecall API must not receive the undocumented durasi parameter.');
+const [fakeCallRequest, fakeChannelRequest, fakeTikTokRequest] = capturedMakerRequests;
+assert(fakeCallRequest?.url.pathname === '/api/maker/fakecall', 'Fakecall provider endpoint mismatch.');
+assert(fakeCallRequest?.url.searchParams.get('duration') === '00:12', 'SairiHost fakecall must use the documented duration parameter.');
+assert(!fakeCallRequest?.url.searchParams.has('durasi'), 'SairiHost fakecall must not use BerakNew-specific durasi parameter.');
+assert(fakeChannelRequest?.url.pathname === '/api/maker/fakech', 'Fake-channel provider endpoint mismatch.');
+assert(fakeChannelRequest?.url.searchParams.get('followers') === '1.2K', 'Fake-channel provider must preserve the followers parameter.');
+assert(fakeChannelRequest?.url.searchParams.get('time') === '12.10', 'Fake-channel provider must preserve the time parameter.');
+assert(fakeTikTokRequest?.url.pathname === '/api/maker/faketiktok', 'Fake TikTok-comment provider endpoint mismatch.');
+assert(fakeTikTokRequest?.url.searchParams.get('video_text') === 'Video smoke', 'Fake TikTok-comment provider must use video_text.');
+assert(fakeTikTokRequest?.url.searchParams.get('comment') === 'Komentar smoke', 'Fake TikTok-comment provider must preserve the comment.');
+assert(capturedMakerRequests.every((item) => item.headers.get('X-Api-Key') === 'smoke-test-key'), 'SairiHost maker API key header is missing.');
+
+const nativeFetchForBerakNewSmoke = globalThis.fetch;
+let capturedBerakNewRequest = null;
+globalThis.fetch = async (input, init = {}) => {
+  capturedBerakNewRequest = {
+    url: new URL(String(input)),
+    headers: new Headers(init.headers ?? {}),
+  };
+  return new Response(fakePngForMakerSmoke, { status: 200, headers: { 'content-type': 'image/png' } });
+};
+try {
+  const berakNewMaker = createBerakNewMakerProvider({
+    baseUrl: 'https://api.beraknew.web.id/api',
+    apiKey: 'smoke-berak-key',
+  });
+  const result = await berakNewMaker.fakeDana('50.000');
+  assert(result.mimetype === 'image/png', 'BerakNew fake-DANA provider must return the downloaded image.');
+} finally {
+  globalThis.fetch = nativeFetchForBerakNewSmoke;
+}
+assert(capturedBerakNewRequest?.url.pathname === '/api/maker/fake-dana', 'BerakNew fake-DANA endpoint must include the documented /api prefix.');
+assert(capturedBerakNewRequest?.url.searchParams.get('nominal') === '50.000', 'BerakNew fake-DANA must preserve its nominal parameter.');
+assert(capturedBerakNewRequest?.headers.get('X-Api-Key') === 'smoke-berak-key', 'BerakNew API key header is missing.');
 
 for (const name of ['fakefbcomment', 'fakettprofile', 'fakewagroup']) assert(registry.resolve(name) === undefined, `Maker command without a matching API must stay disabled: ${name}`);
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
