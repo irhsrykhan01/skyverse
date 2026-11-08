@@ -7,6 +7,7 @@ import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bo
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
 import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
+import { renderAllMenu } from '../platform/whatsapp/allmenu-canvas.js';
 import { economyDefaults, EconomyManager } from '../economy/manager.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
@@ -21,7 +22,7 @@ const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'allmenu', 'balance', 'claim', 'daily', 'work', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) {
   assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`);
   assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`);
@@ -104,6 +105,10 @@ assert(playTicTacToe('smoke-ttt', p1, 1).ok, 'Tic-Tac-Toe first move contract fa
 assert(playTicTacToe('smoke-ttt', p1, 2).reason === 'not_your_turn', 'Tic-Tac-Toe turn contract failed.');
 assert(playTicTacToe('smoke-ttt', p2, 5).ok, 'Tic-Tac-Toe second move contract failed.');
 assert(renderTicTacToe(['X', null, null, null, 'O', null, null, null, null]).length > 100, 'Tic-Tac-Toe Canvas render contract failed.');
+const allMenuImage = renderAllMenu({ groups: registry.byCategory({ includeHidden: false }), total: visibleCommands.length });
+assert(Buffer.isBuffer(allMenuImage) && allMenuImage.length > 1000, 'Allmenu Canvas image render contract failed.');
+assert(registry.resolve('daily')?.name === 'claim', 'Daily economy alias regression.');
+assert(registry.resolve('kerja')?.name === 'work', 'Work economy alias regression.');
 assert(surrenderTicTacToe('smoke-ttt', p1).result === 'surrender', 'Tic-Tac-Toe surrender contract failed.');
 assert(getTicTacToe('smoke-ttt') === null, 'Tic-Tac-Toe cleanup contract failed.');
 
