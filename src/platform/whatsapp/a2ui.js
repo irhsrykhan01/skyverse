@@ -108,8 +108,8 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null,
 }
 
 export async function sendA2UICategoryMenu(socket, jid, { config, registry, category }) {
-  const normalizedCategory = resolveMenuCategory(category);
   const groups = registry.byCategory({ includeHidden: false });
+  const normalizedCategory = resolveMenuCategory(category, groups);
   const commands = normalizedCategory ? groups.get(normalizedCategory) ?? [] : [];
   if (!commands.length) throw new Error(`Kategori tidak ditemukan: ${category}`);
 
