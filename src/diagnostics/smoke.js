@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createDatabase, createRepositories } from '../database/index.js';
 import { createGroupService } from '../services/group.js';
+import { command as antideleteCommand } from '../commands/group/antidelete.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -106,6 +107,24 @@ await groupService.tagAll(mockGroupContext, 'SMOKE TAG ALL');
 assert(groupMessages.length === 2, 'Tagall must split large groups into bounded mention batches.');
 assert(groupMessages.reduce((total, item) => total + (item.mentions?.length ?? 0), 0) === mockParticipants.length, 'Tagall must mention every unique group participant.');
 assert(groupMessages.every((item) => typeof item.text === 'string' && item.mentions?.length > 0), 'Tagall must send visible mention tokens paired with mention JIDs.');
+let privateAntideleteDestinationRejected = false;
+try {
+  await antideleteCommand.execute({
+    isGroup: true,
+    chatId: '120363000000000000@g.us',
+    parsed: { args: ['on', '628111111111@s.whatsapp.net'] },
+    repositories: { settings: {} },
+    config: { prefix: '.' },
+    socket: { user: { id: '628000000000@s.whatsapp.net' } },
+    reply: async () => {},
+    getGroupMetadata: async () => ({ participants: [] }),
+  });
+} catch (error) {
+  privateAntideleteDestinationRejected = String(error?.message ?? '').startsWith('USER_INPUT:')
+    && String(error?.message ?? '').includes('bukan chat pribadi');
+}
+assert(privateAntideleteDestinationRejected, 'Anti-delete must reject private-chat log destinations.');
+
 assert(groupMessages.flatMap((item) => item.mentions).includes('104000000000@lid'), 'Tagall must use the participant JID when WhatsApp uses LID addressing.');
 assert(groupMessages[0].text.includes('@628333333333'), 'Tagall must render the visible phone number when a participant has a PN mapping.');
 
