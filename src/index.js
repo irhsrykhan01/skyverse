@@ -8,7 +8,6 @@ import { createWhatsAppConnection } from './platform/whatsapp/index.js';
 import { createIdentity } from './security/identity.js';
 import { createProviderManager } from './services/providers/manager.js';
 import { EconomyManager } from './economy/manager.js';
-import { startTikTokStickerCollector } from './services/tiktok/sticker-collector.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
 
@@ -16,7 +15,6 @@ const logger = createLogger(config.logLevel);
 const identity = createIdentity({ config });
 const providers = createProviderManager(config);
 let lifecycle = null;
-let stopTikTokStickerCollector = null;
 
 const ASCII_BANNER = String.raw`
 ███████╗██╗  ██╗██╗   ██╗██╗   ██╗███████╗██████╗ ███████╗███████╗
@@ -63,7 +61,6 @@ async function main() {
   const economy = new EconomyManager({ repositories });
   const registry = await createCommandRegistry();
   logger.info(`Memuat ${registry.all().length} command.`);
-  stopTikTokStickerCollector = startTikTokStickerCollector({ logger });
 
   let messageEngine;
   const whatsapp = createWhatsAppConnection({
@@ -91,7 +88,6 @@ const shutdownSignals = ['SIGINT', 'SIGTERM'];
 for (const signal of shutdownSignals) {
   process.once(signal, async () => {
     try {
-      stopTikTokStickerCollector?.();
       await lifecycle?.stop(signal);
       logger.info('SkyVerse dihentikan.');
       process.exitCode = 0;
