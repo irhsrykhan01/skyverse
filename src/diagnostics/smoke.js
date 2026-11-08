@@ -75,6 +75,7 @@ const groupService = createGroupService();
 const mockParticipants = [
   { id: '628111111111@s.whatsapp.net', pn: '628111111111@s.whatsapp.net', admin: 'admin' },
   { id: '628222222222@s.whatsapp.net', pn: '628222222222@s.whatsapp.net', admin: null },
+  { id: '628555555555@s.whatsapp.net', pn: '628555555555@s.whatsapp.net', admin: 'admin' },
   ...Array.from({ length: 21 }, (_, index) => {
     const number = String(628333333333 + index);
     return index === 0
@@ -129,7 +130,7 @@ let rejectedAdminKick = false;
 try {
   await groupService.kick({
     ...mockGroupContext,
-    parsed: { args: ['628111111111'] },
+    parsed: { args: ['628555555555'] },
   });
 } catch (error) {
   rejectedAdminKick = String(error?.message ?? '').includes('Target adalah admin grup');
