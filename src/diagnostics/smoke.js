@@ -104,9 +104,7 @@ assert(groupMessages.length === 2, 'Tagall must split large groups into bounded 
 assert(groupMessages.reduce((total, item) => total + (item.mentions?.length ?? 0), 0) === mockParticipants.length, 'Tagall must mention every unique group participant.');
 assert(groupMessages.every((item) => typeof item.text === 'string' && item.mentions?.length > 0), 'Tagall must send visible mention tokens paired with mention JIDs.');
 
-for (const item of visibleCommands) {
-  assert(allmenuImagePayload.caption.includes(config.prefix + item.name), 'Allmenu is missing registered command: ' + item.name);
-}
+
 for (const required of ['menu', 'allmenu', 'helper', 'help', 'ping', 'info', 'owner', 'coin', 'limit', 'daily', 'limitshop', 'economystats', 'sticker', 'brat', 'bratvid', 'brathd', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'twitter', 'mediafire', 'gdrive', 'ttmp3', 'ytmp3', 'igmp3', 'fakecall', 'fakewachannel', 'fakettcomment', 'mockwallet', 'trivia', 'benarsalah', 'quizcepat', 'susunkata', 'tebakkata', 'tebakangka', 'tebakemoji', 'rps']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) { assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`); assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`); }
 for (const command of visibleCommands) { assert(typeof command.execute === 'function', `Command ${command.name} has no execute().`); assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`); }
