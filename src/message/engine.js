@@ -4,6 +4,7 @@ import { createAfkService } from '../services/afk.js';
 import { createAntideleteService } from '../services/antidelete.js';
 import { getMessageText } from './parser.js';
 import { isBombReply, guessBomb, updateBombMessage } from '../games/bomb.js';
+import { isMathQuizReply, answerMathQuiz } from '../games/mathquiz.js';
 import { isTicTacToeReply, playTicTacToe, updateTicTacToeMessage } from '../games/tictactoe.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
@@ -134,6 +135,21 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const quotedContext = getContextInfo(message);
     const quotedStanzaId = quotedContext?.stanzaId ?? null;
     const activeGame = quotedStanzaId ? isBombReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
+    const activeMathQuiz = quotedStanzaId ? isMathQuizReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
+    if (activeMathQuiz && !plainText.startsWith(config.prefix)) {
+      const result = answerMathQuiz(senderJid, plainText);
+      if (!result.ok) {
+        await socket.sendMessage(chatId, { text: 'Balas dengan jawaban berupa angka bulat.' }, { quoted: message });
+        return;
+      }
+      if (result.result === 'win') {
+        const balance = economy.addCoins(senderJid, result.reward, 'game:mathquiz:win');
+        await socket.sendMessage(chatId, { text: `🎉 Benar! Jawabannya ${result.answer}.\n+ ${result.reward} 🪙\nSaldo: ${balance} 🪙` }, { quoted: message });
+      } else {
+        await socket.sendMessage(chatId, { text: `Belum tepat. Jawaban yang benar: ${result.answer}.\nCoba lagi dengan .mathquiz!` }, { quoted: message });
+      }
+      return;
+    }
     const richGameId = /^tictactoe:(\\d+)$/.exec(plainText);
     const tttReply = quotedStanzaId ? isTicTacToeReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
     if ((richGameId || (tttReply && /^\\d+$/.test(plainText))) && (richGameId || tttReply)) {
