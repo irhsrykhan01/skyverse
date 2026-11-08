@@ -19,6 +19,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createDatabase, createRepositories } from '../database/index.js';
+import { createGroupService } from '../services/group.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
@@ -59,6 +60,50 @@ const allmenuImagePayload = allmenuPayloads.find((payload) => Buffer.isBuffer(pa
 assert(Buffer.isBuffer(allmenuImagePayload?.image) && allmenuImagePayload.image.length > 0, 'Allmenu must send a real image payload.');
 assert(typeof allmenuImagePayload?.caption === 'string' && allmenuImagePayload.caption.includes('Dukung SkyVerse:'), 'Allmenu image caption contract failed.');
 assert(!allmenuImagePayload?.text && !allmenuImagePayload?.contextInfo?.externalAdReply, 'Allmenu must not rely on a link-preview image.');
+for (const item of visibleCommands) {
+  assert(allmenuImagePayload.caption.includes(config.prefix + item.name), 'Allmenu is missing registered command: ' + item.name);
+}
+
+const groupService = createGroupService();
+const mockParticipants = [
+  { id: '628111111111@s.whatsapp.net', pn: '628111111111@s.whatsapp.net', admin: 'admin' },
+  { id: '628222222222@s.whatsapp.net', pn: '628222222222@s.whatsapp.net', admin: null },
+  ...Array.from({ length: 21 }, (_, index) => {
+    const number = String(628333333333 + index);
+    return { id: number + '@s.whatsapp.net', pn: number + '@s.whatsapp.net', admin: null };
+  }),
+];
+const groupMessages = [];
+const mockGroupContext = {
+  isGroup: true,
+  chatId: '120363000000000000@g.us',
+  senderJid: '628111111111@s.whatsapp.net',
+  senderPhoneJid: null,
+  message: { message: {} },
+  parsed: { args: ['628222222222'] },
+  config: { prefix: '.' },
+  getGroupMetadata: async () => ({ participants: mockParticipants }),
+  capabilities: {
+    check: async () => ({ known: true, isAdmin: true, metadata: { participants: mockParticipants } }),
+  },
+  socket: {
+    user: { id: '628000000000@s.whatsapp.net' },
+    sendMessage: async (_jid, payload) => {
+      groupMessages.push(payload);
+      return { key: { id: 'GROUP-SMOKE-' + groupMessages.length } };
+    },
+    groupParticipantsUpdate: async (_jid, jids, action) =>
+      jids.map((jid) => ({ jid, status: action === 'remove' ? '200' : '200' })),
+  },
+};
+const kickResult = await groupService.kick(mockGroupContext);
+assert(kickResult.removed === 1, 'Kick must report confirmed removal count.');
+assert(groupMessages.length === 0, 'Kick must not send tag-all messages.');
+await groupService.tagAll(mockGroupContext, 'SMOKE TAG ALL');
+assert(groupMessages.length === 2, 'Tagall must split large groups into bounded mention batches.');
+assert(groupMessages.reduce((total, item) => total + (item.mentions?.length ?? 0), 0) === mockParticipants.length, 'Tagall must mention every unique group participant.');
+assert(groupMessages.every((item) => typeof item.text === 'string' && item.mentions?.length > 0), 'Tagall must send visible mention tokens paired with mention JIDs.');
+
 for (const item of visibleCommands) {
   assert(allmenuImagePayload.caption.includes(config.prefix + item.name), 'Allmenu is missing registered command: ' + item.name);
 }
