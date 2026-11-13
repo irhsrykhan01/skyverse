@@ -340,6 +340,6 @@ export function toSticker(buffer) {
 export function toAnimatedSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker animasi kosong atau tidak valid.');
   if (isAnimatedWebp(buffer)) return throwOversize(buffer, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
-  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
+  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()},format=rgba`, '-vsync', '0', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
 }
 export { framesToAnimatedWebp as toAnimatedStickerFromFrames };
