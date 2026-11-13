@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { loadConfig } from '../src/config/env.js';
 import { createTikwmProvider } from '../src/services/providers/tikwm.js';
 import { createYtDlpProvider } from '../src/services/providers/ytdlp.js';
+import { createSairiHostDownloaderProvider } from '../src/services/providers/sairihost-downloaders.js';
 import { findDownloaderUrls } from '../src/services/providers/downloader-response.js';
 
 const config = loadConfig();
@@ -13,6 +14,7 @@ const urls = {
 };
 const tikwm = createTikwmProvider({ baseUrl: config.tikwmBaseUrl });
 const ytdlp = createYtDlpProvider({ binaryPath: config.ytDlpPath });
+const sairiHostDownloader = createSairiHostDownloaderProvider({ baseUrl: config.sairiHostBaseUrl, apiKey: config.sairiHostApiKey });
 let passed = 0, failed = 0, skipped = 0;
 
 async function probeMediaUrl(url) {
@@ -53,6 +55,12 @@ try { console.log('[INFO] yt-dlp ' + await ytdlp.version()); }
 catch (error) { failed += 1; console.log('[FAIL] yt-dlp executable — ' + String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 300)); }
 
 await check('TikTok / TikWM', urls.tiktok, (url) => tikwm.tiktok(url));
+if (config.sairiHostDownloaderEnabled && config.sairiHostApiKey) {
+  await check('TikTok / SairiHost', urls.tiktok, (url) => sairiHostDownloader.tiktok(url), true);
+} else {
+  skipped += 1;
+  console.log('[SKIP] TikTok / SairiHost — enable SAIRIHOST_DOWNLOADER_ENABLED and configure SAIRIHOST_API_KEY to test.');
+}
 await check('YouTube video / yt-dlp', urls.youtube, (url) => ytdlp.youtube(url));
 await check('YouTube Shorts / yt-dlp', urls.youtubeShorts, (url) => ytdlp.youtube(url), true);
 await check('Instagram Reel / yt-dlp', urls.instagram, (url) => ytdlp.instagram(url), true);
