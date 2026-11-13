@@ -645,6 +645,30 @@ try {
   assert(restored.economy.refundLimit(smokeJid, 1), 'Wallet could not refund one Limit.');
   assert(restored.economy.get(smokeJid)?.limits === 10, 'Limit refund did not restore the original balance.');
   assert(!restored.economy.consumeLimit(smokeJid, 11), 'Wallet allowed a negative Limit balance.');
+
+  const dailyClaim = restored.economy.claimDaily(smokeJid, 200, 86_400_000);
+  assert(dailyClaim.ok && dailyClaim.reward === 200 && dailyClaim.coins === 700, 'Daily claim must award 200 Coin exactly once.');
+  const repeatedDailyClaim = restored.economy.claimDaily(smokeJid, 200, 86_400_000);
+  assert(!repeatedDailyClaim.ok && repeatedDailyClaim.reason === 'cooldown', 'Daily claim must enforce its 24-hour cooldown.');
+
+  const limitPurchase = restored.economy.purchaseLimits(smokeJid, 5, 250);
+  assert(limitPurchase.ok && limitPurchase.coins === 450 && limitPurchase.limits === 15, 'Limit shop must atomically exchange 250 Coin for 5 Limit.');
+  const rejectedLimitPurchase = restored.economy.purchaseLimits(smokeJid, 25, 1000);
+  assert(!rejectedLimitPurchase.ok && rejectedLimitPurchase.reason === 'insufficient_funds', 'Limit shop must reject purchases without enough Coin.');
+  assert(restored.economy.get(smokeJid)?.coins === 450 && restored.economy.get(smokeJid)?.limits === 15, 'Rejected Limit purchase changed the wallet.');
+
+  const firstGameReward = restored.economy.creditGameReward(smokeJid, 100, 150, 86_400_000, { game: 'smoke' });
+  const cappedGameReward = restored.economy.creditGameReward(smokeJid, 100, 150, 86_400_000, { game: 'smoke' });
+  const exhaustedGameReward = restored.economy.creditGameReward(smokeJid, 10, 150, 86_400_000, { game: 'smoke' });
+  assert(firstGameReward.reward === 100 && cappedGameReward.reward === 50 && exhaustedGameReward.reward === 0, 'Game rewards must stop at 150 Coin per rolling 24 hours.');
+  assert(restored.economy.get(smokeJid)?.coins === 600, 'Game reward credit produced an incorrect Coin balance.');
+
+  const economyStats = restored.economy.getEconomyStats(smokeJid);
+  assert(economyStats.personal?.daily_claims === 1, 'Economy stats must count daily claims.');
+  assert(economyStats.personal?.limit_purchases === 1, 'Economy stats must count successful Limit purchases.');
+  assert(economyStats.personal?.game_rewards === 150, 'Economy stats must sum the capped game rewards.');
+  assert(economyStats.wallet?.coins === 600 && economyStats.wallet?.limits === 15, 'Economy stats wallet snapshot is incorrect.');
+
   assert(restored.settings.get('group', '120000000000000@g.us', 'group.welcome') === JSON.stringify({ enabled: true }), 'Database settings did not survive a close/reopen cycle.');
   assert(restored.commands.stats().some((item) => item.command === 'ping' && item.usage_count === 1), 'Database command stats did not survive a close/reopen cycle.');
   await dbSmoke.close();
