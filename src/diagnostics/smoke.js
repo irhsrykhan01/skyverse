@@ -25,12 +25,15 @@ import { createGroupService } from '../services/group.js';
 import { createMessageEngine } from '../message/engine.js';
 import { createSairiHostMakerProvider } from '../services/providers/sairihost-makers.js';
 import { createBerakNewMakerProvider } from '../services/providers/beraknew-makers.js';
+import { createSairiHostDownloaderProvider } from '../services/providers/sairihost-downloaders.js';
 import { command as antideleteCommand } from '../commands/group/antidelete.js';
 import { command as deleteCommand } from '../commands/general/delete.js';
 
 function assert(condition, message) { if (!condition) throw new Error(message); }
 
 const config = loadConfig({});
+assert(config.sairiHostDownloaderEnabled === false, 'SairiHost downloader must stay disabled by default.');
+assert(loadConfig({ SAIRIHOST_DOWNLOADER_ENABLED: 'true' }).sairiHostDownloaderEnabled === true, 'SairiHost downloader opt-in flag was not parsed.');
 const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
 assert(config.depayBaseUrl === undefined, 'Removed Depay configuration is still present.');
@@ -369,6 +372,44 @@ assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is mi
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
 assert(typeof providers.sairiHostMakers?.fakeCall === 'function' && typeof providers.sairiHostMakers?.fakeChannel === 'function' && typeof providers.sairiHostMakers?.fakeTikTokComment === 'function', 'SairiHost maker API methods are missing.');
 assert(typeof providers.berakNewMakers?.fakeDana === 'function', 'BerakNew fake-DANA API method is missing.');
+assert(typeof providers.sairiHostDownloader?.tiktok === 'function', 'SairiHost downloader provider is missing.');
+assert(typeof providers.downloader?.sairiHostTikTok === 'function', 'SairiHost TikTok normalizer is missing.');
+
+const sairiHostSampleUrl = 'https://www.tiktok.com/@tiktok/video/7106594312292453675';
+const nativeFetchForSairiHostSmoke = globalThis.fetch;
+let capturedSairiHostRequest = null;
+globalThis.fetch = async (input, init = {}) => {
+  capturedSairiHostRequest = {
+    url: new URL(String(input)),
+    headers: new Headers(init.headers ?? {}),
+  };
+  return new Response(JSON.stringify({
+    status: true,
+    creator: 'SairiHost',
+    result: { video: 'https://cdn.example.test/skyverse-test.mp4', images: [] },
+  }), { status: 200, headers: { 'content-type': 'application/json' } });
+};
+try {
+  const sairiHostDownloader = createSairiHostDownloaderProvider({
+    baseUrl: 'https://api.sairihost.com',
+    apiKey: 'smoke-sairi-key',
+  });
+  const result = await sairiHostDownloader.tiktok(sairiHostSampleUrl);
+  assert(result?.result?.video === 'https://cdn.example.test/skyverse-test.mp4', 'SairiHost downloader must preserve the video result.');
+} finally {
+  globalThis.fetch = nativeFetchForSairiHostSmoke;
+}
+assert(capturedSairiHostRequest?.url.pathname === '/api/download/tiktok', 'SairiHost TikTok endpoint mismatch.');
+assert(capturedSairiHostRequest?.url.searchParams.get('url') === sairiHostSampleUrl, 'SairiHost TikTok URL parameter mismatch.');
+assert(capturedSairiHostRequest?.headers.get('X-Api-Key') === 'smoke-sairi-key', 'SairiHost TikTok API key header is missing.');
+
+let sairiHostMissingKeyRejected = false;
+try {
+  await createSairiHostDownloaderProvider({ apiKey: null }).tiktok(sairiHostSampleUrl);
+} catch (error) {
+  sairiHostMissingKeyRejected = String(error?.message ?? '').includes('SAIRIHOST_API_KEY');
+}
+assert(sairiHostMissingKeyRejected, 'SairiHost downloader must reject a missing API key.');
 
 const nativeFetchForMakerSmoke = globalThis.fetch;
 const capturedMakerRequests = [];
