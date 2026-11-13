@@ -376,13 +376,16 @@ export async function toAnimatedSticker(buffer) {
       frameDuration: 0.125,
       lastFrameDuration: 0.125,
     });
+    if (!isAnimatedWebp(output) || countAnimatedFrames(output) < 2) {
+      throw new Error('FFmpeg tidak menghasilkan WebP animasi dengan beberapa frame.');
+    }
     const validationPath = join(dir, 'validated.webp');
+    const firstFramePath = join(dir, 'validated-frame.webp');
     await writeFile(validationPath, output);
-    await runProcess('ffmpeg', [
-      '-hide_banner', '-loglevel', 'error', '-nostdin',
-      '-i', validationPath, '-f', 'null', '-',
-    ]);
-    return output;
+    await runProcess('webpmux', ['-get', 'frame', '1', validationPath, '-o', firstFramePath]);
+    const firstFrame = await readFile(firstFramePath);
+    if (!isWebp(firstFrame)) throw new Error('Frame pertama WebP hasil konversi tidak valid.');
+    return throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
