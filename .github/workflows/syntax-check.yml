@@ -23,5 +23,7 @@ jobs:
         run: npm run check-media-tools
       - name: Check JavaScript syntax
         run: npm run check
+      - name: Run media conversion diagnostics
+        run: npm run diagnose-media
       - name: Run smoke test
         run: npm run smoke
