@@ -7,7 +7,7 @@ import * as media from '../services/media/index.js';
 import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
-import { startMiniGame, getMiniGame, isMiniGameReply, answerMiniGame, updateMiniGameMessage, stopMiniGame } from '../games/mini-games.js';
+import { startMiniGame, getMiniGame, isMiniGameReply, answerMiniGame, updateMiniGameMessage, stopMiniGame, pruneMiniGameSessions } from '../games/mini-games.js';
 import { formatMultipleChoice } from '../services/games-api.js';
 import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
@@ -525,6 +525,25 @@ const formattedTrivia = formatMultipleChoice({
 assert(formattedTrivia.choices.length === 4, 'Trivia formatter must produce four answer choices.');
 assert('ABCD'.includes(formattedTrivia.correctLetter), 'Trivia formatter must identify the correct answer letter.');
 assert(formattedTrivia.choices.includes('Mars'), 'Trivia formatter dropped the correct answer.');
+
+const originalDateNow = Date.now;
+let miniGameTestNow = originalDateNow();
+try {
+  Date.now = () => miniGameTestNow;
+  startMiniGame({
+    userId: 'mini-expired-smoke',
+    chatId: 'mini-expired-chat',
+    gameMessageId: 'MINI-EXPIRED-1',
+    type: 'tebakangka',
+    answer: 4,
+    expiresIn: 30_000,
+  });
+  miniGameTestNow += 30_001;
+  assert(pruneMiniGameSessions(miniGameTestNow) === 1, 'Expired mini-game sessions must be pruned globally.');
+  assert(getMiniGame('mini-expired-smoke', 'mini-expired-chat') === null, 'Expired mini-game session must no longer be available.');
+} finally {
+  Date.now = originalDateNow;
+}
 
 startMiniGame({
   userId: 'mini-game-smoke',
