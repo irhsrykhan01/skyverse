@@ -8,7 +8,7 @@ import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/res
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
 import { startMiniGame, getMiniGame, isMiniGameReply, answerMiniGame, updateMiniGameMessage, stopMiniGame, pruneMiniGameSessions } from '../games/mini-games.js';
-import { formatMultipleChoice } from '../services/games-api.js';
+import { formatMultipleChoice, getTriviaQuestions, getWordDefinition, getRandomWordData } from '../services/games-api.js';
 import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { normalizePhoneNumber } from '../security/identity.js';
@@ -566,6 +566,60 @@ const formattedTrivia = formatMultipleChoice({
 assert(formattedTrivia.choices.length === 4, 'Trivia formatter must produce four answer choices.');
 assert('ABCD'.includes(formattedTrivia.correctLetter), 'Trivia formatter must identify the correct answer letter.');
 assert(formattedTrivia.choices.includes('Mars'), 'Trivia formatter dropped the correct answer.');
+
+const nativeFetchForGamesApiSmoke = globalThis.fetch;
+const gameApiRequests = [];
+try {
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(String(input));
+    gameApiRequests.push({ url, signal: init.signal });
+    if (url.hostname === 'opentdb.com') {
+      return new Response(JSON.stringify({
+        response_code: 0,
+        results: [{
+          category: 'Science &amp; Nature',
+          difficulty: 'easy',
+          question: 'What does &quot;H2O&quot; represent?',
+          correct_answer: 'Water',
+          incorrect_answers: ['Oxygen', 'Salt', 'Carbon dioxide'],
+        }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (url.hostname === 'wordsohard.com') {
+      const word = url.pathname.split('/').pop();
+      return new Response(JSON.stringify({
+        word,
+        found: true,
+        definitions: [{ definition: 'A smoke-test definition for ' + word + '.' }],
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error('Unexpected Games API host: ' + url.hostname);
+  };
+
+  const liveTrivia = await getTriviaQuestions({ amount: 1, type: 'multiple' });
+  assert(liveTrivia.length === 1 && liveTrivia[0].source === 'Open Trivia DB', 'Trivia API success path did not return live-source data.');
+  assert(liveTrivia[0].category === 'Science & Nature' && liveTrivia[0].question.includes('"H2O"'), 'Trivia API HTML entities were not decoded.');
+  assert(gameApiRequests[0]?.url.pathname === '/api.php' && gameApiRequests[0]?.url.searchParams.get('amount') === '1', 'Open Trivia DB endpoint or parameters changed.');
+  assert(gameApiRequests[0]?.signal instanceof AbortSignal, 'Open Trivia DB request timeout signal is missing.');
+
+  const dictionary = await getWordDefinition('PLANET');
+  assert(dictionary?.found && dictionary.word === 'planet' && dictionary.source === 'WordSoHard', 'WordSoHard definition success path failed.');
+  const randomWord = await getRandomWordData();
+  assert(randomWord.source === 'WordSoHard' && randomWord.definition.startsWith('A smoke-test definition'), 'Random word game did not use a valid dictionary definition.');
+  assert(gameApiRequests.some((item) => item.url.pathname.startsWith('/api/v1/define/')), 'WordSoHard endpoint was not called.');
+} finally {
+  globalThis.fetch = nativeFetchForGamesApiSmoke;
+}
+
+try {
+  globalThis.fetch = async () => new Response('unavailable', { status: 503 });
+  const offlineTrivia = await getTriviaQuestions({ amount: 2, type: 'boolean' });
+  assert(offlineTrivia.length === 2 && offlineTrivia.every((item) => item.source === 'SkyVerse offline'), 'Trivia API failure must fall back to the offline question bank.');
+  const offlineWord = await getRandomWordData();
+  assert(offlineWord.source === 'SkyVerse offline bank' && Boolean(offlineWord.definition), 'WordSoHard failure must fall back to the offline word bank.');
+} finally {
+  globalThis.fetch = nativeFetchForGamesApiSmoke;
+}
 
 const originalDateNow = Date.now;
 let miniGameTestNow = originalDateNow();
