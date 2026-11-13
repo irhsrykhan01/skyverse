@@ -82,7 +82,7 @@ async function check(label, operation, validate, detail) {
   try {
     const output = await operation();
     if (!validate(output)) throw new Error(detail ?? 'format output tidak valid atau kosong');
-    passed += 1;\n    passed += 1;
+    passed += 1;
     console.log('[OK] ' + label + (Buffer.isBuffer(output) ? ' — ' + output.length + ' bytes' : ''));
     return output;
   } catch (error) {
