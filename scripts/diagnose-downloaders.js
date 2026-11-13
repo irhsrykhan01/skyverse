@@ -23,7 +23,7 @@ let failed = 0;
 let skipped = 0;
 
 function describeError(error) {
-  return String(error?.message ?? error).replace(/\\s+/g, ' ').slice(0, 300);
+  return String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 300);
 }
 
 function isVideoBuffer(buffer) {
@@ -75,7 +75,7 @@ async function validateTikTokResponse(response) {
   }
 
   const images = Array.isArray(result.images) && result.images.length
-    ? result.images.filter((value) => typeof value === 'string' && /^https?:\\/\\//i.test(value))
+    ? result.images.filter((value) => typeof value === 'string' && /^https?:\/\//i.test(value))
     : findDownloaderUrls(response, { kind: 'image' });
   if (images.length) {
     await probeMediaUrl(images[0], 'image');
