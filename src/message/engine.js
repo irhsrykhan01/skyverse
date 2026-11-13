@@ -6,7 +6,7 @@ import { createAntideleteService } from '../services/antidelete.js';
 import { getMessageText } from './parser.js';
 import { isBombReply, guessBomb, updateBombMessage } from '../games/bomb.js';
 import { isTicTacToeReply, playTicTacToe, updateTicTacToeMessage } from '../games/tictactoe.js';
-import { isMiniGameReply, answerMiniGame, updateMiniGameMessage } from '../games/mini-games.js';
+import { isMiniGameReply, answerMiniGame, updateMiniGameMessage, pruneMiniGameSessions } from '../games/mini-games.js';
 
 const STATUS_JIDS = new Set(['status@broadcast']);
 const PERMISSION_ORDER = Object.freeze({ user: 0, admin: 1, owner: 2 });
@@ -66,6 +66,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       while (messages.size > MAX_GROUP_CACHED_MESSAGES) messages.delete(messages.keys().next().value);
       if (!messages.size) groupMessages.delete(groupJid);
     }
+    pruneMiniGameSessions(now);
   }
   function rememberNewsletterMessage(message) {
     const chatId = message.key?.remoteJid;
