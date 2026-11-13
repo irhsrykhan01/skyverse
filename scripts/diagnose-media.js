@@ -7,7 +7,9 @@ import * as media from '../src/services/media/index.js';
 const root = process.cwd();
 const imagePath = join(root, 'assets', 'SkyLabs_banner.jpg');
 const tempDir = await mkdtemp(join(tmpdir(), 'skyverse-media-diagnostic-'));
-const failures = [];\nlet passed = 0;\nlet skipped = 0;
+const failures = [];
+let passed = 0;
+let skipped = 0;
 
 function run(command, args, timeout = 60_000) {
   return new Promise((resolve, reject) => {
@@ -80,10 +82,11 @@ async function check(label, operation, validate, detail) {
   try {
     const output = await operation();
     if (!validate(output)) throw new Error(detail ?? 'format output tidak valid atau kosong');
-    passed += 1;\n    console.log('[OK] ' + label + (Buffer.isBuffer(output) ? ' — ' + output.length + ' bytes' : ''));
+    passed += 1;\n    passed += 1;
+    console.log('[OK] ' + label + (Buffer.isBuffer(output) ? ' — ' + output.length + ' bytes' : ''));
     return output;
   } catch (error) {
-    failures.push(label + ': ' + String(error?.message ?? error).replace(/\\s+/g, ' ').slice(0, 300));
+    failures.push(label + ': ' + String(error?.message ?? error).replace(/\s+/g, ' ').slice(0, 300));
     console.log('[FAIL] ' + label + ' — ' + failures.at(-1).slice(label.length + 2));
     return null;
   }
@@ -115,6 +118,9 @@ try {
   const sticker = await check('toSticker (gambar → WebP)', () => media.toSticker(image), isWebp, 'hasil bukan WebP RIFF yang valid');
   if (sticker) {
     await check('toImage (WebP → JPEG)', () => media.toImage(sticker), isJpeg, 'hasil bukan JPEG yang valid');
+  } else {
+    skipped += 1;
+    console.log('[SKIP] toImage (WebP → JPEG) — sticker input tidak tersedia');
   }
 
   const animated = await check(
@@ -145,8 +151,8 @@ try {
     );
     await check('toImage (WebP animasi → frame JPEG)', () => media.toImage(animatedSticker), isJpeg, 'hasil bukan JPEG yang valid');
   } else {
-    failures.push('toVideo: dilewati karena WebP animasi gagal dibuat');
-    console.log('[SKIP] toVideo — WebP animasi tidak tersedia');
+    skipped += 2;
+    console.log('[SKIP] toVideo dan toImage animasi — WebP animasi tidak tersedia');
   }
 } catch (error) {
   failures.push('Persiapan fixture: ' + String(error?.message ?? error).replace(/\\s+/g, ' ').slice(0, 300));
@@ -155,9 +161,10 @@ try {
   await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 }
 
+skipped += Math.max(0, 14 - passed - skipped - failures.length);
 console.log('');
 console.log('Media diagnostics: ' + passed + ' passed, ' + skipped + ' skipped, ' + failures.length + ' failed.');
 if (failures.length) {
-  console.error(failures.map((item) => '- ' + item).join('\\n'));
+  console.error(failures.map((item) => '- ' + item).join('\n'));
   process.exitCode = 1;
 }
