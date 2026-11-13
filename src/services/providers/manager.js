@@ -9,6 +9,7 @@ import { createYtDlpProvider } from './ytdlp.js';
 import { createVredenProvider } from './vreden.js';
 import { createZenzxzProvider } from './zenzxz.js';
 import { createSairiHostMakerProvider } from './sairihost-makers.js';
+import { createSairiHostDownloaderProvider } from './sairihost-downloaders.js';
 import { createBerakNewMakerProvider } from './beraknew-makers.js';
 
 function describeError(error) {
@@ -77,6 +78,7 @@ export function createProviderManager(config) {
   const deline = createDelineProvider({ baseUrl: config.delineBaseUrl, apiKey: config.delineApiKey });
   const zenzxz = createZenzxzProvider({ baseUrl: config.zenzxzBaseUrl });
   const sairiHostMakers = createSairiHostMakerProvider({ baseUrl: config.sairiHostBaseUrl, apiKey: config.sairiHostApiKey });
+  const sairiHostDownloader = createSairiHostDownloaderProvider({ baseUrl: config.sairiHostBaseUrl, apiKey: config.sairiHostApiKey });
   const berakNewMakers = createBerakNewMakerProvider({ baseUrl: config.berakNewBaseUrl, apiKey: config.berakNewApiKey });
   const vreden = createVredenProvider({ baseUrl: config.vredenBaseUrl });
   const siputzx = createSiputzxProvider({ baseUrl: config.siputzxBaseUrl });
@@ -95,6 +97,7 @@ export function createProviderManager(config) {
 
   const downloader = Object.freeze({
     tiktok: async (url) => normalizeTikTokResponse(await tikwm.tiktok(url), 'TikWM'),
+    sairiHostTikTok: async (url) => normalizeTikTokResponse(await sairiHostDownloader.tiktok(url), 'SairiHost'),
     instagram: (url) => ytdlp.instagram(url),
     youtube: (url) => ytdlp.youtube(url),
     youtubeMp3: (url) => ytdlp.youtube(url),
@@ -120,6 +123,7 @@ export function createProviderManager(config) {
     reelsvideo,
     makers,
     sairiHostMakers,
+    sairiHostDownloader,
     berakNewMakers,
     downloader,
     removebg,
