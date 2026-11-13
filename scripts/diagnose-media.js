@@ -7,7 +7,7 @@ import * as media from '../src/services/media/index.js';
 const root = process.cwd();
 const imagePath = join(root, 'assets', 'SkyLabs_banner.jpg');
 const tempDir = await mkdtemp(join(tmpdir(), 'skyverse-media-diagnostic-'));
-const failures = [];
+const failures = [];\nlet passed = 0;\nlet skipped = 0;
 
 function run(command, args, timeout = 60_000) {
   return new Promise((resolve, reject) => {
@@ -156,7 +156,7 @@ try {
 }
 
 console.log('');
-console.log('Media diagnostics: ' + (14 - failures.length) + ' checks passed, ' + failures.length + ' failed.');
+console.log('Media diagnostics: ' + passed + ' passed, ' + skipped + ' skipped, ' + failures.length + ' failed.');
 if (failures.length) {
   console.error(failures.map((item) => '- ' + item).join('\\n'));
   process.exitCode = 1;
