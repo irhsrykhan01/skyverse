@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -137,9 +137,11 @@ async function animatedWebpToFirstFrame(buffer) {
   }
 }
 
-async function framesToAnimatedWebp(frames) {
+async function framesToAnimatedWebp(frames, { frameDuration = 0.4, lastFrameDuration = 3 } = {}) {
   if (!Array.isArray(frames) || frames.length < 2) throw new Error('Minimal 2 frame diperlukan untuk BratVid.');
   if (frames.length > MAX_ANIMATED_FRAMES) throw new Error(`Frame animasi terlalu banyak (maksimal ${MAX_ANIMATED_FRAMES}).`);
+  const frameDelay = Math.max(0.04, Math.min(3, Number(frameDuration) || 0.4));
+  const finalFrameDelay = Math.max(0.04, Math.min(3, Number(lastFrameDuration) || 3));
 
   const dir = await mkdtemp(join(tmpdir(), 'skyverse-bratvid-'));
   try {
@@ -166,8 +168,8 @@ async function framesToAnimatedWebp(frames) {
 
     const escapeConcatPath = (value) => value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const lastFrame = framePaths[framePaths.length - 1];
-    const concatEntries = framePaths.map((framePath) => `file '${escapeConcatPath(framePath)}'\nduration 0.4`);
-    concatEntries.push(`file '${escapeConcatPath(lastFrame)}'\nduration 3`);
+    const concatEntries = framePaths.map((framePath) => `file '${escapeConcatPath(framePath)}'\nduration ${frameDelay}`);
+    concatEntries.push(`file '${escapeConcatPath(lastFrame)}'\nduration ${finalFrameDelay}`);
     const concatPath = join(dir, 'frames.txt');
     await writeFile(concatPath, `${concatEntries.join('\n')}\n`);
 
@@ -337,9 +339,52 @@ export function toSticker(buffer) {
   if (isWebp(buffer)) return throwOversize(buffer, isAnimatedWebp(buffer) ? MAX_ANIMATED_STICKER_BYTES : MAX_STATIC_STICKER_BYTES, isAnimatedWebp(buffer) ? 'Sticker animasi' : 'Sticker');
   return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', `${scaleFilter()},format=rgba`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker'));
 }
-export function toAnimatedSticker(buffer) {
+export async function toAnimatedSticker(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length < 16) throw new Error('Input sticker animasi kosong atau tidak valid.');
   if (isAnimatedWebp(buffer)) return throwOversize(buffer, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
-  return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()},format=rgba`, '-vsync', '0', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-pix_fmt', 'yuva420p', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi'));
+
+  const dir = await mkdtemp(join(tmpdir(), 'skyverse-video-sticker-'));
+  try {
+    const inputPath = join(dir, 'input.bin');
+    const framePattern = join(dir, 'video-frame-%04d.png');
+    await writeFile(inputPath, buffer);
+    await runProcess('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+      '-i', inputPath,
+      '-t', '6',
+      '-vf', 'fps=8,' + scaleFilter() + ',format=rgba',
+      '-frames:v', String(MAX_ANIMATED_FRAMES),
+      '-vsync', '0',
+      '-c:v', 'png', '-f', 'image2', framePattern,
+    ]);
+
+    const frameNames = (await readdir(dir))
+      .filter((name) => /^video-frame-\d{4}\.png$/.test(name))
+      .sort();
+    if (frameNames.length < 2) throw new Error('Video terlalu singkat atau tidak memiliki frame untuk sticker animasi.');
+
+    const frames = [];
+    for (const name of frameNames.slice(0, MAX_ANIMATED_FRAMES)) {
+      const frame = await readFile(join(dir, name));
+      if (frame.length < 16 || !frame.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+        throw new Error('Frame video hasil ekstraksi tidak valid.');
+      }
+      frames.push(frame);
+    }
+
+    const output = await framesToAnimatedWebp(frames, {
+      frameDuration: 0.125,
+      lastFrameDuration: 0.125,
+    });
+    const validationPath = join(dir, 'validated.webp');
+    await writeFile(validationPath, output);
+    await runProcess('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-nostdin',
+      '-i', validationPath, '-f', 'null', '-',
+    ]);
+    return output;
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 export { framesToAnimatedWebp as toAnimatedStickerFromFrames };
