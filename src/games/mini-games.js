@@ -28,6 +28,20 @@ function getSession(chatId) {
   return sessions.get(String(chatId));
 }
 
+export function pruneMiniGameSessions(now = Date.now()) {
+  const timestamp = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+  let removed = 0;
+
+  for (const [chatId, session] of sessions) {
+    if (!session || !Number.isFinite(session.expiresAt) || session.expiresAt <= timestamp) {
+      sessions.delete(chatId);
+      removed += 1;
+    }
+  }
+
+  return removed;
+}
+
 function playerState(session, userId, defaults = {}) {
   const key = String(userId);
   if (!session.players.has(key)) session.players.set(key, { ...defaults, finished: false });
@@ -72,6 +86,7 @@ function formatQuickQuizPrompt(session, player) {
 }
 
 export function startMiniGame({ userId, chatId, gameMessageId, type, answer = null, state = {}, expiresIn = DEFAULT_TTL }) {
+  pruneMiniGameSessions();
   if (!userId || !chatId || !gameMessageId || !type) return null;
   const ttl = Math.max(30_000, Number(expiresIn) || DEFAULT_TTL);
   const session = {
@@ -92,13 +107,8 @@ export function startMiniGame({ userId, chatId, gameMessageId, type, answer = nu
 }
 
 export function getMiniGame(_userId, chatId) {
-  const session = getSession(chatId);
-  if (!session) return null;
-  if (session.expiresAt <= Date.now()) {
-    sessions.delete(String(chatId));
-    return null;
-  }
-  return session;
+  pruneMiniGameSessions();
+  return getSession(chatId) ?? null;
 }
 
 export function isMiniGameReply(userId, { chatId, stanzaId } = {}) {
