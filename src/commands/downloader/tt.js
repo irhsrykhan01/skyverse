@@ -1,4 +1,4 @@
-import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
+import { normalizeTikTokUrl } from '../../services/providers/tiktok-url.js';
 
 export const command = {
   name: 'tiktok',
@@ -8,9 +8,11 @@ export const command = {
   usage: 'tiktok <url>',
   permission: 'user',
   minArgs: 1,
+  maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.tiktok(ctx.parsed.args[0]);
-    await replyWithDownloaderMedia(ctx, response, { kind: 'video' });
+    const url = normalizeTikTokUrl(ctx.parsed.args[0]);
+    const result = await ctx.providers.downloader.tiktokMedia(url, { kind: 'video' });
+    await ctx.media.send(result.buffer, 'video', { mimetype: 'video/mp4' });
   },
 };
