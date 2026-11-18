@@ -1,6 +1,7 @@
 import { createDepayProvider } from './depay.js';
 import { createKeyraDownloaderProvider } from './keyra-downloaders.js';
 import { createTikTokWorkerProvider } from './tiktok-worker.js';
+import { createDrummerDuckProvider } from './drummerduck.js';
 import { downloadWithProviderFallback, findDownloaderUrl } from './downloader-response.js';
 import { createMakerProvider } from './makers.js';
 import { createRemoveBgProvider } from './removebg.js';
@@ -42,15 +43,17 @@ export function createProviderManager(config) {
     baseUrl: config.keyraBaseUrl,
   });
   const tiktokWorker = createTikTokWorkerProvider();
+  const drummerDuck = createDrummerDuckProvider();
   const makers = createMakerProvider({
     bratBaseUrl: config.bratBaseUrl,
     nexrayBaseUrl: config.nexrayBaseUrl,
   });
 
+  // Depay is intentionally excluded from TikTok: it was returning repeated HTTP 502 errors.
   const tiktokChain = [
-    { name: 'Keyra', execute: (url) => keyraDownloader.tiktok(url) },
+    { name: 'DrummerDuck', execute: (url) => drummerDuck.tiktok(url) },
     { name: 'TikTok Worker', execute: (url) => tiktokWorker.tiktok(url) },
-    { name: 'Depay', execute: (url) => depay.tiktok(url) },
+    { name: 'Keyra', execute: (url) => keyraDownloader.tiktok(url) },
   ];
 
   const downloader = Object.freeze({
