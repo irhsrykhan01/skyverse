@@ -72,14 +72,14 @@ assert(drummerDuckRequestUrl.searchParams.get('quality') === '1080p', 'DrummerDu
 assert(drummerDuckResult.provider === 'DrummerDuck', 'DrummerDuck provider result was not identified.');
 assert(drummerDuckResult.buffer.equals(mp4), 'DrummerDuck media stream was not returned as a validated buffer.');
 
-const audioFallbackResult = await downloadWithProviderFallback([
+const audioSourceResult = await downloadWithProviderFallback([
   { name: 'DrummerDuck', execute: (url) => drummerDuck.tiktok(url) },
 ], shortUrl, { kind: 'audio', fallbackToVideo: true });
-assert(audioFallbackResult.mediaKind === 'video', 'TikTok MP3 flow did not fall back to video for MP3 conversion.');
+assert(audioSourceResult.buffer.equals(mp4), 'TikTok MP3 flow did not return a media source for MP3 conversion.');
 
 const fallbackResult = await downloadWithProviderFallback([
   {
-    name: 'Keyra',
+    name: 'Primary provider',
     execute: async () => { throw Object.assign(new Error('HTTP 403'), { status: 403 }); },
   },
   {
@@ -94,8 +94,8 @@ assert(fallbackResult.provider === 'TikTok Worker', 'Fallback did not advance af
 assert(fallbackResult.buffer.equals(mp4), 'Fallback did not return the validated media buffer.');
 
 const mediaFallbackResult = await downloadWithProviderFallback([
-  { name: 'Keyra', execute: async () => ({ download_url: 'https://cdn.example/broken.mp4' }) },
-  { name: 'Depay', execute: async () => ({ download_url: 'https://cdn.example/working.mp4' }) },
+  { name: 'Primary provider', execute: async () => ({ download_url: 'https://cdn.example/broken.mp4' }) },
+  { name: 'Fallback provider', execute: async () => ({ download_url: 'https://cdn.example/working.mp4' }) },
 ], shortUrl, {
   kind: 'video',
   downloadResponse: async (body) => {
@@ -103,17 +103,17 @@ const mediaFallbackResult = await downloadWithProviderFallback([
     return mp4;
   },
 });
-assert(mediaFallbackResult.provider === 'Depay', 'Fallback did not advance after the media CDN failed.');
+assert(mediaFallbackResult.provider === 'Fallback provider', 'Fallback did not advance after the media CDN failed.');
 
 let aggregatedError = '';
 try {
   await downloadWithProviderFallback([
-    { name: 'Keyra', execute: async () => { throw new Error('HTTP 403'); } },
-    { name: 'Depay', execute: async () => { throw new Error('HTTP 502'); } },
+    { name: 'Primary provider', execute: async () => { throw new Error('HTTP 403'); } },
+    { name: 'Fallback provider', execute: async () => { throw new Error('HTTP 502'); } },
   ], shortUrl, { kind: 'video', downloadResponse: async () => mp4 });
 } catch (error) {
   aggregatedError = error.message;
 }
-assert(aggregatedError.includes('Keyra') && aggregatedError.includes('Depay'), 'Provider failure details were not preserved.');
+assert(aggregatedError.includes('Primary provider') && aggregatedError.includes('Fallback provider'), 'Provider failure details were not preserved.');
 
-console.log('SkyVerse downloader tests passed: TikTok URL validation, media URL ranking, MP4 signatures, DrummerDuck stream, MP3 conversion fallback, provider fallback, CDN fallback, and aggregated errors.');
+console.log('SkyVerse downloader tests passed: TikTok URL validation, media URL ranking, MP4 signatures, DrummerDuck stream, MP3 source handling, provider fallback, CDN fallback, and aggregated errors.');
