@@ -6,6 +6,7 @@ import {
   isLikelyMediaBuffer,
 } from '../services/providers/downloader-response.js';
 import { normalizeTikTokUrl } from '../services/providers/tiktok-url.js';
+import { createDrummerDuckProvider } from '../services/providers/drummerduck.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -50,6 +51,32 @@ assert(isLikelyMediaBuffer(mp3, 'audio'), 'MP3 signature was rejected.');
 assert(!isLikelyMediaBuffer(Buffer.from('<html>not media bytes</html>'), 'video'), 'HTML was accepted as video media.');
 assert((await downloadMediaFromResponse({ media: mp4 }, { kind: 'video' })).equals(mp4), 'Direct provider media buffer was not handled.');
 
+// DrummerDuck's file-stream response is validated before it enters the WhatsApp media pipeline.
+let drummerDuckRequestUrl = null;
+const drummerDuck = createDrummerDuckProvider({
+  baseUrl: 'https://api.example.test',
+  fetchImpl: async (input) => {
+    drummerDuckRequestUrl = new URL(input);
+    return new Response(mp4, {
+      status: 200,
+      headers: { 'content-type': 'video/mp4', 'content-length': String(mp4.length) },
+    });
+  },
+});
+const drummerDuckResult = await downloadWithProviderFallback([
+  { name: 'DrummerDuck', execute: (url) => drummerDuck.tiktok(url) },
+], shortUrl, { kind: 'video' });
+assert(drummerDuckRequestUrl?.pathname === '/api/download', 'DrummerDuck download endpoint was not used.');
+assert(drummerDuckRequestUrl.searchParams.get('url') === shortUrl, 'DrummerDuck did not receive the normalized TikTok URL.');
+assert(drummerDuckRequestUrl.searchParams.get('quality') === '1080p', 'DrummerDuck quality preference was not set.');
+assert(drummerDuckResult.provider === 'DrummerDuck', 'DrummerDuck provider result was not identified.');
+assert(drummerDuckResult.buffer.equals(mp4), 'DrummerDuck media stream was not returned as a validated buffer.');
+
+const audioFallbackResult = await downloadWithProviderFallback([
+  { name: 'DrummerDuck', execute: (url) => drummerDuck.tiktok(url) },
+], shortUrl, { kind: 'audio', fallbackToVideo: true });
+assert(audioFallbackResult.mediaKind === 'video', 'TikTok MP3 flow did not fall back to video for MP3 conversion.');
+
 const fallbackResult = await downloadWithProviderFallback([
   {
     name: 'Keyra',
@@ -89,4 +116,4 @@ try {
 }
 assert(aggregatedError.includes('Keyra') && aggregatedError.includes('Depay'), 'Provider failure details were not preserved.');
 
-console.log('SkyVerse downloader tests passed: TikTok URL validation, media URL ranking, media signatures, provider fallback, CDN fallback, and aggregated errors.');
+console.log('SkyVerse downloader tests passed: TikTok URL validation, media URL ranking, MP4 signatures, DrummerDuck stream, MP3 conversion fallback, provider fallback, CDN fallback, and aggregated errors.');
