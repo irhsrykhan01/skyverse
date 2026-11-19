@@ -1,19 +1,31 @@
-name: SkyVerse Syntax Check
+name: SkyVerse Integration Checks
 
 on:
   push:
-    branches: [main, fix/downloader-resilience]
+    branches:
+      - main
+      - maintenance/integration-audit-2026-11
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  syntax:
+  checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
       - name: Check JavaScript syntax
         run: npm run check
-      - name: Test downloader fallback
+      - name: Run command and integration smoke tests
+        run: npm run smoke
+      - name: Run downloader fallback tests
         run: npm run smoke-downloader
+      - name: Check Baileys newsletter compatibility
+        run: npm run check-newsletter
