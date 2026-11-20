@@ -13,6 +13,8 @@ import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { MENU_CATEGORY_DEFINITIONS } from '../core/menu-categories.js';
 import { createGroupService } from '../services/group.js';
+import { createCanvas } from 'canvas';
+import { spawnSync } from 'node:child_process';
 import { createMessageEngine } from '../message/engine.js';
 import { WAMessageStubType } from '@whiskeysockets/baileys';
 
@@ -63,6 +65,23 @@ assert(typeof media.toHd === 'function', 'Media toHd export is missing.');
 assert(typeof media.toSmeme === 'function', 'Media toSmeme export is missing.');
 assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark export is missing.');
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
+const ffmpegProbe = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+if (ffmpegProbe.status === 0) {
+  const frameOne = createCanvas(8, 8);
+  const frameTwo = createCanvas(8, 8);
+  frameOne.getContext('2d').fillRect(0, 0, 8, 8);
+  frameTwo.getContext('2d').fillStyle = '#fff';
+  frameTwo.getContext('2d').fillRect(0, 0, 8, 8);
+  const animatedSticker = await media.toAnimatedStickerFromFrames([
+    frameOne.toBuffer('image/png'),
+    frameTwo.toBuffer('image/png'),
+  ]);
+  assert(animatedSticker.subarray(0, 4).toString('ascii') === 'RIFF' && animatedSticker.subarray(8, 12).toString('ascii') === 'WEBP', 'BratVid output is not a WebP file.');
+  const frameMarkers = [...animatedSticker.toString('latin1').matchAll(/ANMF/g)];
+  assert(frameMarkers.length >= 2, 'BratVid output does not contain multiple animation frames.');
+} else {
+  console.log('Skipping live BratVid encoding smoke test: ffmpeg is unavailable in this runner.');
+}
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
 assert(MENU_CATEGORY_DEFINITIONS.some((item) => item.key === 'media' && item.label === 'Media'), 'Media menu category is missing.');
