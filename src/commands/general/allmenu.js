@@ -16,7 +16,7 @@ function buildAllMenu(ctx) {
 
   const userNumber = ctx.senderNumber
     ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
-    : `+${String(ctx.senderJid ?? '').split('@')[0].replace(/\D/g, '') || 'Unknown'}`;
+    : 'Tidak tersedia';
   const status = ctx.isOwner
     ? 'Owner'
     : ctx.user?.is_premium
