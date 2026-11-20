@@ -110,10 +110,14 @@ if (ffmpegProbe.status === 0) {
   frameOne.getContext('2d').fillRect(0, 0, 8, 8);
   frameTwo.getContext('2d').fillStyle = '#fff';
   frameTwo.getContext('2d').fillRect(0, 0, 8, 8);
+  const frameOneBuffer = frameOne.toBuffer('image/png');
+  const frameTwoBuffer = frameTwo.toBuffer('image/png');
   const animatedSticker = await media.toAnimatedStickerFromFrames([
-    frameOne.toBuffer('image/png'),
-    frameTwo.toBuffer('image/png'),
+    frameOneBuffer,
+    frameTwoBuffer,
   ]);
+  const memeOutput = await media.toSmeme(frameOneBuffer, { top: 'SKYVERSE', bottom: 'SMOKE TEST' });
+  assert(memeOutput[0] === 0xff && memeOutput[1] === 0xd8 && memeOutput[2] === 0xff, 'Smeme did not produce a valid JPEG image.');
   assert(animatedSticker.subarray(0, 4).toString('ascii') === 'RIFF' && animatedSticker.subarray(8, 12).toString('ascii') === 'WEBP', 'BratVid output is not a WebP file.');
   const frameMarkers = [...animatedSticker.toString('latin1').matchAll(/ANMF/g)];
   assert(frameMarkers.length >= 2, 'BratVid output does not contain multiple animation frames.');
