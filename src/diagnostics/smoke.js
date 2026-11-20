@@ -5,12 +5,14 @@ import * as media from '../services/media/index.js';
 import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
 import { startMathQuiz, getMathQuiz, answerMathQuiz, stopMathQuiz, formatMathQuestion } from '../games/mathquiz.js';
-import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe } from '../games/tictactoe.js';
+import { startTicTacToe, getTicTacToe, playTicTacToe, surrenderTicTacToe, parseTicTacToeInput } from '../games/tictactoe.js';
 import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { renderAllMenu } from '../platform/whatsapp/allmenu-canvas.js';
 import { economyDefaults, EconomyManager } from '../economy/manager.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
+import { MENU_CATEGORY_DEFINITIONS } from '../core/menu-categories.js';
+import { createGroupService } from '../services/group.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -61,6 +63,10 @@ assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
+assert(MENU_CATEGORY_DEFINITIONS.some((item) => item.key === 'media' && item.label === 'Media'), 'Media menu category is missing.');
+for (const name of ['toimg', 'tomp3', 'tomp4', 'tovideo', 'tovn', 'tonote']) {
+  assert(registry.resolve(name)?.category === 'media', `${name} must be in the Media category.`);
+}
 
 let fakeUser = { jid: 'smoke@lid', number: '628000000000', coins: economyDefaults.newUserCoins, is_premium: 0, premium_until: null, last_claim_at: 0 };
 const fakeRepositories = {
@@ -101,6 +107,9 @@ const p1 = '111111111111111@s.whatsapp.net';
 const p2 = '222222222222222@s.whatsapp.net';
 const ttt = startTicTacToe('smoke-ttt', { player1: p1, player2: p2, gameMessageId: 'TTT-MSG' });
 assert(ttt?.turn === p1 && ttt.board.length === 9, 'Tic-Tac-Toe session contract failed.');
+assert(parseTicTacToeInput('tictactoe:5')?.position === '5', 'Tic-Tac-Toe button parser regression.');
+assert(parseTicTacToeInput('5')?.source === 'reply', 'Tic-Tac-Toe reply parser regression.');
+assert(parseTicTacToeInput('five') === null, 'Tic-Tac-Toe accepted invalid input.');
 assert(playTicTacToe('smoke-ttt', p1, 1).ok, 'Tic-Tac-Toe first move contract failed.');
 assert(playTicTacToe('smoke-ttt', p1, 2).reason === 'not_your_turn', 'Tic-Tac-Toe turn contract failed.');
 assert(playTicTacToe('smoke-ttt', p2, 5).ok, 'Tic-Tac-Toe second move contract failed.');
@@ -111,6 +120,17 @@ assert(registry.resolve('daily')?.name === 'claim', 'Daily economy alias regress
 assert(registry.resolve('kerja')?.name === 'work', 'Work economy alias regression.');
 assert(surrenderTicTacToe('smoke-ttt', p1).result === 'surrender', 'Tic-Tac-Toe surrender contract failed.');
 assert(getTicTacToe('smoke-ttt') === null, 'Tic-Tac-Toe cleanup contract failed.');
+
+let tagAllPayload = null;
+const groupService = createGroupService();
+await groupService.tagAll({
+  isGroup: true,
+  chatId: '120000000000000@g.us',
+  getGroupMetadata: async () => ({ participants: [{ id: '111111111111111@s.whatsapp.net' }, { id: '222222222222222@lid' }] }),
+  socket: { sendMessage: async (_jid, payload) => { tagAllPayload = payload; } },
+}, 'Halo anggota!');
+assert(tagAllPayload?.mentions?.length === 2, 'Tagall mention metadata contract failed.');
+assert(tagAllPayload?.text?.includes('@111111111111111') && tagAllPayload.text.includes('@222222222222222'), 'Tagall visible mentions contract failed.');
 
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
