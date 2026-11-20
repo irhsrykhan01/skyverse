@@ -18,6 +18,10 @@ import { createCanvas } from 'canvas';
 import { spawnSync } from 'node:child_process';
 import { createMessageEngine } from '../message/engine.js';
 import { WAMessageStubType } from '@whiskeysockets/baileys';
+import { createDatabase } from '../database/database.js';
+import { mkdtemp, readFile, rm, readdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -427,5 +431,39 @@ const ptvDescriptor = resolveMediaTarget(syntheticPtv);
 assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not classified as video.');
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
+
+const databaseSmokeDir = await mkdtemp(join(tmpdir(), 'skyverse-database-smoke-'));
+try {
+  const databasePath = join(databaseSmokeDir, 'data', 'skyverse.sqlite');
+  const silentLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
+  const firstDatabase = await createDatabase(databasePath, silentLogger);
+  firstDatabase.exec(
+    'INSERT INTO users (jid, created_at, updated_at, coins) VALUES (?, ?, ?, ?)',
+    ['smoke-user@s.whatsapp.net', 1, 1, 250],
+  );
+  firstDatabase.exec(
+    'INSERT INTO settings (scope, scope_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)',
+    ['user', 'smoke-user@s.whatsapp.net', 'user.feature-limits', JSON.stringify({ day: '2026-11-20', features: { tiktok: 3 } }), 1],
+  );
+  await firstDatabase.persist();
+  const savedSnapshot = await readFile(databasePath);
+  assert(savedSnapshot.subarray(0, 16).toString('ascii').startsWith('SQLite format 3'), 'Database snapshot is not a SQLite file.');
+  await firstDatabase.close();
+
+  const reopenedDatabase = await createDatabase(databasePath, silentLogger);
+  const savedUser = reopenedDatabase.get('SELECT coins FROM users WHERE jid = ?', ['smoke-user@s.whatsapp.net']);
+  const savedLimit = reopenedDatabase.get(
+    'SELECT value FROM settings WHERE scope = ? AND scope_id = ? AND key = ?',
+    ['user', 'smoke-user@s.whatsapp.net', 'user.feature-limits'],
+  );
+  assert(savedUser?.coins === 250, 'SQLite wallet data did not persist after reopen.');
+  assert(JSON.parse(savedLimit?.value ?? '{}')?.features?.tiktok === 3, 'SQLite feature-limit data did not persist after reopen.');
+  await reopenedDatabase.close();
+
+  const remainingFiles = await readdir(join(databaseSmokeDir, 'data'));
+  assert(remainingFiles.length === 1 && remainingFiles[0] === 'skyverse.sqlite', 'Atomic SQLite persistence left temporary files behind.');
+} finally {
+  await rm(databaseSmokeDir, { recursive: true, force: true });
+}
 
 console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + downloader aliases + economy + games + Canvas Rich + PTV resolver tests.`);
