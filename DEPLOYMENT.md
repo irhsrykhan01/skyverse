@@ -54,9 +54,10 @@ Mount persistent volumes for these paths if the panel supports them. Losing the 
 Install system packages in the Node image/container, not from the project's npm dependencies:
 
 - `ffmpeg`
-- WebP utilities that include `webpmux`
+- WebP utilities that include `cwebp`, `webpmux`, and `dwebp`
+- `fonts-dejavu-core` (DejaVu Sans Bold font for Smeme)
 
-The FFmpeg build must include `drawtext`, `libwebp`, `libx264`, `libmp3lame`, and `libopus`. Validate from the panel console:
+The FFmpeg build must include `drawtext`, `libwebp`, `libx264`, `libmp3lame`, and `libopus`. The DejaVu Sans Bold font must be available at `/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf`. Validate from the panel console:
 
 ```sh
 npm run check-media-tools
