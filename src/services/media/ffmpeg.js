@@ -24,6 +24,13 @@ function runProcess(command, args) {
   });
 }
 
+function imageFrameExtension(buffer) {
+  if (isWebp(buffer)) return 'webp';
+  if (Buffer.isBuffer(buffer) && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (Buffer.isBuffer(buffer) && buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg';
+  return null;
+}
+
 function isWebp(buffer) {
   return Buffer.isBuffer(buffer) && buffer.length >= 20 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP' && buffer.readUInt32LE(4) + 8 === buffer.length;
 }
@@ -129,24 +136,30 @@ async function framesToAnimatedWebp(frames) {
 
   const dir = await mkdtemp(join(tmpdir(), 'skyverse-bratvid-'));
   try {
+    const extension = imageFrameExtension(frames[0]);
+    if (!extension) throw new Error('Frame BratVid harus berupa gambar PNG, JPEG, atau WebP.');
     for (let index = 0; index < frames.length; index += 1) {
       const frame = frames[index];
-      if (!Buffer.isBuffer(frame) || frame.length < 16) throw new Error(`Frame ${index + 1} tidak valid.`);
-      await writeFile(join(dir, `frame-${String(index + 1).padStart(4, '0')}.webp`), frame);
+      if (!Buffer.isBuffer(frame) || frame.length < 16 || imageFrameExtension(frame) !== extension) {
+        throw new Error(`Frame ${index + 1} tidak valid atau format gambarnya berbeda dari frame pertama.`);
+      }
+      await writeFile(join(dir, `frame-${String(index + 1).padStart(4, '0')}.${extension}`), frame);
     }
 
     const outputPath = join(dir, 'bratvid.webp');
     await runProcess('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
       '-framerate', '3',
-      '-i', join(dir, 'frame-%04d.webp'),
+      '-i', join(dir, `frame-%04d.${extension}`),
       '-vf', `${scaleFilter()},format=rgba`,
       '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
       '-compression_level', '6', '-loop', '0', '-an', '-f', 'webp', outputPath,
     ]);
 
     const output = await readFile(outputPath);
-    if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan BratVid yang valid.');
+    if (output.length < 16 || !isAnimatedWebp(output) || countAnimatedFrames(output) < 2) {
+      throw new Error('FFmpeg tidak menghasilkan WebP animasi dengan minimal dua frame yang valid.');
+    }
     await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
     return throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
   } finally {
