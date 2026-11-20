@@ -162,9 +162,9 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       }
       const status = result.result === '❌' ? '🎉 Kamu menang!' : result.result === '⭕' ? '🤖 SkyVerse menang!' : result.result === 'draw' ? '🤝 Seri!' : 'Giliran kamu: ❌';
       if (result.result) {
-        await socket.sendMessage(chatId, { text: ['🎮 *TIC-TAC-TOE*', '', result.board, '', status].join('\\n') }, { quoted: message });
+        await socket.sendMessage(chatId, { text: ['🎮 *TIC-TAC-TOE*', '', result.board, '', status].join('\n') }, { quoted: message });
       } else {
-        const sent = await socket.sendMessage(chatId, { text: ['🎮 *TIC-TAC-TOE*', '', result.board, '', status, '', 'Pilih kotak lagi: reply pesan ini dengan angka 1-9.'].join('\\n') }, { quoted: message });
+        const sent = await socket.sendMessage(chatId, { text: ['🎮 *TIC-TAC-TOE*', '', result.board, '', status, '', 'Pilih kotak lagi: reply pesan ini dengan angka 1-9.'].join('\n') }, { quoted: message });
         updateTicTacToeMessage(senderJid, sent?.key?.id ?? null);
       }
       return;
