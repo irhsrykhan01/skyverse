@@ -42,7 +42,7 @@ try {
     throw new Error(`Komponen media tidak lengkap: ${missing.join(', ')}.`);
   }
 
-  console.log(version.split(/\\r?\\n/).find(Boolean) || 'FFmpeg tersedia.');
+  console.log(version.split(/\r?\n/).find(Boolean) || 'FFmpeg tersedia.');
   console.log('Media runtime siap: drawtext, font DejaVuSans-Bold, libwebp, libx264, libmp3lame, libopus, cwebp, webpmux, dan dwebp.');
 } catch (error) {
   console.error(`Media runtime check gagal: ${error.message}`);
