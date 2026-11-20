@@ -2,16 +2,6 @@ import { formatCoins } from '../../economy/config.js';
 
 const TIME_ZONE = 'Asia/Jakarta';
 
-function formatResetTime(timestamp) {
-  return new Intl.DateTimeFormat('id-ID', {
-    timeZone: TIME_ZONE,
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: 'short',
-  }).format(new Date(timestamp));
-}
-
 export const command = {
   name: 'limit',
   description: 'Melihat sisa limit harian setiap fitur.',
