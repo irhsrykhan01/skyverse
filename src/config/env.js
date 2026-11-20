@@ -21,6 +21,9 @@ export function loadConfig(env = process.env) {
     bratBaseUrl: clean(env.BRAT_BASE_URL) ?? defaults.bratBaseUrl,
     nexrayBaseUrl: clean(env.NEXRAY_BASE_URL) ?? defaults.nexrayBaseUrl,
     removeBgBaseUrl: clean(env.REMOVE_BG_BASE_URL) ?? defaults.removeBgBaseUrl,
+    featureLimitDefault: Number.isInteger(Number(env.FEATURE_LIMIT_DEFAULT)) && Number(env.FEATURE_LIMIT_DEFAULT) > 0
+      ? Math.min(1000, Number(env.FEATURE_LIMIT_DEFAULT))
+      : defaults.featureLimitDefault,
     whatsappLogLevel: clean(env.WHATSAPP_LOG_LEVEL) ?? defaults.whatsappLogLevel,
     autoRead: toBoolean(env.AUTO_READ, defaults.autoRead),
     autoOnline: toBoolean(env.AUTO_ONLINE, defaults.autoOnline),
