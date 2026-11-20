@@ -1,4 +1,5 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import initSqlJs from 'sql.js';
@@ -95,8 +96,15 @@ export async function createDatabase(databasePath, logger) {
     const exported = Buffer.from(database.export());
 
     flushPromise = (async () => {
-      await writeFile(databasePath, exported);
-      if (dirtyVersion === writeVersion) dirty = false;
+      const temporaryPath = `${databasePath}.${process.pid}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporaryPath, exported);
+        await rename(temporaryPath, databasePath);
+        if (dirtyVersion === writeVersion) dirty = false;
+      } catch (error) {
+        await rm(temporaryPath, { force: true }).catch(() => {});
+        throw error;
+      }
     })().finally(() => { flushPromise = null; });
 
     return flushPromise;
