@@ -13,6 +13,7 @@ import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { MENU_CATEGORY_DEFINITIONS } from '../core/menu-categories.js';
 import { createGroupService } from '../services/group.js';
+import { createFeatureLimitService } from '../services/feature-limits.js';
 import { createCanvas } from 'canvas';
 import { spawnSync } from 'node:child_process';
 import { createMessageEngine } from '../message/engine.js';
@@ -28,7 +29,7 @@ const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'allmenu', 'balance', 'claim', 'work', 'mathquiz', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'allmenu', 'coin', 'limit', 'claim', 'work', 'mathquiz', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) {
   assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`);
   assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`);
@@ -38,6 +39,43 @@ for (const command of visibleCommands) {
   assert(['owner', 'admin', 'premium', 'npc'].includes(command.access), `Invalid access group: ${command.name}`);
   assert(Number.isInteger(command.cost) && command.cost >= 0, `Invalid coin cost: ${command.name}`);
 }
+assert(registry.resolve('balance')?.name === 'coin', 'Balance alias does not resolve to the canonical coin command.');
+assert(registry.resolve('coins')?.name === 'coin', 'Coins alias does not resolve to the canonical coin command.');
+assert(config.featureLimitDefault === 10, 'Default feature limit configuration regression.');
+assert(loadConfig({ FEATURE_LIMIT_DEFAULT: '4' }).featureLimitDefault === 4, 'Custom feature limit configuration regression.');
+assert(loadConfig({ FEATURE_LIMIT_DEFAULT: '-2' }).featureLimitDefault === 10, 'Invalid feature limit must fall back to a safe default.');
+
+const limitStore = new Map();
+const limitService = createFeatureLimitService({
+  settings: {
+    get: (scope, scopeId, key, fallback = null) => limitStore.get([scope, scopeId, key].join(':')) ?? fallback,
+    set: (scope, scopeId, key, value) => limitStore.set([scope, scopeId, key].join(':'), String(value)),
+  },
+}, { defaultLimit: 2 });
+const limitUser = 'limit-user@s.whatsapp.net';
+const limitedFeature = { name: 'tiktok', category: 'downloader' };
+const unlimitedFeature = { name: 'ping', category: 'general' };
+const quotaTime = Date.parse('2026-11-20T01:00:00.000Z');
+const firstQuota = limitService.consume(limitUser, limitedFeature, quotaTime);
+const secondQuota = limitService.consume(limitUser, limitedFeature, quotaTime);
+const exhaustedQuota = limitService.consume(limitUser, limitedFeature, quotaTime);
+assert(firstQuota.ok && firstQuota.remaining === 1, 'First feature-limit reservation failed.');
+assert(secondQuota.ok && secondQuota.remaining === 0, 'Second feature-limit reservation failed.');
+assert(!exhaustedQuota.ok && exhaustedQuota.used === 2, 'Feature limit did not block usage after quota exhaustion.');
+assert(limitService.snapshot(limitUser, [limitedFeature, unlimitedFeature], quotaTime).length === 1, 'Non-limited commands should not appear in feature-limit status.');
+assert(limitService.snapshot(limitUser, [limitedFeature], quotaTime)[0]?.used === 2, 'Feature limit usage was not persisted.');
+assert(limitService.refund(secondQuota.reservation), 'Failed command quota reservation could not be refunded.');
+assert(limitService.snapshot(limitUser, [limitedFeature], quotaTime)[0]?.remaining === 1, 'Feature-limit refund did not restore one use.');
+const nextDay = Date.parse('2026-11-21T01:00:00.000Z');
+assert(limitService.snapshot(limitUser, [limitedFeature], nextDay)[0]?.used === 0, 'Daily feature limits did not reset at Jakarta midnight.');
+
+let ownerLimitReply = '';
+await registry.resolve('limit').execute({
+  isOwner: true,
+  reply: async (text) => { ownerLimitReply = text; },
+});
+assert(ownerLimitReply.includes('Unlimited (Owner)'), 'Owner limit status is not unlimited.');
+
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
 assert(registry.resolve('bratvid')?.name === 'bratvid', 'Rebuilt bratvid command is not enabled.');
 assert(registry.resolve('fb')?.name === 'facebook', 'Facebook command alias regression.');
