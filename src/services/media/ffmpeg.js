@@ -154,7 +154,7 @@ async function framesToAnimatedWebp(frames) {
         '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
         '-i', inputPath,
         '-frames:v', '1',
-        '-vf', `${scaleFilter()},format=rgba`,
+        '-vf', 'scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=512:512:-1:-1:color=white,format=yuv420p',
         '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
         '-compression_level', '6', '-an', '-f', 'webp', framePath,
       ]);
@@ -175,7 +175,7 @@ async function framesToAnimatedWebp(frames) {
       frames: animationFrames,
       width: 512,
       height: 512,
-      bgColor: [0, 0, 0, 0],
+      bgColor: [255, 255, 255, 255],
       loops: 0,
       delay: 333,
       blend: true,
