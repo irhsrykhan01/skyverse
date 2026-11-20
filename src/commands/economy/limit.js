@@ -1,5 +1,3 @@
-import { formatCoins } from '../../economy/config.js';
-
 const TIME_ZONE = 'Asia/Jakarta';
 
 export const command = {
@@ -35,7 +33,7 @@ export const command = {
       '├────────────────',
       ...features.map((item) => `│ .${item.name}: ${item.used}/${item.limit} • sisa ${item.remaining}`),
       '╰────────────────',
-      `Default: ${formatCoins(ctx.config.featureLimitDefault)} pemakaian per fitur/hari.`,
+      `Default: ${new Intl.NumberFormat('id-ID').format(ctx.config.featureLimitDefault)} pemakaian per fitur/hari.`,
     ];
     await ctx.reply(lines.join('\n'));
   },
