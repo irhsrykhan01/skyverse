@@ -132,8 +132,12 @@ export function createGroupService() {
     const group = await metadata(ctx);
     const participants = (group?.participants ?? []).map((item) => item.id).filter(Boolean);
     if (!participants.length) throw new Error('Tidak ada anggota group yang bisa di-mention.');
-    const body = String(text).trim() || 'Tag all';
-    await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: [...new Set(participants)] });
+    const uniqueParticipants = [...new Set(participants)];
+    const mentionLine = uniqueParticipants
+      .map((jid) => `@${String(jid).split('@')[0].split(':')[0]}`)
+      .join(' ');
+    const body = [String(text).trim() || 'Tag all', mentionLine].join('\n');
+    await ctx.socket.sendMessage(ctx.chatId, { text: body, mentions: uniqueParticipants });
   }
 
   async function hideTag(context, text = '') {
