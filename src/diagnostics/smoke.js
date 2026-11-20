@@ -223,7 +223,7 @@ await messageEngine.handleMessage(mockSocket, {
   message: { extendedTextMessage: { text: '5', contextInfo: { stanzaId: 'ENGINE-TTT-BOARD' } } },
 });
 assert(getTicTacToe(engineTttChat)?.board[4] === 'X', 'Message engine failed to route a Tic-Tac-Toe numeric reply.');
-assert(getTicTacToe(engineTttChat)?.gameMessageId === 'ENGINE-OUT-7', 'Tic-Tac-Toe did not track its refreshed board message.');
+assert(getTicTacToe(engineTttChat)?.gameMessageId === `ENGINE-OUT-${outgoingId}`, 'Tic-Tac-Toe did not track its refreshed board message.');
 
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
