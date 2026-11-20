@@ -4,9 +4,9 @@ const playerGames = new Map();
 
 export function parseTicTacToeInput(value) {
   const text = String(value ?? '').trim();
-  const button = /^tictactoe:(\\d+)$/.exec(text);
+  const button = /^tictactoe:(\d+)$/.exec(text);
   if (button) return Object.freeze({ source: 'button', position: button[1] });
-  if (/^\\d+$/.test(text)) return Object.freeze({ source: 'reply', position: text });
+  if (/^\d+$/.test(text)) return Object.freeze({ source: 'reply', position: text });
   return null;
 }
 
