@@ -1,3 +1,4 @@
+import { normalizeMessageContent } from '@whiskeysockets/baileys';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
 import { createGroupService, createCapabilityEngine, calculate, createNewsletterService } from '../services/index.js';
@@ -25,7 +26,7 @@ function isGroupJid(jid) { return getChatType(jid) === 'group'; }
 function canQuoteMessage(chatType) { return chatType !== 'channel' && chatType !== 'broadcast'; }
 
 function getQuotedStanzaId(message) {
-  const normalized = message?.message ?? message;
+  const normalized = normalizeMessageContent(message?.message ?? message);
   const content = normalized?.extendedTextMessage ?? normalized?.imageMessage ?? normalized?.videoMessage
     ?? normalized?.ptvMessage ?? normalized?.audioMessage ?? normalized?.stickerMessage ?? normalized?.documentMessage;
   return content?.contextInfo?.stanzaId ?? null;
