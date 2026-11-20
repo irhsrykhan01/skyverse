@@ -43,7 +43,7 @@ function buildAllMenu(ctx) {
   }
 
   lines.push('', 'Support SkyVerse:', SUPPORT_URL);
-  return lines.join('\\n');
+  return lines.join('\n');
 }
 
 export const command = {
@@ -73,7 +73,6 @@ export const command = {
         jpegThumbnail = Buffer.from(highQualityThumbnail.jpegThumbnail);
       }
     } catch (error) {
-      // Keep the link preview usable with its local JPEG fallback if WA upload fails.
       console.warn('[SkyVerse] Link preview thumbnail upload failed:', error?.message ?? error);
     }
 
