@@ -76,7 +76,22 @@ async function withTempMedia(input, outputExtension, buildArgs) {
     await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...buildArgs(inputPath, outputPath)]);
     const output = await readFile(outputPath);
     if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan output yang valid.');
-    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
+    const muxInfo = await runProcess('webpmux', ['-info', outputPath]);
+    for (let index = 1; index <= frames.length; index += 1) {
+      const extractedPath = join(dir, `verify-${String(index).padStart(4, '0')}.webp`);
+      const decodedPath = join(dir, `verify-${String(index).padStart(4, '0')}.png`);
+      try {
+        await runProcess('webpmux', ['-get', 'frame', String(index), outputPath, '-o', extractedPath]);
+        await runProcess('dwebp', [extractedPath, '-o', decodedPath]);
+      } catch (error) {
+        throw new Error(`BratVid frame ${index} gagal diverifikasi setelah mux: ${error.message}. ${muxInfo.stdout}`);
+      }
+    }
+    try {
+      await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
+    } catch (error) {
+      throw new Error(`BratVid lolos ekstraksi/decode frame libwebp tetapi FFmpeg gagal membaca container animasi: ${error.message}. ${muxInfo.stdout}`);
+    }
     return output;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
@@ -166,7 +181,11 @@ async function framesToAnimatedWebp(frames) {
       if (!isWebp(encodedFrame) || isAnimatedWebp(encodedFrame)) {
         throw new Error(`Frame WebP ${index + 1} hasil encoding tidak valid.`);
       }
-      await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', framePath, '-f', 'null', '-']);
+      try {
+        await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', framePath, '-f', 'null', '-']);
+      } catch (error) {
+        throw new Error(`BratVid frame statis ${index + 1} gagal didecode: ${error.message}`);
+      }
       webpFrames.push(framePath);
     }
 
@@ -174,7 +193,11 @@ async function framesToAnimatedWebp(frames) {
     const muxArgs = [];
     for (const framePath of webpFrames) muxArgs.push('-frame', framePath, '+333+0+0+0-b');
     muxArgs.push('-loop', '0', '-bgcolor', '255,255,255,255', '-o', outputPath);
-    await runProcess('webpmux', muxArgs);
+    try {
+      await runProcess('webpmux', muxArgs);
+    } catch (error) {
+      throw new Error(`BratVid webpmux gagal merakit frame: ${error.message}`);
+    }
 
     const output = await readFile(outputPath);
     if (output.length < 16 || !isAnimatedWebp(output) || countAnimatedFrames(output) !== frames.length) {
