@@ -389,6 +389,28 @@ await quotaEngine.handleMessage(quotaSocket, {
 });
 assert(limitedExecutions === 1, 'Message engine did not enforce the configured per-feature daily limit.');
 assert(quotaResponses.some((payload) => payload.text?.includes('Limit .tiktok habis (1/1)')), 'Message engine did not explain exhausted feature quota.');
+const ownerQuotaEngine = createMessageEngine({
+  config: { prefix: '.', autoRead: false, featureLimitDefault: 1 },
+  logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+  identity: { isOwner: () => true },
+  registry: { resolve: (name) => name === 'tiktok' ? limitedCommand : undefined },
+  repositories: quotaRepositories,
+  economy: quotaEconomy,
+  providers,
+});
+await ownerQuotaEngine.handleMessage(quotaSocket, {
+  key: { remoteJid: 'owner-quota@s.whatsapp.net', id: 'OWNER-LIMIT-1', fromMe: false },
+  message: { conversation: '.tiktok' },
+  pushName: 'Owner',
+});
+await ownerQuotaEngine.handleMessage(quotaSocket, {
+  key: { remoteJid: 'owner-quota@s.whatsapp.net', id: 'OWNER-LIMIT-2', fromMe: false },
+  message: { conversation: '.tiktok' },
+  pushName: 'Owner',
+});
+assert(limitedExecutions === 3, 'Configured owner was incorrectly subject to feature limits.');
+assert(!quotaStorage.has('user:owner-quota@s.whatsapp.net:user.feature-limits'), 'Owner quota bypass wrote feature-limit usage.');
+
 
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
