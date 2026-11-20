@@ -1,3 +1,4 @@
+import { WAMessageStubType } from '@whiskeysockets/baileys';
 import { createMessageContext } from './context.js';
 import { parseIncomingMessage } from './parser.js';
 import { createAfkService } from '../services/afk.js';
@@ -150,9 +151,9 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       }
       return;
     }
-    const richGameId = /^tictactoe:(\\d+)$/.exec(plainText);
+    const richGameId = /^tictactoe:(\d+)$/.exec(plainText);
     const tttReply = quotedStanzaId ? isTicTacToeReply(senderJid, { chatId, stanzaId: quotedStanzaId }) : false;
-    if ((richGameId || (tttReply && /^\\d+$/.test(plainText))) && (richGameId || tttReply)) {
+    if ((richGameId || (tttReply && /^\d+$/.test(plainText))) && (richGameId || tttReply)) {
       const result = playTicTacToe(senderJid, richGameId ? richGameId[1] : plainText);
       if (!result.ok) {
         const text = result.reason === 'occupied' ? 'Kotak itu sudah terisi. Pilih kotak lain.' : result.reason === 'invalid' ? 'Pilih kotak 1 sampai 9.' : 'Game Tic-Tac-Toe sudah tidak aktif.';
@@ -240,19 +241,77 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     } finally { if (slowReactionTimer) clearTimeout(slowReactionTimer); }
   }
 
-  async function handleDeletedMessages(socket, keys) {
-    for (const key of keys ?? []) {
-      const jid = key?.remoteJid;
-      if (!jid?.endsWith('@g.us')) continue;
-      const settings = antidelete.get(jid);
+  async function isPrivilegedRevoker(socket, chatId, revokerKey) {
+    const revokerJid = revokerKey?.participant ?? null;
+    const revokerPhone = revokerKey?.participantAlt ?? null;
+    if (!revokerJid || revokerKey?.fromMe) return true;
+
+    let metadata;
+    try {
+      metadata = await socket.groupMetadata(chatId);
+    } catch (error) {
+      logger.warn(`Anti-delete skipped: group metadata unavailable (${error?.message ?? String(error)}).`);
+      return true;
+    }
+
+    const normalizeJid = (value) => String(value ?? '').trim().split(':')[0];
+    const digits = (value) => normalizeJid(value).split('@')[0].replace(/\D/g, '');
+    const actorIds = new Set([revokerJid, revokerPhone].filter(Boolean).flatMap((value) => [normalizeJid(value), digits(value)]));
+    const participant = (metadata?.participants ?? []).find((item) =>
+      [item?.id, item?.pn, item?.lid, item?.phoneNumber].filter(Boolean).some((value) =>
+        actorIds.has(normalizeJid(value)) || (digits(value) && actorIds.has(digits(value))),
+      ),
+    );
+
+    if (!participant) {
+      logger.debug('Anti-delete skipped: revoker identity could not be verified.');
+      return true;
+    }
+
+    const ownerIdentity = revokerPhone || participant.pn || participant.phoneNumber || revokerJid;
+    if (identity.isOwner(ownerIdentity)) return true;
+
+    const role = String(participant.admin ?? '').toLowerCase();
+    return role === 'admin' || role === 'superadmin' || Boolean(participant.isAdmin || participant.isSuperAdmin);
+  }
+
+  async function handleRevokedMessages(socket, updates) {
+    for (const event of updates ?? []) {
+      if (event?.update?.messageStubType !== WAMessageStubType.REVOKE) continue;
+
+      const key = event.key;
+      const chatId = key?.remoteJid;
+      if (!chatId?.endsWith('@g.us')) continue;
+
+      const settings = antidelete.get(chatId);
       if (!settings.enabled) continue;
+
       const original = resolveGroupMessage(key);
       if (!original) continue;
-      const destination = settings.destination || jid;
-      const sender = original.key?.participant ?? key.participant ?? 'unknown';
-      const info = ['🗑️ *ANTI-DELETE*', `Pengirim: @${String(sender).split('@')[0]}`, `ID Pesan: ${key.id ?? 'unknown'}`, `Waktu: ${new Date().toLocaleString('id-ID')}`].join('\n');
-      try { await socket.sendMessage(destination, { text: info, mentions: sender && sender.includes('@') ? [sender] : [] }); await socket.sendMessage(destination, { forward: original, force: true }); }
-      catch (error) { logger.error(`Error anti-delete = ${error?.message ?? String(error)}`); }
+
+      const revokerKey = key;
+      if (await isPrivilegedRevoker(socket, chatId, revokerKey)) continue;
+
+      const authorJid = original.key?.participantAlt ?? original.key?.participant ?? null;
+      const revokerJid = revokerKey?.participantAlt ?? revokerKey?.participant ?? null;
+      const mentions = [...new Set([authorJid, revokerJid].filter((jid) => typeof jid === 'string' && jid.includes('@')))];
+      const tag = (jid) => jid ? `@${String(jid).split('@')[0]}` : 'tidak diketahui';
+      const info = [
+        '🗑️ *ANTI-DELETE*',
+        `Pengirim pesan: ${tag(authorJid)}`,
+        `Dihapus oleh: ${tag(revokerJid)}`,
+        `ID Pesan: ${key.id ?? 'unknown'}`,
+        `Waktu: ${new Date().toLocaleString('id-ID')}`,
+      ].join('\n');
+      const destination = settings.destination || chatId;
+
+      try {
+        await socket.sendMessage(destination, { text: info, mentions });
+        await socket.sendMessage(destination, { forward: original, force: true });
+        groupMessages.get(chatId)?.delete(key.id);
+      } catch (error) {
+        logger.error(`Error anti-delete = ${error?.message ?? String(error)}`);
+      }
     }
   }
 
@@ -286,9 +345,9 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (type && type !== 'notify') return;
       for (const message of messages ?? []) try { await handleMessage(socket, message); } catch (error) { logger.error(`Error = ${error?.message ?? String(error)}`); }
     });
-    socket.ev.on('messages.delete', async (event) => { try { await handleDeletedMessages(socket, Array.isArray(event?.keys) ? event.keys : []); } catch (error) { logger.error(`Error anti-delete = ${error?.message ?? String(error)}`); } });
+    socket.ev.on('messages.update', async (events) => { try { await handleRevokedMessages(socket, events); } catch (error) { logger.error(`Error anti-delete = ${error?.message ?? String(error)}`); } });
     socket.ev.on('group-participants.update', async (event) => { try { await handleParticipantsUpdate(socket, event); } catch (error) { logger.error(`Error group participants = ${error?.message ?? String(error)}`); } });
-    socket.ev.on('messages.update', () => {});
+
     socket.ev.on('messages.reaction', () => {});
     socket.ev.on('message-receipt.update', () => {});
     socket.ev.on('presence.update', () => {});
