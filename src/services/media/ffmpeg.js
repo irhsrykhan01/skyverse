@@ -147,21 +147,26 @@ async function framesToAnimatedWebp(frames) {
       }
 
       const inputPath = join(dir, `source-${String(index + 1).padStart(4, '0')}.${extension}`);
+      const normalizedPath = join(dir, `normalized-${String(index + 1).padStart(4, '0')}.png`);
       const framePath = join(dir, `frame-${String(index + 1).padStart(4, '0')}.webp`);
       await writeFile(inputPath, frame);
       await runProcess('ffmpeg', [
         '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
         '-i', inputPath,
         '-frames:v', '1',
-        '-vf', 'scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=512:512:-1:-1:color=white,format=yuv420p',
-        '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
-        '-compression_level', '6', '-an', '-f', 'webp', framePath,
+        '-vf', 'scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=512:512:-1:-1:color=white,format=rgb24',
+        '-update', '1', normalizedPath,
+      ]);
+      await runProcess('cwebp', [
+        '-quiet', '-q', '55', '-m', '6',
+        normalizedPath, '-o', framePath,
       ]);
 
       const encodedFrame = await readFile(framePath);
       if (!isWebp(encodedFrame) || isAnimatedWebp(encodedFrame)) {
         throw new Error(`Frame WebP ${index + 1} hasil encoding tidak valid.`);
       }
+      await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', framePath, '-f', 'null', '-']);
       webpFrames.push(framePath);
     }
 
