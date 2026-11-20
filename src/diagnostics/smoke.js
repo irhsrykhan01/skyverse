@@ -118,6 +118,17 @@ assert(playTicTacToe('smoke-ttt', p2, 5).ok, 'Tic-Tac-Toe second move contract f
 assert(renderTicTacToe(['X', null, null, null, 'O', null, null, null, null]).length > 100, 'Tic-Tac-Toe Canvas render contract failed.');
 const allMenuImage = renderAllMenu({ groups: registry.byCategory({ includeHidden: false }), total: visibleCommands.length });
 assert(Buffer.isBuffer(allMenuImage) && allMenuImage.length > 1000, 'Allmenu Canvas image render contract failed.');
+let allMenuMedia = null;
+await registry.resolve('allmenu').execute({
+  registry,
+  config: { botName: 'SkyVerse', prefix: '.' },
+  message: { pushName: 'Smoke' },
+  user: { is_premium: false, coins: 100 },
+  media: { send: async (buffer, type, options) => { allMenuMedia = { buffer, type, options }; } },
+});
+assert(Buffer.isBuffer(allMenuMedia?.buffer) && allMenuMedia.type === 'image', 'Allmenu command did not send its rendered image.');
+assert(allMenuMedia.options?.mimetype === 'image/png' && allMenuMedia.buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), 'Allmenu media payload is not a valid PNG image.');
+
 assert(registry.resolve('daily')?.name === 'claim', 'Daily economy alias regression.');
 assert(registry.resolve('kerja')?.name === 'work', 'Work economy alias regression.');
 assert(surrenderTicTacToe('smoke-ttt', p1).result === 'surrender', 'Tic-Tac-Toe surrender contract failed.');
@@ -224,6 +235,39 @@ await messageEngine.handleMessage(mockSocket, {
 });
 assert(getTicTacToe(engineTttChat)?.board[4] === 'X', 'Message engine failed to route a Tic-Tac-Toe numeric reply.');
 assert(Boolean(getTicTacToe(engineTttChat)?.gameMessageId) && getTicTacToe(engineTttChat).gameMessageId !== 'ENGINE-TTT-BOARD', 'Tic-Tac-Toe did not track its refreshed board message.');
+
+const deleteCommand = registry.resolve('delete');
+let deletePayload = null;
+let deletePermissionError = '';
+const quotedMemberMessage = {
+  message: { extendedTextMessage: { contextInfo: { stanzaId: 'DELETE-TEST', participant: '111111111111111@s.whatsapp.net' } } },
+};
+const baseDeleteContext = {
+  message: quotedMemberMessage,
+  isChannel: false,
+  isGroup: true,
+  chatId: '120000000000000@g.us',
+  socket: {
+    user: { id: '999999999999999@s.whatsapp.net' },
+    sendMessage: async (_jid, payload) => { deletePayload = payload; },
+  },
+  react: async () => {},
+};
+try {
+  await deleteCommand.execute({
+    ...baseDeleteContext,
+    capabilities: { check: async () => ({ known: true, isAdmin: false }) },
+  });
+} catch (error) {
+  deletePermissionError = error.message;
+}
+assert(deletePermissionError.includes('Bot harus menjadi admin grup'), 'Delete did not explain the missing bot-admin permission.');
+assert(deletePayload === null, 'Delete attempted an unauthorized group deletion.');
+await deleteCommand.execute({
+  ...baseDeleteContext,
+  capabilities: { check: async () => ({ known: true, isAdmin: true }) },
+});
+assert(deletePayload?.delete?.id === 'DELETE-TEST' && deletePayload.delete.fromMe === false, 'Delete did not send the quoted group message key after admin authorization.');
 
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
