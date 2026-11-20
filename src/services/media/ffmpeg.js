@@ -167,7 +167,7 @@ async function framesToAnimatedWebp(frames) {
     const outputPath = join(dir, 'bratvid.webp');
     const muxArgs = [];
     for (const framePath of webpFrames) {
-      muxArgs.push('-frame', `${framePath} +333`);
+      muxArgs.push('-frame', framePath, '+333');
     }
     muxArgs.push('-loop', '0', '-bgcolor', '255,255,255,255', '-o', outputPath);
     await runProcess('webpmux', muxArgs);
