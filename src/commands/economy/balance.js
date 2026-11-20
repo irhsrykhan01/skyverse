@@ -1,5 +1,6 @@
 export const command = {
-  name: 'balance',
+  name: 'coin',
+  aliases: ['balance', 'coins', 'bal'],
   description: 'Melihat saldo coin.',
   category: 'economy',
   access: 'npc',
