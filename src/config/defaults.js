@@ -11,6 +11,7 @@ export const defaults = Object.freeze({
   bratBaseUrl: 'https://aqul-brat.hf.space',
   nexrayBaseUrl: 'https://api.nexray.web.id',
   removeBgBaseUrl: 'https://clearbackdrop.com/api/v1',
+  featureLimitDefault: 10,
   whatsappLogLevel: 'silent',
   autoRead: true,
   autoOnline: true,
