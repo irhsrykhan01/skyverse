@@ -204,7 +204,24 @@ async function framesToAnimatedWebp(frames) {
       throw new Error('WebP animasi BratVid tidak valid atau jumlah frame tidak sesuai.');
     }
 
-    await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
+    const muxInfo = await runProcess('webpmux', ['-info', outputPath]);
+    if (!muxInfo.stdout.trim()) throw new Error('webpmux tidak memberikan metadata frame animasi.');
+
+    for (let index = 1; index <= frames.length; index += 1) {
+      const extractedPath = join(dir, `verify-${String(index).padStart(4, '0')}.webp`);
+      const decodedPath = join(dir, `verify-${String(index).padStart(4, '0')}.png`);
+      try {
+        await runProcess('webpmux', ['-get', 'frame', String(index), outputPath, '-o', extractedPath]);
+        await runProcess('dwebp', [extractedPath, '-o', decodedPath]);
+        const decoded = await readFile(decodedPath);
+        if (!decoded.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+          throw new Error('hasil decode bukan PNG yang valid');
+        }
+      } catch (error) {
+        throw new Error(`BratVid frame ${index} gagal diekstrak atau didekode: ${error.message}. ${muxInfo.stdout}`);
+      }
+    }
+
     return throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
