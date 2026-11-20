@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import WebP from 'node-webpmux';
 
 const MAX_STATIC_STICKER_BYTES = 100 * 1024;
 const MAX_ANIMATED_STICKER_BYTES = 500 * 1024;
@@ -139,7 +140,7 @@ async function framesToAnimatedWebp(frames) {
     const extension = imageFrameExtension(frames[0]);
     if (!extension) throw new Error('Frame BratVid harus berupa gambar PNG, JPEG, atau WebP.');
 
-    const webpFrames = [];
+    const animationFrames = [];
     for (let index = 0; index < frames.length; index += 1) {
       const frame = frames[index];
       if (!Buffer.isBuffer(frame) || frame.length < 16 || imageFrameExtension(frame) !== extension) {
@@ -157,25 +158,36 @@ async function framesToAnimatedWebp(frames) {
         '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55',
         '-compression_level', '6', '-an', '-f', 'webp', framePath,
       ]);
+
       const encodedFrame = await readFile(framePath);
       if (!isWebp(encodedFrame) || isAnimatedWebp(encodedFrame)) {
         throw new Error(`Frame WebP ${index + 1} hasil encoding tidak valid.`);
       }
-      webpFrames.push(framePath);
+      animationFrames.push(await WebP.Image.generateFrame({
+        buffer: encodedFrame,
+        delay: 333,
+        blend: true,
+        dispose: false,
+      }));
+    }
+
+    const output = await WebP.Image.save(null, {
+      frames: animationFrames,
+      width: 512,
+      height: 512,
+      bgColor: [0, 0, 0, 0],
+      loops: 0,
+      delay: 333,
+      blend: true,
+      dispose: false,
+    });
+
+    if (!Buffer.isBuffer(output) || output.length < 16 || !isAnimatedWebp(output) || countAnimatedFrames(output) !== frames.length) {
+      throw new Error('WebP animasi BratVid tidak valid atau jumlah frame tidak sesuai.');
     }
 
     const outputPath = join(dir, 'bratvid.webp');
-    const muxArgs = [];
-    for (const framePath of webpFrames) {
-      muxArgs.push('-frame', framePath, '+333');
-    }
-    muxArgs.push('-loop', '0', '-bgcolor', '255,255,255,255', '-o', outputPath);
-    await runProcess('webpmux', muxArgs);
-
-    const output = await readFile(outputPath);
-    if (output.length < 16 || !isAnimatedWebp(output) || countAnimatedFrames(output) !== frames.length) {
-      throw new Error('WebP animasi BratVid tidak valid atau jumlah frame tidak sesuai.');
-    }
+    await writeFile(outputPath, output);
     await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
     return throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi');
   } finally {
