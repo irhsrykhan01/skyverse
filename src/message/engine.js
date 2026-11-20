@@ -1,4 +1,4 @@
-import { WAMessageStubType } from '@whiskeysockets/baileys';
+import { WAMessageStubType, normalizeMessageContent } from '@whiskeysockets/baileys';
 import { createMessageContext } from './context.js';
 import { parseIncomingMessage } from './parser.js';
 import { createAfkService } from '../services/afk.js';
@@ -27,7 +27,7 @@ function displaySender(jid, phoneJid, chatId) {
 }
 function errorCode(error) { return error?.output?.statusCode ?? error?.statusCode ?? error?.status ?? error?.code ?? null; }
 function getContextInfo(message) {
-  const content = message?.message ?? message;
+  const content = normalizeMessageContent(message?.message ?? message);
   return content?.extendedTextMessage?.contextInfo ?? content?.imageMessage?.contextInfo ?? content?.videoMessage?.contextInfo
     ?? content?.ptvMessage?.contextInfo ?? content?.audioMessage?.contextInfo ?? content?.stickerMessage?.contextInfo
     ?? content?.documentMessage?.contextInfo ?? null;
