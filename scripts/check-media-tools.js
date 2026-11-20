@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 function run(command, args) {
   return spawnSync(command, args, {
@@ -24,6 +25,7 @@ try {
   const missing = [];
 
   if (!filters.includes('drawtext')) missing.push('filter drawtext');
+  if (!existsSync('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')) missing.push('font DejaVuSans-Bold.ttf (paket fonts-dejavu-core)');
   for (const encoder of ['libwebp', 'libx264', 'libmp3lame', 'libopus']) {
     if (!encoders.includes(encoder)) missing.push(`encoder ${encoder}`);
   }
@@ -41,7 +43,7 @@ try {
   }
 
   console.log(version.split(/\\r?\\n/).find(Boolean) || 'FFmpeg tersedia.');
-  console.log('Media runtime siap: drawtext, libwebp, libx264, libmp3lame, libopus, cwebp, webpmux, dan dwebp.');
+  console.log('Media runtime siap: drawtext, font DejaVuSans-Bold, libwebp, libx264, libmp3lame, libopus, cwebp, webpmux, dan dwebp.');
 } catch (error) {
   console.error(`Media runtime check gagal: ${error.message}`);
   process.exitCode = 1;
