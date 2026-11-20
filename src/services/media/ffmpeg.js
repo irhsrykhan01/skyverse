@@ -76,22 +76,6 @@ async function withTempMedia(input, outputExtension, buildArgs) {
     await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...buildArgs(inputPath, outputPath)]);
     const output = await readFile(outputPath);
     if (output.length < 16) throw new Error('FFmpeg tidak menghasilkan output yang valid.');
-    const muxInfo = await runProcess('webpmux', ['-info', outputPath]);
-    for (let index = 1; index <= frames.length; index += 1) {
-      const extractedPath = join(dir, `verify-${String(index).padStart(4, '0')}.webp`);
-      const decodedPath = join(dir, `verify-${String(index).padStart(4, '0')}.png`);
-      try {
-        await runProcess('webpmux', ['-get', 'frame', String(index), outputPath, '-o', extractedPath]);
-        await runProcess('dwebp', [extractedPath, '-o', decodedPath]);
-      } catch (error) {
-        throw new Error(`BratVid frame ${index} gagal diverifikasi setelah mux: ${error.message}. ${muxInfo.stdout}`);
-      }
-    }
-    try {
-      await runProcess('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-i', outputPath, '-f', 'null', '-']);
-    } catch (error) {
-      throw new Error(`BratVid lolos ekstraksi/decode frame libwebp tetapi FFmpeg gagal membaca container animasi: ${error.message}. ${muxInfo.stdout}`);
-    }
     return output;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
