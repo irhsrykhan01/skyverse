@@ -7,7 +7,8 @@ SkyVerse is a modular WhatsApp bot built with Node.js, ES modules, Baileys, SQLi
 - Node.js 20 or newer (Node.js 22 LTS is recommended).
 - npm.
 - FFmpeg with `drawtext`, `libwebp`, `libx264`, `libmp3lame`, and `libopus` support.
-- WebP utilities that provide the `webpmux` executable.
+- WebP utilities providing `cwebp`, `webpmux`, and `dwebp`.
+- DejaVu Sans Bold font (`fonts-dejavu-core`) for Smeme.
 - Persistent, writable storage for WhatsApp sessions and the SQLite database.
 
 The bot does not expose an HTTP website or require a public application port. It connects outward to WhatsApp.
