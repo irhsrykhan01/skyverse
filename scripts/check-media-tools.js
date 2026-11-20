@@ -28,6 +28,9 @@ try {
     if (!encoders.includes(encoder)) missing.push(`encoder ${encoder}`);
   }
 
+  const cwebp = run('cwebp', ['-version']);
+  if (cwebp.error || cwebp.status !== 0) missing.push('binary cwebp yang bisa dijalankan');
+
   const webpmux = run('webpmux', ['-version']);
   if (webpmux.error || webpmux.status !== 0) missing.push('binary webpmux yang bisa dijalankan');
 
@@ -36,7 +39,7 @@ try {
   }
 
   console.log(version.split(/\\r?\\n/).find(Boolean) || 'FFmpeg tersedia.');
-  console.log('Media runtime siap: drawtext, libwebp, libx264, libmp3lame, libopus, dan webpmux.');
+  console.log('Media runtime siap: drawtext, libwebp, libx264, libmp3lame, libopus, cwebp, dan webpmux.');
 } catch (error) {
   console.error(`Media runtime check gagal: ${error.message}`);
   process.exitCode = 1;
