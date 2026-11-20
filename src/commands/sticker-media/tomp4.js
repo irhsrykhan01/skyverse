@@ -11,7 +11,7 @@ function sourceType(media) {
 export const command = {
   name: 'tomp4',
   description: 'Mengubah gambar atau video menjadi MP4 secara lokal.',
-  category: 'sticker',
+  category: 'media',
   aliases: ['mp4'],
   usage: 'tomp4 (reply/kirim gambar atau video)',
   permission: 'user',
