@@ -13,6 +13,8 @@ import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
 import { MENU_CATEGORY_DEFINITIONS } from '../core/menu-categories.js';
 import { createGroupService } from '../services/group.js';
+import { createMessageEngine } from '../message/engine.js';
+import { WAMessageStubType } from '@whiskeysockets/baileys';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -131,6 +133,97 @@ await groupService.tagAll({
 }, 'Halo anggota!');
 assert(tagAllPayload?.mentions?.length === 2, 'Tagall mention metadata contract failed.');
 assert(tagAllPayload?.text?.includes('@111111111111111') && tagAllPayload.text.includes('@222222222222222'), 'Tagall visible mentions contract failed.');
+
+const messageListeners = new Map();
+const emittedMessages = [];
+let revokerId = '333333333333333@s.whatsapp.net';
+let revokerPhone = null;
+let revokerRole = undefined;
+let outgoingId = 0;
+const engineRepositories = {
+  users: { get: () => undefined, upsert: () => ({ created: false }) },
+  groups: { upsert: () => {} },
+  settings: {
+    get: (_scope, _scopeId, key, fallback = null) => key === 'group.antidelete'
+      ? JSON.stringify({ enabled: true, destination: null, ttl: 1800000 })
+      : fallback,
+    set: () => {},
+  },
+  commands: { increment: () => {} },
+};
+const messageEngine = createMessageEngine({
+  config: { prefix: '.', autoRead: false },
+  logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+  identity: { isOwner: (value) => normalizePhoneNumber(value) === '628888888888' },
+  registry,
+  repositories: engineRepositories,
+  economy: { addCoins: () => 100, getWallet: () => ({ coins: 100 }), spendCoins: () => ({ ok: true }) },
+  providers,
+});
+const mockSocket = {
+  user: { id: '999999999999999@s.whatsapp.net' },
+  ev: { on: (event, listener) => messageListeners.set(event, listener) },
+  groupMetadata: async () => ({
+    participants: [{ id: revokerId, ...(revokerPhone ? { pn: revokerPhone } : {}), ...(revokerRole ? { admin: revokerRole } : {}) }],
+  }),
+  sendMessage: async (jid, payload, options) => {
+    emittedMessages.push({ jid, payload, options });
+    outgoingId += 1;
+    return { key: { id: `ENGINE-OUT-${outgoingId}` } };
+  },
+  readMessages: async () => {},
+};
+messageEngine.attach(mockSocket);
+
+async function cacheGroupMessage(id, sender = '111111111111111@s.whatsapp.net') {
+  await messageEngine.handleMessage(mockSocket, {
+    key: { remoteJid: '120000000000000@g.us', id, participant: sender, fromMe: false },
+    message: { conversation: 'Original test message' },
+    pushName: 'Member',
+  });
+}
+const revokeHandler = messageListeners.get('messages.update');
+await cacheGroupMessage('REVOKE-NON-ADMIN');
+const beforeNonAdminRevoke = emittedMessages.length;
+await revokeHandler([{
+  key: { remoteJid: '120000000000000@g.us', id: 'REVOKE-NON-ADMIN', participant: revokerId, fromMe: false },
+  update: { messageStubType: WAMessageStubType.REVOKE },
+}]);
+assert(emittedMessages.length === beforeNonAdminRevoke + 2, 'Anti-delete did not emit explanation and forwarded message for a regular member.');
+assert(emittedMessages.at(-2)?.payload?.text?.includes('@333333333333333'), 'Anti-delete did not visibly tag the deleter.');
+assert(emittedMessages.at(-1)?.payload?.forward?.key?.id === 'REVOKE-NON-ADMIN', 'Anti-delete did not forward the original deleted message.');
+
+revokerId = '444444444444444@s.whatsapp.net';
+revokerPhone = null;
+revokerRole = 'admin';
+await cacheGroupMessage('REVOKE-ADMIN');
+const beforeAdminRevoke = emittedMessages.length;
+await revokeHandler([{
+  key: { remoteJid: '120000000000000@g.us', id: 'REVOKE-ADMIN', participant: revokerId, fromMe: false },
+  update: { messageStubType: WAMessageStubType.REVOKE },
+}]);
+assert(emittedMessages.length === beforeAdminRevoke, 'Anti-delete must ignore messages revoked by a group admin.');
+
+revokerId = '555555555555555@lid';
+revokerPhone = '628888888888@s.whatsapp.net';
+revokerRole = undefined;
+await cacheGroupMessage('REVOKE-OWNER');
+const beforeOwnerRevoke = emittedMessages.length;
+await revokeHandler([{
+  key: { remoteJid: '120000000000000@g.us', id: 'REVOKE-OWNER', participant: revokerId, participantAlt: revokerPhone, fromMe: false },
+  update: { messageStubType: WAMessageStubType.REVOKE },
+}]);
+assert(emittedMessages.length === beforeOwnerRevoke, 'Anti-delete must ignore messages revoked by the configured owner.');
+
+const engineTttChat = '130000000000000@g.us';
+const engineTttPlayer = '666666666666666@s.whatsapp.net';
+startTicTacToe(engineTttChat, { player1: engineTttPlayer, player2: '777777777777777@s.whatsapp.net', gameMessageId: 'ENGINE-TTT-BOARD' });
+await messageEngine.handleMessage(mockSocket, {
+  key: { remoteJid: engineTttChat, id: 'ENGINE-TTT-MOVE', participant: engineTttPlayer, fromMe: false },
+  message: { extendedTextMessage: { text: '5', contextInfo: { stanzaId: 'ENGINE-TTT-BOARD' } } },
+});
+assert(getTicTacToe(engineTttChat)?.board[4] === 'X', 'Message engine failed to route a Tic-Tac-Toe numeric reply.');
+assert(getTicTacToe(engineTttChat)?.gameMessageId === 'ENGINE-OUT-7', 'Tic-Tac-Toe did not track its refreshed board message.');
 
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
