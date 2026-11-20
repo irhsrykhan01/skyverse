@@ -1,102 +1,97 @@
 import fs from 'node:fs';
+import { prepareWAMessageMedia } from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
 
-const SUPPORT_URL = 'https://saweria.co/irhsrykhn';
+const SUPPORT_URL = 'https://saweria.co/irhsrykhan';
 const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/saweria.jpg', import.meta.url);
 
-function commandMap(commands) {
-  return new Map(commands.map((command) => [command.name, command]));
-}
-
-function buildDownloaderMenu(prefix, commands) {
-  const byName = commandMap(commands);
-  const main = [
-    { name: 'facebook', label: 'facebook', children: ['fbmp3'] },
-    { name: 'instagram', label: 'instagram', children: [] },
-    { name: 'tiktok', label: 'tiktok', children: ['ttmp3'] },
-    { name: 'youtube', label: 'youtube', children: ['ytmp3'] },
-  ];
-
-  const lines = [' ❏ *Downloader*'];
-  const visibleMain = main.filter((entry) => byName.has(entry.name));
-  visibleMain.forEach((entry, index) => {
-    const isLast = index === visibleMain.length - 1;
-    lines.push(`${isLast ? '└' : '├'} ${prefix}${entry.label}`);
-    const children = entry.children.filter((name) => byName.has(name));
-    children.forEach((name, childIndex) => {
-      const childBranch = childIndex === children.length - 1 ? '└' : '├';
-      lines.push(`     ${childBranch} ${prefix}${name}`);
-    });
-  });
-  return lines;
-}
-
 function buildAllMenu(ctx) {
-  const groups = ctx.registry.byCategory({ includeHidden: false });
-  const ordered = orderMenuCategories(groups);
-  const total = ctx.registry.all({ includeHidden: false }).length;
+  const commands = ctx.registry.all({ includeHidden: false });
+  const groups = new Map();
+
+  for (const command of commands) {
+    if (!groups.has(command.category)) groups.set(command.category, []);
+    groups.get(command.category).push(command);
+  }
+
+  const userNumber = ctx.senderNumber
+    ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
+    : `+${String(ctx.senderJid ?? '').split('@')[0].replace(/\D/g, '') || 'Unknown'}`;
+  const status = ctx.isOwner
+    ? 'Owner'
+    : ctx.user?.is_premium
+      ? 'Premium User'
+      : 'Free User';
+
   const lines = [
-    '╭── ＳＫＹＶＥＲＳＥ ──',
-    `│ Halo, @${ctx.senderJid?.split('@')[0] ?? 'User'}!`,
-    `│ Koin: ${Number(ctx.user?.coins ?? 0)}`,
-    `│ Tier: ${ctx.user?.is_premium ? 'Premium User' : 'Free User'}`,
-    '╰───────────────',
-    'Selamat datang di Skyverse Bot!. ☁',
-    '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
-    '',
-    `Total Command: ${total}`,
+    '╭───〔 *SKYVERSE BOT* 〕───',
+    '│',
+    `│ ◦ *User*          : ${userNumber}`,
+    `│ ◦ *Status*        : ${status}`,
+    `│ ◦ *Total Command* : ${commands.length} Commands`,
+    '│',
+    '╰────────────────────',
+    '> All-in-one WhatsApp virtual bot assistant.',
   ];
 
-  for (const [category, commands] of ordered) {
-    if (category === 'downloader') {
-      lines.push('', ...buildDownloaderMenu(ctx.config.prefix, commands));
-      continue;
-    }
-
-    lines.push('', ` ❏ *${getMenuCategoryLabel(category)}*`);
-    commands.forEach((item, index) => {
-      const branch = index === commands.length - 1 ? '└' : '├';
+  for (const [category, items] of orderMenuCategories(groups)) {
+    lines.push('', `╭─「 *${getMenuCategoryLabel(category).toUpperCase()}* 」`);
+    items.forEach((item, index) => {
+      const branch = index === items.length - 1 ? '╰' : '├';
       lines.push(`${branch} ${ctx.config.prefix}${item.name}`);
     });
   }
 
-  return lines.join('\n');
+  lines.push('', 'Support SkyVerse:', SUPPORT_URL);
+  return lines.join('\\n');
 }
 
 export const command = {
   name: 'allmenu',
-  description: 'Menampilkan semua command SkyVerse secara otomatis berdasarkan registry.',
+  description: 'Menampilkan semua command aktif SkyVerse secara otomatis berdasarkan registry.',
   category: 'general',
   aliases: [],
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
     const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL);
-    if (!Buffer.isBuffer(thumbnail) || thumbnail.length === 0) {
-      throw new Error('Thumbnail allmenu tidak valid atau kosong.');
+    if (!thumbnail.length) throw new Error('Thumbnail link preview allmenu kosong.');
+
+    let highQualityThumbnail;
+    let jpegThumbnail = thumbnail;
+
+    try {
+      const prepared = await prepareWAMessageMedia(
+        { image: thumbnail },
+        {
+          upload: ctx.socket.waUploadToServer,
+          mediaTypeOverride: 'thumbnail-link',
+        },
+      );
+      highQualityThumbnail = prepared?.imageMessage;
+      if (highQualityThumbnail?.jpegThumbnail) {
+        jpegThumbnail = Buffer.from(highQualityThumbnail.jpegThumbnail);
+      }
+    } catch (error) {
+      // Keep the link preview usable with its local JPEG fallback if WA upload fails.
+      console.warn('[SkyVerse] Link preview thumbnail upload failed:', error?.message ?? error);
     }
 
-    // Tambahkan cache-buster khusus saat testing agar WhatsApp tidak memakai
-    // hasil preview lama untuk URL Saweria yang sama.
-    const previewUrl = `${SUPPORT_URL}?v=${Date.now()}`;
-    const text = `${buildAllMenu(ctx)}\n\n💙 Support SkyVerse:\n${previewUrl}`;
+    const linkPreview = {
+      'canonical-url': SUPPORT_URL,
+      'matched-text': SUPPORT_URL,
+      title: 'Support SkyVerse',
+      description: 'Dukung pengembangan SkyVerse dan kirim request fitur.',
+      jpegThumbnail,
+      ...(highQualityThumbnail ? { highQualityThumbnail } : {}),
+    };
 
-    const sent = await ctx.reply(text, {
-      sendOptions: {
-        contextInfo: {
-          externalAdReply: {
-            title: 'Support SkyVerse',
-            body: 'yang mau request tinggal tulis disini aja',
-            mediaType: 1,
-            previewType: 'PHOTO',
-            thumbnail,
-            renderLargerThumbnail: true,
-            sourceUrl: previewUrl,
-            mediaUrl: previewUrl,
-          },
-        },
-      },
-    });
+    const quote = ctx.isChannel || ctx.isBroadcast ? {} : { quoted: ctx.message };
+    const sent = await ctx.socket.sendMessage(
+      ctx.chatId,
+      { text: buildAllMenu(ctx), linkPreview },
+      quote,
+    );
 
     if (!sent?.key?.id) {
       throw new Error('Baileys tidak mengembalikan message key untuk allmenu.');
