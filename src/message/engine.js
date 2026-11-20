@@ -3,6 +3,7 @@ import { createMessageContext } from './context.js';
 import { parseIncomingMessage } from './parser.js';
 import { createAfkService } from '../services/afk.js';
 import { createAntideleteService } from '../services/antidelete.js';
+import { createFeatureLimitService, resolveDailyFeatureLimit } from '../services/feature-limits.js';
 import { getMessageText } from './parser.js';
 import { isBombReply, guessBomb, updateBombMessage } from '../games/bomb.js';
 import { isMathQuizReply, answerMathQuiz } from '../games/mathquiz.js';
@@ -53,6 +54,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
   const slowCommandDelay = 900;
   const afk = createAfkService(repositories);
   const antidelete = createAntideleteService(repositories);
+  const limits = createFeatureLimitService(repositories, { defaultLimit: config.featureLimitDefault });
 
   function prune() {
     const now = Date.now();
@@ -196,7 +198,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const command = registry.resolve(parsed.name);
     if (!command) return;
 
-    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage, resolveGroupMessage });
+    const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, limits, resolveNewsletterMessage, resolveGroupMessage });
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) { await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.'); return; }
     if (command.cost > 0 && !context.isOwner) {
@@ -218,10 +220,22 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     let slowReactionTimer = null;
     let slowReactionShown = false;
     let payment = null;
+    let limitReservation = null;
     try {
+      const dailyLimit = resolveDailyFeatureLimit(command, config.featureLimitDefault);
+      if (dailyLimit > 0 && !context.isOwner) {
+        const limitResult = limits.consume(senderJid, command, Date.now());
+        if (!limitResult.ok) {
+          if (cooldownKey) cooldowns.delete(cooldownKey);
+          const reset = new Date(limitResult.resetAt).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+          await context.reply(`Limit .${command.name} habis (${limitResult.used}/${limitResult.limit}). Reset pukul ${reset} WIB.`);
+          return;
+        }
+        limitReservation = limitResult.reservation;
+      }
       if (command.cost > 0 && !context.isOwner) {
         payment = economy.spendCoins(senderJid, command.cost, `command:${command.name}`);
-        if (!payment.ok) { if (cooldownKey) cooldowns.delete(cooldownKey); await context.reply(`Coin tidak cukup. Butuh ${payment.required} 🪙, saldo kamu ${payment.balance} 🪙.`); return; }
+        if (!payment.ok) { if (limitReservation) limits.refund(limitReservation); limitReservation = null; if (cooldownKey) cooldowns.delete(cooldownKey); await context.reply(`Coin tidak cukup. Butuh ${payment.required} 🪙, saldo kamu ${payment.balance} 🪙.`); return; }
       }
       repositories.commands.increment(command.name, senderJid);
       slowReactionTimer = setTimeout(async () => { slowReactionShown = true; await safeReact(context, '⏳'); }, slowCommandDelay);
@@ -234,6 +248,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (payment?.ok) {
         try { economy.addCoins(senderJid, payment.spent, `refund:command:${command.name}`); } catch (refundError) { logger.error(`Error refund = ${refundError?.message ?? String(refundError)}`); }
       }
+      if (limitReservation) limits.refund(limitReservation);
       if (cooldownKey) cooldowns.delete(cooldownKey);
       logger.error(`Error${code ? ` ${code}` : ''} = ${error?.message ?? String(error)}`);
       if (slowReactionShown) await safeReact(context, '❌');
