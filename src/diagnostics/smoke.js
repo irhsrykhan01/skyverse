@@ -326,6 +326,70 @@ await deleteCommand.execute({
 });
 assert(deletePayload?.delete?.id === 'DELETE-TEST' && deletePayload.delete.fromMe === false, 'Delete did not send the quoted group message key after admin authorization.');
 
+const quotaUsers = new Map();
+const quotaStorage = new Map();
+const quotaResponses = [];
+let limitedExecutions = 0;
+const limitedCommand = {
+  name: 'tiktok',
+  category: 'downloader',
+  permission: 'user',
+  minArgs: 0,
+  maxArgs: 0,
+  cooldown: 0,
+  cost: 0,
+  execute: async () => { limitedExecutions += 1; },
+};
+const quotaRepositories = {
+  users: {
+    get: (jid) => quotaUsers.get(jid),
+    upsert: ({ jid, pushName = null }) => {
+      const user = quotaUsers.get(jid) ?? { jid, number: null, coins: 100, is_premium: 0, push_name: pushName };
+      quotaUsers.set(jid, user);
+      return { created: false, user };
+    },
+  },
+  groups: { upsert: () => {} },
+  settings: {
+    get: (scope, id, key, fallback = null) => quotaStorage.get([scope, id, key].join(':')) ?? fallback,
+    set: (scope, id, key, value) => quotaStorage.set([scope, id, key].join(':'), String(value)),
+  },
+  commands: { increment: () => {} },
+};
+const quotaEconomy = {
+  ensureUser: (jid, { pushName = null } = {}) => {
+    const user = quotaUsers.get(jid) ?? { jid, number: null, coins: 100, is_premium: 0, push_name: pushName };
+    quotaUsers.set(jid, user);
+    return user;
+  },
+  getWallet: () => ({ coins: 100 }),
+};
+const quotaEngine = createMessageEngine({
+  config: { prefix: '.', autoRead: false, featureLimitDefault: 1 },
+  logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+  identity: { isOwner: () => false },
+  registry: { resolve: (name) => name === 'tiktok' ? limitedCommand : undefined },
+  repositories: quotaRepositories,
+  economy: quotaEconomy,
+  providers,
+});
+const quotaSocket = {
+  sendMessage: async (_jid, payload) => { quotaResponses.push(payload); return { key: { id: `QUOTA-OUT-${quotaResponses.length}` } }; },
+  readMessages: async () => {},
+};
+await quotaEngine.handleMessage(quotaSocket, {
+  key: { remoteJid: 'quota-user@s.whatsapp.net', id: 'LIMIT-1', fromMe: false },
+  message: { conversation: '.tiktok' },
+  pushName: 'Quota User',
+});
+await quotaEngine.handleMessage(quotaSocket, {
+  key: { remoteJid: 'quota-user@s.whatsapp.net', id: 'LIMIT-2', fromMe: false },
+  message: { conversation: '.tiktok' },
+  pushName: 'Quota User',
+});
+assert(limitedExecutions === 1, 'Message engine did not enforce the configured per-feature daily limit.');
+assert(quotaResponses.some((payload) => payload.text?.includes('Limit .tiktok habis (1/1)')), 'Message engine did not explain exhausted feature quota.');
+
 const rich = createRichMessage({ htmlPayload: '<h1>SkyVerse</h1><p>Hello <b>World</b></p>', actions: [{ text: 'Play', id: 'rich:play' }], trustedSources: ['https://github.com/irhsrykhan01/skyverse'] });
 assert(rich.htmlPayload.includes('<h1>SkyVerse</h1>'), 'Rich htmlPayload contract failed.');
 assert(rich.text.includes('SkyVerse') && rich.text.includes('Hello World'), 'Rich HTML-to-text contract failed.');
