@@ -1,11 +1,10 @@
 export const command = {
   name: 'coin',
-  aliases: ['balance', 'coins', 'bal'],
-  description: 'Melihat saldo coin.',
+  description: 'Melihat saldo Coin.',
   category: 'economy',
   access: 'npc',
-  aliases: ['coin', 'coins'],
-  usage: 'balance',
+  aliases: ['balance', 'coins', 'bal'],
+  usage: 'coin',
   permission: 'user',
   minArgs: 0,
   maxArgs: 0,
@@ -15,6 +14,8 @@ export const command = {
     const wallet = ctx.economy.getWallet(ctx.senderJid, {
       pushName: ctx.message?.pushName ?? null,
     });
-    await ctx.reply(`🪙 Coin: ${wallet.coins}`);
+    await ctx.reply(ctx.isOwner
+      ? `🪙 Coin: ${wallet.coins} (Owner: biaya fitur gratis)`
+      : `🪙 Coin: ${wallet.coins}`);
   },
 };
