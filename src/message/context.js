@@ -32,7 +32,7 @@ function getQuotedStanzaId(message) {
   return content?.contextInfo?.stanzaId ?? null;
 }
 
-export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage }) {
+export function createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, limits, resolveNewsletterMessage }) {
   const chatId = message.key?.remoteJid ?? '';
   const senderJid = getSenderJid(message);
   const directPhoneJid = getSenderPhoneJid(message);
@@ -111,7 +111,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   }
 
   return Object.freeze({
-    socket, message, config, registry, command, parsed, providers, repositories, economy,
+    socket, message, config, registry, command, parsed, providers, repositories, economy, limits,
     chatId, chatType, senderJid, senderPhoneJid, senderNumber: userNumber,
     user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
