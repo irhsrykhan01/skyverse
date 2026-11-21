@@ -58,7 +58,6 @@ function detectAutoDownloader(text) {
   if (hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')) return { name: 'tiktok', url: value };
   if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be') return { name: 'youtube', url: value };
   if (hostname === 'instagram.com' || hostname.endsWith('.instagram.com')) return { name: 'instagram', url: value };
-  if (hostname === 'facebook.com' || hostname.endsWith('.facebook.com') || hostname === 'fb.watch') return { name: 'facebook', url: value };
   if (hostname === 'pinterest.com' || hostname.endsWith('.pinterest.com') || hostname === 'pin.it') return { name: 'pinterest', url: value };
   if (hostname === 'capcut.com' || hostname.endsWith('.capcut.com')) return { name: 'capcut', url: value };
   if (hostname === 'x.com' || hostname.endsWith('.x.com') || hostname === 'twitter.com' || hostname.endsWith('.twitter.com')) return { name: 'twitter', url: value };
