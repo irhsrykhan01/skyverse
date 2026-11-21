@@ -1,6 +1,7 @@
 import { createCommandRegistry } from '../commands/registry.js';
 import { loadConfig } from '../config/env.js';
 import { createProviderManager } from '../services/providers/manager.js';
+import { normalizeYouTubeUrl } from '../services/providers/public-downloader.js';
 import * as media from '../services/media/index.js';
 import { downloadResolvedMedia, resolveMediaTarget } from '../services/media/resolver.js';
 import { startBombGame, getBombGame, guessBomb, stopBombGame } from '../games/bomb.js';
@@ -39,6 +40,8 @@ assert(registry.resolve('ig')?.name === 'instagram', 'Instagram command alias re
 assert(registry.resolve('instagram')?.name === 'instagram', 'Instagram command name regression.');
 assert(registry.resolve('yt')?.name === 'youtube', 'YouTube command alias regression.');
 assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name regression.');
+assert(normalizeYouTubeUrl('https://www.youtube.com/shorts/ShortID123?feature=share') === 'https://www.youtube.com/watch?v=ShortID123', 'YouTube Shorts URL normalization regression.');
+assert(normalizeYouTubeUrl('https://youtu.be/VideoID123') === 'https://www.youtube.com/watch?v=VideoID123', 'Short YouTube URL normalization regression.');
 assert(registry.resolve('pin')?.name === 'pinterest', 'Pinterest command alias regression.');
 assert(registry.resolve('x')?.name === 'twitter', 'Twitter/X command alias regression.');
 assert(registry.resolve('mf')?.name === 'mediafire', 'MediaFire command alias regression.');
