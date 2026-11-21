@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import {
   generateWAMessageFromContent,
   isJidGroup,
+  prepareWAMessageMedia,
   proto,
 } from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories, resolveMenuCategory } from '../../core/menu-categories.js';
@@ -27,15 +28,18 @@ function button(name, params) {
   });
 }
 
-async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
+async function sendInteractive(socket, jid, { title, body, footer, buttons, imageMessage = null }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
+  const header = proto.Message.InteractiveMessage.Header.create({
+    title,
+    subtitle: 'SkyLabs • SkyVerse',
+    hasMediaAttachment: Boolean(imageMessage),
+    ...(imageMessage ? { imageMessage } : {}),
+  });
+
   const interactiveMessage = proto.Message.InteractiveMessage.create({
-    header: proto.Message.InteractiveMessage.Header.create({
-      title,
-      subtitle: 'SkyLabs • SkyVerse',
-      hasMediaAttachment: false,
-    }),
+    header,
     body: proto.Message.InteractiveMessage.Body.create({ text: body }),
     footer: proto.Message.InteractiveMessage.Footer.create({ text: footer }),
     nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
@@ -78,17 +82,21 @@ function readMenuBanner() {
   return banner;
 }
 
-async function sendMenuBanner(socket, jid) {
-  const sent = await socket.sendMessage(jid, {
-    image: readMenuBanner(),
-    caption: 'SkyLabs • SkyVerse',
-  });
-
-  if (!sent?.key?.id) {
-    throw new Error('Baileys tidak mengembalikan message key untuk banner menu.');
+async function prepareMenuBanner(socket) {
+  if (typeof socket.waUploadToServer !== 'function') {
+    throw new Error('Uploader media WhatsApp belum siap untuk banner menu.');
   }
 
-  return sent.key;
+  const prepared = await prepareWAMessageMedia(
+    { image: readMenuBanner() },
+    { upload: socket.waUploadToServer },
+  );
+
+  if (!prepared?.imageMessage) {
+    throw new Error('Gagal menyiapkan banner SkyLabs sebagai media pesan.');
+  }
+
+  return prepared.imageMessage;
 }
 
 export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
@@ -114,13 +122,14 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
     }),
   ];
 
-  await sendMenuBanner(socket, jid);
+  const imageMessage = await prepareMenuBanner(socket);
 
   return sendInteractive(socket, jid, {
     title: config.botName || 'SKYVERSE BOT',
     body: body ?? ('SkyVerse Online\nPrefix: ' + config.prefix + '\nCommands: ' + registry.all({ includeHidden: false }).length + '\n\nPilih kategori untuk melihat command yang tersedia.'),
     footer: 'SkyLabs • SkyVerse',
     buttons,
+    imageMessage,
   });
 }
 
