@@ -17,7 +17,7 @@ function buildAllMenu(ctx) {
   const userNumber = ctx.senderNumber
     ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
     : 'Tidak tersedia';
-  const status = ctx.isOwner
+  const tier = ctx.isOwner
     ? 'Owner'
     : ctx.user?.is_premium
       ? 'Premium User'
@@ -27,7 +27,7 @@ function buildAllMenu(ctx) {
     '╭───〔 *SKYVERSE BOT* 〕───',
     '│',
     `│ ◦ *User*          : ${userNumber}`,
-    `│ ◦ *Status*        : ${status}`,
+    `│ ◦ *Tier*          : ${tier}`,
     `│ ◦ *Total Command* : ${commands.length} Commands`,
     '│',
     '╰────────────────────',
