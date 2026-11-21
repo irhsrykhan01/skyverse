@@ -17,7 +17,7 @@ async function buildAllMenu(ctx) {
   const userNumber = ctx.senderNumber
     ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
     : 'Tidak tersedia';
-  const isGroupAdmin = await ctx.isAdmin();
+  const isGroupAdmin = await ctx.isAdmin().catch(() => false);
   const tier = ctx.isOwner
     ? 'Owner'
     : isGroupAdmin
