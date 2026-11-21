@@ -1,11 +1,24 @@
 import fs from 'node:fs';
 import {
   generateWAMessageFromContent,
+  isJidGroup,
   proto,
 } from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories, resolveMenuCategory } from '../../core/menu-categories.js';
 
 const SUPPORT_URL = 'https://saweria.co/irhsrykhan';
+
+function buildBizNode() {
+  const privacyModeTs = (Math.floor(Date.now() / 1000) - 77980457).toString();
+  return {
+    tag: 'biz',
+    attrs: { actual_actors: '2', host_storage: '2', privacy_mode_ts: privacyModeTs },
+    content: [
+      { tag: 'interactive', attrs: { type: 'native_flow', v: '1' }, content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }] },
+      { tag: 'quality_control', attrs: { source_type: 'third_party' } },
+    ],
+  };
+}
 
 function button(name, params) {
   return proto.Message.InteractiveMessage.NativeFlowMessage.NativeFlowButton.create({
@@ -14,12 +27,13 @@ function button(name, params) {
   });
 }
 
-async function sendInteractive(socket, jid, { body, footer, buttons, contextInfo = null }) {
+async function sendInteractive(socket, jid, { title, body, footer, buttons, contextInfo = null }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
   const interactiveMessage = proto.Message.InteractiveMessage.create({
     header: proto.Message.InteractiveMessage.Header.create({
-      title: '',
+      title,
+      subtitle: 'SkyLabs • SkyVerse',
       hasMediaAttachment: false,
     }),
     body: proto.Message.InteractiveMessage.Body.create({ text: body }),
@@ -41,29 +55,41 @@ async function sendInteractive(socket, jid, { body, footer, buttons, contextInfo
     },
   }, { userJid: socket.user.id });
 
+  const bizNode = buildBizNode();
+  const additionalNodes = isJidGroup(jid)
+    ? [bizNode]
+    : [{ tag: 'bot', attrs: { biz_bot: '1' } }, bizNode];
+
   await socket.relayMessage(jid, waMessage.message, {
     messageId: waMessage.key.id,
+    additionalNodes,
   });
   return waMessage.key;
 }
 
-function buildSupportPreview() {
+function readMenuBanner() {
   const bannerPath = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
-  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\s+/g, '');
-  const thumbnail = Buffer.from(encodedBanner, 'base64');
-  if (!thumbnail.length) throw new Error('Banner SkyLabs untuk link preview menu kosong.');
+  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\\s+/g, '');
+  const banner = Buffer.from(encodedBanner, 'base64');
 
-  return {
-    externalAdReply: {
-      title: 'SKYVERSE • Virtual Assistant',
-      body: 'Klik menu di bawah untuk mulai',
-      mediaType: 1,
-      renderLargerThumbnail: true,
-      thumbnail,
-      sourceUrl: SUPPORT_URL,
-      showAdAttribution: false,
-    },
-  };
+  if (!banner.length) {
+    throw new Error('Banner SkyLabs kosong atau gagal dibaca.');
+  }
+
+  return banner;
+}
+
+async function sendMenuBanner(socket, jid) {
+  const sent = await socket.sendMessage(jid, {
+    image: readMenuBanner(),
+    caption: 'SkyLabs • SkyVerse',
+  });
+
+  if (!sent?.key?.id) {
+    throw new Error('Baileys tidak mengembalikan message key untuk banner menu.');
+  }
+
+  return sent.key;
 }
 
 export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
@@ -89,11 +115,13 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
     }),
   ];
 
+  await sendMenuBanner(socket, jid);
+
   return sendInteractive(socket, jid, {
-    body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.\n\nSupport SkyVerse:\n${SUPPORT_URL}`,
-    footer: '© SKYVERSE • WhatsApp Assistant',
+    title: config.botName || 'SKYVERSE BOT',
+    body: body ?? `SkyVerse Online\\nPrefix: ${config.prefix}\\nCommands: ${registry.all({ includeHidden: false }).length}\\n\\nPilih kategori untuk melihat command yang tersedia.`,
+    footer: 'SkyLabs • SkyVerse',
     buttons,
-    contextInfo: buildSupportPreview(),
   });
 }
 
@@ -112,8 +140,9 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
   }));
 
   return sendInteractive(socket, jid, {
-    body: `SkyVerse • ${label}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
-    footer: '© SKYVERSE • WhatsApp Assistant',
+    title: `${label} Menu`,
+    body: `SkyVerse • ${label}\\n${commands.length} command tersedia.\\n\\nPilih command yang ingin dijalankan.`,
+    footer: 'SkyLabs • SkyVerse',
     buttons: [
       button('single_select', { title: `${label} Commands`, sections: [{ title: `${label} Menu`, rows }] }),
       button('quick_reply', { display_text: 'Kembali ke Menu', id: `${config.prefix}menu` }),
@@ -123,8 +152,9 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
 
 export async function sendA2UITest(socket, jid) {
   return sendInteractive(socket, jid, {
+    title: 'SkyVerse A2UI Test',
     body: 'Interactive message test untuk SkyVerse. Coba tombol dan pilihan di bawah.',
-    footer: '© SKYVERSE • WhatsApp Assistant',
+    footer: 'SkyLabs • SkyVerse',
     buttons: [
       button('quick_reply', { display_text: 'Tes Quick Reply', id: 'skyverse_a2ui_quick_reply' }),
       button('single_select', {
