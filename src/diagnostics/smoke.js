@@ -21,7 +21,7 @@ const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'capcut', 'twitter', 'mediafire']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
 for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) {
   assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`);
   assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`);
@@ -41,6 +41,9 @@ assert(registry.resolve('ig')?.name === 'instagram', 'Instagram command alias re
 assert(registry.resolve('instagram')?.name === 'instagram', 'Instagram command name regression.');
 assert(registry.resolve('yt')?.name === 'youtube', 'YouTube command alias regression.');
 assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name regression.');
+assert(registry.resolve('pin')?.name === 'pinterest', 'Pinterest command alias regression.');
+assert(registry.resolve('x')?.name === 'twitter', 'Twitter/X command alias regression.');
+assert(registry.resolve('mf')?.name === 'mediafire', 'MediaFire command alias regression.');
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
@@ -49,6 +52,11 @@ assert(config.nexrayBaseUrl === 'https://api.nexray.web.id', 'Default Nexray pro
 assert(typeof providers.downloader?.tiktok === 'function', 'Keyra TikTok provider is missing.');
 assert(typeof providers.downloader?.youtube === 'function', 'Keyra YouTube provider is missing.');
 assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Keyra YouTube MP3 provider is missing.');
+assert(typeof providers.downloader?.instagram === 'function', 'Instagram downloader provider is missing.');
+assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloader provider is missing.');
+assert(typeof providers.downloader?.capcut === 'function', 'CapCut downloader provider is missing.');
+assert(typeof providers.downloader?.twitter === 'function', 'Twitter/X downloader provider is missing.');
+assert(typeof providers.downloader?.mediafire === 'function', 'MediaFire downloader provider is missing.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
 assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
