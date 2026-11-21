@@ -5,7 +5,7 @@ async function buildMenuBody(ctx) {
   const userNumber = ctx.senderNumber
     ? '+' + String(ctx.senderNumber).replace(/^\+/, '')
     : '+' + (ctx.senderJid?.split('@')[0] ?? 'Tidak tersedia');
-  const isGroupAdmin = await ctx.isAdmin();
+  const isGroupAdmin = await ctx.isAdmin().catch(() => false);
   const tier = ctx.isOwner
     ? 'Owner'
     : isGroupAdmin
