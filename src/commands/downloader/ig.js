@@ -11,6 +11,6 @@ export const command = {
   cooldown: 5000,
   async execute(ctx) {
     const response = await ctx.providers.downloader.instagram(ctx.parsed.args[0]);
-    await replyWithDownloaderMedia(ctx, response, { kind: 'video' });
+    await replyWithDownloaderMedia(ctx, response, { kind: 'auto' });
   },
 };
