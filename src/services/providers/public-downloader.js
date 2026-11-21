@@ -3,7 +3,7 @@ const SIPUTZ = 'https://api.siputzx.my.id';
 const RYZUMI = 'https://api.ryzumi.net/api/downloader/all-in-one';
 const TIKWM = 'https://www.tikwm.com/api/';
 
-function normalizeYouTubeUrl(value) {
+export function normalizeYouTubeUrl(value) {
   let parsed;
   try { parsed = new URL(String(value)); }
   catch { throw new Error('Masukkan URL YouTube yang valid.'); }
