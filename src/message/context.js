@@ -56,7 +56,8 @@ export function createMessageContext({ socket, message, command, registry, ident
   const directPhoneNumber = directPhoneJid ? normalizePhoneNumber(String(directPhoneJid).split('@')[0]) : null;
   const storedNumber = refreshedUser?.number ? normalizePhoneNumber(refreshedUser.number) : null;
   const userNumber = storedNumber || directPhoneNumber || null;
-  const isPremium = Boolean(refreshedUser?.is_premium);
+  const premiumUntil = refreshedUser?.premium_until == null ? null : Number(refreshedUser.premium_until);
+  const isPremium = Boolean(refreshedUser?.is_premium) && (premiumUntil === null || (Number.isFinite(premiumUntil) && premiumUntil > Date.now()));
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
