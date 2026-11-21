@@ -1,15 +1,18 @@
 import { sendA2UIMenu } from '../../platform/whatsapp/a2ui.js';
 
-function buildMenuBody(ctx) {
+async function buildMenuBody(ctx) {
   const commands = ctx.registry.all({ includeHidden: false });
   const userNumber = ctx.senderNumber
     ? '+' + String(ctx.senderNumber).replace(/^\+/, '')
     : '+' + (ctx.senderJid?.split('@')[0] ?? 'Tidak tersedia');
+  const isGroupAdmin = await ctx.isAdmin();
   const tier = ctx.isOwner
     ? 'Owner'
-    : ctx.user?.is_premium
-      ? 'Premium User'
-      : 'Free User';
+    : isGroupAdmin
+      ? 'Admin'
+      : ctx.isPremium
+        ? 'Premium User'
+        : 'Free User';
 
   return [
     '╭───〔 *SKYVERSE BOT* 〕───',
@@ -38,7 +41,7 @@ export const command = {
     await sendA2UIMenu(ctx.socket, ctx.chatId, {
       config: ctx.config,
       registry: ctx.registry,
-      body: buildMenuBody(ctx),
+      body: await buildMenuBody(ctx),
     });
   },
 };
