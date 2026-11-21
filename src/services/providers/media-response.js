@@ -14,7 +14,7 @@ function normalizeMediaSource(value, baseUrl) {
   return null;
 }
 
-export function findMediaSource(value, { baseUrl = 'https://www.keyrafara.com' } = {}, seen = new Set()) {
+export function findMediaSource(value, { baseUrl = 'https://api.siputzx.my.id' } = {}, seen = new Set()) {
   if (Buffer.isBuffer(value)) return { kind: 'buffer', value };
 
   const direct = normalizeMediaSource(value, baseUrl);
