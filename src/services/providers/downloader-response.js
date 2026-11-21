@@ -47,7 +47,9 @@ export function findDownloaderUrls(response, { kind = 'video' } = {}) {
     ? ['audio', 'mp3', 'music', 'm4a', 'audio_url', 'download_audio']
     : kind === 'image'
       ? ['images', 'image', 'photo', 'picture', 'jpg', 'png', 'webp']
-      : ['video', 'mp4', 'play', 'download', 'video_url', 'no_watermark'];
+      : kind === 'auto'
+        ? ['video', 'mp4', 'play', 'download', 'video_url', 'no_watermark', 'images', 'image', 'photo', 'picture']
+        : ['video', 'mp4', 'play', 'download', 'video_url', 'no_watermark'];
   const extensions = kind === 'audio'
     ? ['.mp3', '.m4a', '.aac', '.ogg', '.opus']
     : kind === 'image'
@@ -138,8 +140,10 @@ export async function replyWithDownloaderMedia(ctx, response, { kind = 'video', 
     throw new Error(String(errorMessage));
   }
 
+  const candidate = collectUrls(result).find((item) => item.url === url);
+  const imagePath = candidate?.path.some((part) => /^(images?|photos?|pictures?)$/i.test(part));
   const mediaKind = kind === 'auto'
-    ? (/\\.(?:jpe?g|png|webp)(?:$|\\?)/i.test(url) ? 'image' : 'video')
+    ? (imagePath || /\\.(?:jpe?g|png|webp)(?:$|\\?)/i.test(url) ? 'image' : 'video')
     : kind;
   const media = await downloadUrl(url, { kind: mediaKind, maxBytes: mediaKind === 'image' ? 15 * 1024 * 1024 : 30 * 1024 * 1024 });
   if (mediaKind === 'audio') return ctx.media.send(media, 'audio', { mimetype: 'audio/mpeg', fileName: filename, caption });
