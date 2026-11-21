@@ -3,7 +3,7 @@ import { sendA2UIMenu } from '../../platform/whatsapp/a2ui.js';
 function buildMenuBody(ctx) {
   const commands = ctx.registry.all({ includeHidden: false });
   const userNumber = ctx.senderNumber
-    ? `+${String(ctx.senderNumber).replace(/^\\+/, '')}`
+    ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
     : `+${ctx.senderJid?.split('@')[0] ?? 'Tidak tersedia'}`;
   const tier = ctx.isOwner
     ? 'Owner'
@@ -27,7 +27,7 @@ function buildMenuBody(ctx) {
     '',
     'Support SkyVerse:',
     'https://saweria.co/irhsrykhan',
-  ].join('\\n');
+  ].join('\n');
 }
 
 export const command = {
