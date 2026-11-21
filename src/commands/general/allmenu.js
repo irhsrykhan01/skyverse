@@ -3,7 +3,7 @@ import { prepareWAMessageMedia } from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categories.js';
 
 const SUPPORT_URL = 'https://saweria.co/irhsrykhan';
-const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/saweria.jpg', import.meta.url);
+const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
 
 function buildAllMenu(ctx) {
   const commands = ctx.registry.all({ includeHidden: false });
@@ -15,7 +15,7 @@ function buildAllMenu(ctx) {
   }
 
   const userNumber = ctx.senderNumber
-    ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
+    ? `+${String(ctx.senderNumber).replace(/^\\+/, '')}`
     : 'Tidak tersedia';
   const status = ctx.isOwner
     ? 'Owner'
@@ -43,7 +43,7 @@ function buildAllMenu(ctx) {
   }
 
   lines.push('', 'Support SkyVerse:', SUPPORT_URL);
-  return lines.join('\n');
+  return lines.join('\\n');
 }
 
 export const command = {
@@ -54,7 +54,8 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    const thumbnail = fs.readFileSync(SUPPORT_THUMBNAIL);
+    const encodedThumbnail = fs.readFileSync(SUPPORT_THUMBNAIL, 'utf8').replace(/\\s+/g, '');
+    const thumbnail = Buffer.from(encodedThumbnail, 'base64');
     if (!thumbnail.length) throw new Error('Thumbnail link preview allmenu kosong.');
 
     let highQualityThumbnail;
@@ -79,7 +80,7 @@ export const command = {
     const linkPreview = {
       'canonical-url': SUPPORT_URL,
       'matched-text': SUPPORT_URL,
-      title: 'Support SkyVerse',
+      title: 'SkyLabs — SkyVerse',
       description: 'Dukung pengembangan SkyVerse dan kirim request fitur.',
       jpegThumbnail,
       ...(highQualityThumbnail ? { highQualityThumbnail } : {}),
