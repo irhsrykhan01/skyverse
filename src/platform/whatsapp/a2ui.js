@@ -1,7 +1,7 @@
 import fs from 'node:fs';
-import { prepareWAMessageMedia } from '@whiskeysockets/baileys';
 import {
   generateWAMessageFromContent,
+  prepareWAMessageMedia,
   isJidGroup,
   proto,
 } from '@whiskeysockets/baileys';
@@ -68,7 +68,7 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons, imag
 
 export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
   const bannerPath = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
-  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\\s+/g, '');
+  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\s+/g, '');
   const banner = Buffer.from(encodedBanner, 'base64');
   if (!banner.length) throw new Error('Banner SkyLabs untuk menu kosong.');
 
