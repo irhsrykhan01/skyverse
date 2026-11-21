@@ -7,6 +7,8 @@ import {
 } from '@whiskeysockets/baileys';
 import { getMenuCategoryLabel, orderMenuCategories, resolveMenuCategory } from '../../core/menu-categories.js';
 
+const SUPPORT_URL = 'https://saweria.co/irhsrykhan';
+
 function buildBizNode() {
   const privacyModeTs = (Math.floor(Date.now() / 1000) - 77980457).toString();
   return {
@@ -26,15 +28,14 @@ function button(name, params) {
   });
 }
 
-async function sendInteractive(socket, jid, { title, body, footer, buttons, imageMessage = null }) {
+async function sendInteractive(socket, jid, { title, body, footer, buttons, contextInfo = null }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
   const interactiveMessage = proto.Message.InteractiveMessage.create({
     header: proto.Message.InteractiveMessage.Header.create({
       title,
       subtitle: 'SkyLabs • SkyVerse',
-      hasMediaAttachment: Boolean(imageMessage),
-      ...(imageMessage ? { imageMessage } : {}),
+      hasMediaAttachment: false,
     }),
     body: proto.Message.InteractiveMessage.Body.create({ text: body }),
     footer: proto.Message.InteractiveMessage.Footer.create({ text: footer }),
@@ -43,6 +44,7 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons, imag
       messageParamsJson: '{}',
       messageVersion: 1,
     }),
+    ...(contextInfo ? { contextInfo } : {}),
   });
 
   const waMessage = generateWAMessageFromContent(jid, {
@@ -66,19 +68,39 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons, imag
   return waMessage.key;
 }
 
-export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
+async function buildSupportPreview(socket) {
   const bannerPath = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
-  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\s+/g, '');
+  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\\s+/g, '');
   const banner = Buffer.from(encodedBanner, 'base64');
-  if (!banner.length) throw new Error('Banner SkyLabs untuk menu kosong.');
+  if (!banner.length) throw new Error('Banner SkyLabs untuk link preview menu kosong.');
 
-  const preparedBanner = await prepareWAMessageMedia(
-    { image: banner },
-    { upload: socket.waUploadToServer, mediaTypeOverride: 'thumbnail-link' },
-  );
-  const imageMessage = preparedBanner?.imageMessage;
-  if (!imageMessage) throw new Error('Gagal menyiapkan banner SkyLabs untuk A2UI menu.');
+  let thumbnail = banner;
+  try {
+    const prepared = await prepareWAMessageMedia(
+      { image: banner },
+      { upload: socket.waUploadToServer, mediaTypeOverride: 'thumbnail-link' },
+    );
+    if (prepared?.imageMessage?.jpegThumbnail) {
+      thumbnail = Buffer.from(prepared.imageMessage.jpegThumbnail);
+    }
+  } catch (error) {
+    console.warn('[SkyVerse] Link preview thumbnail preparation failed:', error?.message ?? error);
+  }
 
+  return {
+    externalAdReply: {
+      title: 'SkyLabs • SkyVerse',
+      body: 'Dukung pengembangan SkyVerse dan kirim request fitur.',
+      mediaType: 1,
+      thumbnail,
+      sourceUrl: SUPPORT_URL,
+      showAdAttribution: false,
+      renderLargerThumbnail: true,
+    },
+  };
+}
+
+export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
   const groups = registry.byCategory({ includeHidden: false });
   const ordered = orderMenuCategories(groups);
 
@@ -96,17 +118,19 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
     }),
     button('cta_url', {
       display_text: 'Support SkyVerse',
-      url: 'https://saweria.co/irhsrykhn',
-      merchant_url: 'https://saweria.co/irhsrykhn',
+      url: SUPPORT_URL,
+      merchant_url: SUPPORT_URL,
     }),
   ];
 
+  const contextInfo = await buildSupportPreview(socket);
+
   return sendInteractive(socket, jid, {
-    title: config.botName || 'SkyVerse',
-    body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
+    title: config.botName || 'SKYVERSE BOT',
+    body: body ?? `SkyVerse Online\\nPrefix: ${config.prefix}\\nCommands: ${registry.all({ includeHidden: false }).length}\\n\\nPilih kategori untuk melihat command yang tersedia.\\n\\nSupport SkyVerse:\\n${SUPPORT_URL}`,
     footer: 'SkyLabs • SkyVerse',
     buttons,
-    imageMessage,
+    contextInfo,
   });
 }
 
@@ -126,7 +150,7 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
 
   return sendInteractive(socket, jid, {
     title: `${label} Menu`,
-    body: `SkyVerse • ${label}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
+    body: `SkyVerse • ${label}\\n${commands.length} command tersedia.\\n\\nPilih command yang ingin dijalankan.`,
     footer: 'SkyLabs • SkyVerse',
     buttons: [
       button('single_select', { title: `${label} Commands`, sections: [{ title: `${label} Menu`, rows }] }),
@@ -149,7 +173,7 @@ export async function sendA2UITest(socket, jid) {
           { header: 'System', title: 'Bot Info', description: 'Lihat informasi bot', id: '.info' },
         ] }],
       }),
-      button('cta_url', { display_text: 'Support SkyVerse', url: 'https://saweria.co/irhsrykhn', merchant_url: 'https://saweria.co/irhsrykhn' }),
+      button('cta_url', { display_text: 'Support SkyVerse', url: SUPPORT_URL, merchant_url: SUPPORT_URL }),
     ],
   });
 }
