@@ -10,7 +10,7 @@ export function normalizeYouTubeUrl(value) {
   try { parsed = new URL(String(value)); }
   catch { throw new Error('Masukkan URL YouTube yang valid.'); }
 
-  const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
   if (!['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'].includes(host)) {
     throw new Error('URL harus berasal dari YouTube.');
   }
@@ -35,11 +35,11 @@ function normalizeInstagramUrl(value) {
   let parsed;
   try { parsed = new URL(String(value)); }
   catch { throw new Error('Masukkan URL Instagram yang valid.'); }
-  const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
   if (!['instagram.com', 'm.instagram.com'].includes(host)) {
     throw new Error('URL harus berasal dari Instagram.');
   }
-  if (!/^\\/(?:p|reel|reels|tv)\\/[A-Za-z0-9_-]+\\/?/.test(parsed.pathname)) {
+  if (!/^\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+\/?/.test(parsed.pathname)) {
     throw new Error('Gunakan URL postingan, Reel, atau video Instagram yang valid.');
   }
   return parsed.toString();
@@ -84,7 +84,7 @@ function runProcess(command, args, timeoutMs = 60_000) {
     child.on('close', (code) => {
       if (settled) return;
       if (code !== 0) {
-        const detail = stderr.trim().split('\\n').slice(-3).join(' ').slice(0, 500);
+        const detail = stderr.trim().split('\n').slice(-3).join(' ').slice(0, 500);
         finish(new Error(detail || `yt-dlp berhenti dengan kode ${code}.`));
         return;
       }
@@ -115,11 +115,11 @@ async function getYtDlpJson(url) {
 }
 
 function bestDirectUrl(item) {
-  if (typeof item?.url === 'string' && /^https?:\\/\\//i.test(item.url)) return item.url;
-  const requested = item?.requested_downloads?.find((entry) => /^https?:\\/\\//i.test(entry?.url ?? ''));
+  if (typeof item?.url === 'string' && /^https?:\/\//i.test(item.url)) return item.url;
+  const requested = item?.requested_downloads?.find((entry) => /^https?:\/\//i.test(entry?.url ?? ''));
   if (requested) return requested.url;
   const formats = (item?.formats ?? [])
-    .filter((format) => /^https?:\\/\\//i.test(format?.url ?? ''))
+    .filter((format) => /^https?:\/\//i.test(format?.url ?? ''))
     .sort((a, b) => (b.height ?? 0) - (a.height ?? 0));
   return formats[0]?.url ?? null;
 }
@@ -175,7 +175,7 @@ async function requestJson(url, options = {}) {
     data = text ? JSON.parse(text) : null;
   } catch {
     const contentType = response.headers.get('content-type') ?? 'unknown content-type';
-    const preview = text.replace(/\\s+/g, ' ').trim().slice(0, 180);
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 180);
     const status = `HTTP ${response.status}`;
     throw new Error(`Provider mengirim respons non-JSON (${status}, ${contentType})${preview ? `: ${preview}` : '.'}`);
   }
@@ -197,7 +197,7 @@ function unwrap(data) {
 
 function absoluteTikwmUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return value;
-  if (/^https?:\\/\\//i.test(value)) return value;
+  if (/^https?:\/\//i.test(value)) return value;
   return new URL(value, 'https://www.tikwm.com').toString();
 }
 
@@ -230,9 +230,11 @@ export function createPublicDownloaderProvider() {
     catch (primaryError) {
       try { return await ryzumi(url); }
       catch (fallbackError) {
-        const first = primaryError?.message ?? 'Provider utama gagal tanpa detail.';
-        const second = fallbackError?.message ?? 'Provider cadangan gagal tanpa detail.';
-        throw new Error(`Semua provider downloader gagal. Siputzx: ${first} | Ryzumi: ${second}`);
+        const primaryMessage = primaryError?.message ?? 'Provider utama gagal tanpa detail.';
+        const fallbackMessage = fallbackError?.message ?? 'Provider cadangan gagal tanpa detail.';
+        const error = new Error(`Semua provider Instagram gagal. Siputzx: ${primaryMessage} | Ryzumi: ${fallbackMessage}`);
+        error.cause = { primary: primaryError, fallback: fallbackError };
+        throw error;
       }
     }
   }
