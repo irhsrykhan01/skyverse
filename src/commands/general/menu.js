@@ -1,22 +1,33 @@
 import { sendA2UIMenu } from '../../platform/whatsapp/a2ui.js';
 
 function buildMenuBody(ctx) {
-  const user = ctx.user ?? {};
-  const coin = Number(user.coins ?? 0);
-  const tier = user.is_premium ? 'Premium User' : 'Free User';
-  const tag = ctx.senderJid?.split('@')[0] ?? 'User';
+  const commands = ctx.registry.all({ includeHidden: false });
+  const userNumber = ctx.senderNumber
+    ? `+${String(ctx.senderNumber).replace(/^\\+/, '')}`
+    : `+${ctx.senderJid?.split('@')[0] ?? 'Tidak tersedia'}`;
+  const tier = ctx.isOwner
+    ? 'Owner'
+    : ctx.user?.is_premium
+      ? 'Premium User'
+      : 'Free User';
 
   return [
-    '╭── ＳＫＹＶＥＲＳＥ ──',
-    `│ Halo, @${tag}!`,
-    `│ Koin: ${coin}`,
-    `│ Tier: ${tier}`,
-    '╰───────────────',
+    '╭───〔 *SKYVERSE BOT* 〕───',
+    '│',
+    `│ ◦ *User*          : ${userNumber}`,
+    `│ ◦ *Tier*          : ${tier}`,
+    `│ ◦ *Total Command* : ${commands.length} Commands`,
+    '│',
+    '╰────────────────────',
     'Selamat datang di Skyverse Bot!. ☁',
+    '',
     '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
     '',
     'Butuh bantuan atau ingin request fitur? Ketik *.owner* untuk menghubungi admin.',
-  ].join('\n');
+    '',
+    'Support SkyVerse:',
+    'https://saweria.co/irhsrykhan',
+  ].join('\\n');
 }
 
 export const command = {
