@@ -32,7 +32,7 @@ function buildAllMenu(ctx) {
     '│',
     '╰────────────────────',
     '> All-in-one WhatsApp virtual bot assistant.',
-    '\\u034F'.repeat(1800),
+    '\u034F'.repeat(1800),
   ];
 
   for (const [category, items] of orderMenuCategories(groups)) {
