@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import { prepareWAMessageMedia } from '@whiskeysockets/baileys';
 import {
   generateWAMessageFromContent,
   isJidGroup,
@@ -24,14 +26,15 @@ function button(name, params) {
   });
 }
 
-async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
+async function sendInteractive(socket, jid, { title, body, footer, buttons, imageMessage = null }) {
   if (!socket?.user?.id) throw new Error('WhatsApp socket belum siap.');
 
   const interactiveMessage = proto.Message.InteractiveMessage.create({
     header: proto.Message.InteractiveMessage.Header.create({
       title,
       subtitle: 'SkyLabs • SkyVerse',
-      hasMediaAttachment: false,
+      hasMediaAttachment: Boolean(imageMessage),
+      ...(imageMessage ? { imageMessage } : {}),
     }),
     body: proto.Message.InteractiveMessage.Body.create({ text: body }),
     footer: proto.Message.InteractiveMessage.Footer.create({ text: footer }),
@@ -64,6 +67,18 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons }) {
 }
 
 export async function sendA2UIMenu(socket, jid, { config, registry, body = null }) {
+  const bannerPath = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
+  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\\s+/g, '');
+  const banner = Buffer.from(encodedBanner, 'base64');
+  if (!banner.length) throw new Error('Banner SkyLabs untuk menu kosong.');
+
+  const preparedBanner = await prepareWAMessageMedia(
+    { image: banner },
+    { upload: socket.waUploadToServer, mediaTypeOverride: 'thumbnail-link' },
+  );
+  const imageMessage = preparedBanner?.imageMessage;
+  if (!imageMessage) throw new Error('Gagal menyiapkan banner SkyLabs untuk A2UI menu.');
+
   const groups = registry.byCategory({ includeHidden: false });
   const ordered = orderMenuCategories(groups);
 
@@ -91,6 +106,7 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
     body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.`,
     footer: 'SkyLabs • SkyVerse',
     buttons,
+    imageMessage,
   });
 }
 
