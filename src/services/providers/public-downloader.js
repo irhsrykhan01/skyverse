@@ -47,8 +47,20 @@ async function requestJson(url, options = {}) {
   });
   const text = await response.text();
   let data;
-  try { data = text ? JSON.parse(text) : null; }
-  catch { throw new Error('Downloader mengirim respons yang bukan JSON.'); }
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    const contentType = response.headers.get('content-type') ?? 'unknown content-type';
+    const preview = text
+      .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')
+      .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\\s+/g, ' ')
+      .trim()
+      .slice(0, 180);
+    const status = `HTTP ${response.status}`;
+    throw new Error(`Provider mengirim respons non-JSON (${status}, ${contentType})${preview ? `: ${preview}` : '.'}`);
+  }
 
   if (!response.ok) {
     const detail = data?.message ?? data?.error?.message ?? data?.error ?? `HTTP ${response.status}`;
@@ -106,7 +118,9 @@ export function createPublicDownloaderProvider() {
     catch (primaryError) {
       try { return await ryzumi(url); }
       catch (fallbackError) {
-        const error = new Error(fallbackError?.message ?? primaryError?.message ?? 'Semua provider downloader gagal.');
+        const primaryMessage = primaryError?.message ?? 'Provider utama gagal tanpa detail.';
+        const fallbackMessage = fallbackError?.message ?? 'Provider cadangan gagal tanpa detail.';
+        const error = new Error(`Semua provider Instagram gagal. Siputzx: ${primaryMessage} | Ryzumi: ${fallbackMessage}`);
         error.cause = { primary: primaryError, fallback: fallbackError };
         throw error;
       }
