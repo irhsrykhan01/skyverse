@@ -2,6 +2,7 @@ import { createDepayProvider } from './depay.js';
 import { createKeyraDownloaderProvider } from './keyra-downloaders.js';
 import { createMakerProvider } from './makers.js';
 import { createRemoveBgProvider } from './removebg.js';
+import { createPublicDownloaderProvider } from './public-downloader.js';
 
 async function withFallback(primary, fallback) {
   try {
@@ -27,6 +28,8 @@ export function createProviderManager(config) {
     baseUrl: config.keyraBaseUrl,
   });
 
+  const publicDownloader = createPublicDownloaderProvider();
+
   const makers = createMakerProvider({
     bratBaseUrl: config.bratBaseUrl,
     nexrayBaseUrl: config.nexrayBaseUrl,
@@ -38,16 +41,22 @@ export function createProviderManager(config) {
     ...keyraDownloader,
     tiktok: (url) => withFallback(
       () => keyraDownloader.tiktok(url),
-      () => depay.tiktok(url),
+      () => withFallback(() => depay.tiktok(url), () => publicDownloader.tiktok(url)),
     ),
     youtube: (url) => withFallback(
       () => keyraDownloader.youtube(url),
-      () => depay.youtube(url, 'video'),
+      () => withFallback(() => depay.youtube(url, 'video'), () => publicDownloader.youtube(url)),
     ),
     youtubeMp3: (url) => withFallback(
       () => keyraDownloader.youtubeMp3(url),
-      () => depay.youtube(url, 'mp3'),
+      () => withFallback(() => depay.youtube(url, 'mp3'), () => publicDownloader.youtubeMp3(url)),
     ),
+    instagram: (url) => withFallback(() => keyraDownloader.instagram(url), () => publicDownloader.instagram(url)),
+    pinterest: publicDownloader.pinterest,
+    capcut: publicDownloader.capcut,
+    twitter: publicDownloader.twitter,
+    mediafire: publicDownloader.mediafire,
+    allInOne: publicDownloader.allInOne,
     facebook: depay.facebook,
   });
 
