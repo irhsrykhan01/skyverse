@@ -3,6 +3,32 @@ const SIPUTZ = 'https://api.siputzx.my.id';
 const RYZUMI = 'https://api.ryzumi.net/api/downloader/all-in-one';
 const TIKWM = 'https://www.tikwm.com/api/';
 
+function normalizeYouTubeUrl(value) {
+  let parsed;
+  try { parsed = new URL(String(value)); }
+  catch { throw new Error('Masukkan URL YouTube yang valid.'); }
+
+  const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+  if (!['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'].includes(host)) {
+    throw new Error('URL harus berasal dari YouTube.');
+  }
+
+  if (host === 'youtu.be') {
+    const id = parsed.pathname.split('/').filter(Boolean)[0];
+    if (!id) throw new Error('URL YouTube tidak memiliki ID video.');
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
+  }
+
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (['shorts', 'live', 'embed', 'v'].includes(parts[0]) && parts[1]) {
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(parts[1])}`;
+  }
+  if (parsed.searchParams.has('v')) {
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(parsed.searchParams.get('v'))}`;
+  }
+  throw new Error('URL YouTube tidak memiliki ID video yang valid.');
+}
+
 function withUrl(endpoint, sourceUrl) {
   const url = new URL(endpoint);
   url.searchParams.set('url', sourceUrl);
@@ -89,8 +115,8 @@ export function createPublicDownloaderProvider() {
 
   return Object.freeze({
     tiktok: tikwm,
-    youtube: (url) => siputzx('ytmp4', url),
-    youtubeMp3: (url) => siputzx('ytmp3', url),
+    youtube: (url) => siputzx('ytmp4', normalizeYouTubeUrl(url)),
+    youtubeMp3: (url) => siputzx('ytmp3', normalizeYouTubeUrl(url)),
     instagram: (url) => withRyzumiFallback(() => siputzx('igdl', url), url),
     pinterest: (url) => siputzx('pinterest', url),
     capcut: (url) => siputzx('capcut', url),
