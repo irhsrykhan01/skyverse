@@ -33,8 +33,6 @@ for (const command of visibleCommands) {
 }
 assert(registry.resolve('qc') === undefined, 'Disabled command qc is still resolvable.');
 assert(registry.resolve('bratvid')?.name === 'bratvid', 'Rebuilt bratvid command is not enabled.');
-assert(registry.resolve('fb')?.name === 'facebook', 'Facebook command alias regression.');
-assert(registry.resolve('facebook')?.name === 'facebook', 'Facebook command name regression.');
 assert(registry.resolve('tt')?.name === 'tiktok', 'TikTok command alias regression.');
 assert(registry.resolve('tiktok')?.name === 'tiktok', 'TikTok command name regression.');
 assert(registry.resolve('ig')?.name === 'instagram', 'Instagram command alias regression.');
@@ -44,19 +42,23 @@ assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name re
 assert(registry.resolve('pin')?.name === 'pinterest', 'Pinterest command alias regression.');
 assert(registry.resolve('x')?.name === 'twitter', 'Twitter/X command alias regression.');
 assert(registry.resolve('mf')?.name === 'mediafire', 'MediaFire command alias regression.');
+assert(registry.resolve('facebook') === undefined && registry.resolve('fb') === undefined, 'Unsupported Facebook downloader command is still registered.');
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
 assert(config.nexrayBaseUrl === 'https://api.nexray.web.id', 'Default Nexray provider URL regression.');
-assert(typeof providers.downloader?.tiktok === 'function', 'Keyra TikTok provider is missing.');
-assert(typeof providers.downloader?.youtube === 'function', 'Keyra YouTube provider is missing.');
-assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Keyra YouTube MP3 provider is missing.');
+assert(typeof providers.downloader?.tiktok === 'function', 'TikWM provider is missing.');
+assert(typeof providers.downloader?.youtube === 'function', 'Siputzx YouTube MP4 provider is missing.');
+assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Siputzx YouTube MP3 provider is missing.');
 assert(typeof providers.downloader?.instagram === 'function', 'Instagram downloader provider is missing.');
 assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloader provider is missing.');
 assert(typeof providers.downloader?.capcut === 'function', 'CapCut downloader provider is missing.');
 assert(typeof providers.downloader?.twitter === 'function', 'Twitter/X downloader provider is missing.');
 assert(typeof providers.downloader?.mediafire === 'function', 'MediaFire downloader provider is missing.');
+assert(providers.downloader?.facebook === undefined, 'Legacy Facebook provider must not be registered.');
+assert(providers.depay === undefined, 'Legacy Depay provider must not be registered.');
+assert(config.depayBaseUrl === undefined && config.keyraBaseUrl === undefined && config.keyraApiKey === undefined, 'Legacy downloader environment config must be removed.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
 assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
@@ -127,4 +129,4 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + downloader aliases + economy + games + Canvas Rich + PTV resolver tests.`);
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + public downloader aliases + economy + games + Canvas Rich + PTV resolver tests.`);
