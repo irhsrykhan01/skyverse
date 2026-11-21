@@ -41,6 +41,13 @@ function userInputMessage(error) {
   return prefix ? message.slice(prefix.length).trim() : null;
 }
 
+function hasActivePremium(user) {
+  if (!user?.is_premium) return false;
+  if (user.premium_until == null) return true;
+  const expiresAt = Number(user.premium_until);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
 function detectAutoDownloader(text) {
   const value = String(text ?? '').trim();
   if (!/^https?:\/\//i.test(value) || /\s/.test(value)) return null;
@@ -197,7 +204,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       if (!detected) return;
 
       const storedUser = repositories.users.get(senderJid);
-      const autoAllowed = identity.isOwner(senderPhoneJid || senderJid) || Boolean(storedUser?.is_premium);
+      const autoAllowed = identity.isOwner(senderPhoneJid || senderJid) || hasActivePremium(storedUser);
       if (!autoAllowed) return;
 
       parsed = Object.freeze({
@@ -215,6 +222,7 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
     const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage, resolveGroupMessage });
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) { await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.'); return; }
+    if (command.access === 'premium' && !context.isOwner && !context.isPremium) { await context.reply('Fitur ini khusus untuk pengguna Premium dan Owner.'); return; }
     if (command.cost > 0 && !context.isOwner) {
       const wallet = economy.getWallet(senderJid);
       if (wallet.coins < command.cost) { await context.reply(`Coin tidak cukup. Butuh ${command.cost} 🪙, saldo kamu ${wallet.coins} 🪙.`); return; }
