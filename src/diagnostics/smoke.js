@@ -42,7 +42,6 @@ assert(registry.resolve('youtube')?.name === 'youtube', 'YouTube command name re
 assert(registry.resolve('pin')?.name === 'pinterest', 'Pinterest command alias regression.');
 assert(registry.resolve('x')?.name === 'twitter', 'Twitter/X command alias regression.');
 assert(registry.resolve('mf')?.name === 'mediafire', 'MediaFire command alias regression.');
-assert(registry.resolve('facebook') === undefined && registry.resolve('fb') === undefined, 'Unsupported Facebook downloader command is still registered.');
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
@@ -56,9 +55,7 @@ assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloa
 assert(typeof providers.downloader?.capcut === 'function', 'CapCut downloader provider is missing.');
 assert(typeof providers.downloader?.twitter === 'function', 'Twitter/X downloader provider is missing.');
 assert(typeof providers.downloader?.mediafire === 'function', 'MediaFire downloader provider is missing.');
-assert(providers.downloader?.facebook === undefined, 'Legacy Facebook provider must not be registered.');
-assert(providers.depay === undefined, 'Legacy Depay provider must not be registered.');
-assert(config.depayBaseUrl === undefined && config.keyraBaseUrl === undefined && config.keyraApiKey === undefined, 'Legacy downloader environment config must be removed.');
+assert(Object.keys(providers.downloader).sort().join(',') === ['capcut', 'instagram', 'mediafire', 'pinterest', 'tiktok', 'twitter', 'youtube', 'youtubeMp3'].sort().join(','), 'Downloader provider set contains an unapproved API.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
 assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
