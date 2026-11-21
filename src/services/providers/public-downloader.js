@@ -51,13 +51,7 @@ async function requestJson(url, options = {}) {
     data = text ? JSON.parse(text) : null;
   } catch {
     const contentType = response.headers.get('content-type') ?? 'unknown content-type';
-    const preview = text
-      .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')
-      .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\\s+/g, ' ')
-      .trim()
-      .slice(0, 180);
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 180);
     const status = `HTTP ${response.status}`;
     throw new Error(`Provider mengirim respons non-JSON (${status}, ${contentType})${preview ? `: ${preview}` : '.'}`);
   }
