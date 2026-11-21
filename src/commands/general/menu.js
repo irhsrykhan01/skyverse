@@ -3,7 +3,7 @@ import { sendA2UIMenu } from '../../platform/whatsapp/a2ui.js';
 function buildMenuBody(ctx) {
   const commands = ctx.registry.all({ includeHidden: false });
   const userNumber = ctx.senderNumber
-    ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
+    ? `+${String(ctx.senderNumber).replace(/^\\+/, '')}`
     : `+${ctx.senderJid?.split('@')[0] ?? 'Tidak tersedia'}`;
   const tier = ctx.isOwner
     ? 'Owner'
@@ -24,15 +24,12 @@ function buildMenuBody(ctx) {
     '> SkyVerse adalah bot WhatsApp atau asisten virtual WhatsApp yang siap bantu kamu bikin stiker, download video, sampai main game seru!',
     '',
     'Butuh bantuan atau ingin request fitur? Ketik *.owner* untuk menghubungi admin.',
-    '',
-    'Support SkyVerse:',
-    'https://saweria.co/irhsrykhan',
-  ].join('\n');
+  ].join('\\n');
 }
 
 export const command = {
   name: 'menu',
-  description: 'Menampilkan menu interaktif SkyVerse.',
+  description: 'Menampilkan menu utama SkyVerse dengan A2UI.',
   category: 'general',
   aliases: [],
   permission: 'user',
