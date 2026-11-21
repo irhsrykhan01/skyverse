@@ -41,6 +41,30 @@ function userInputMessage(error) {
   return prefix ? message.slice(prefix.length).trim() : null;
 }
 
+function hasActivePremium(user) {
+  if (!user?.is_premium) return false;
+  if (user.premium_until == null) return true;
+  const expiresAt = Number(user.premium_until);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
+function detectAutoDownloader(text) {
+  const value = String(text ?? '').trim();
+  if (!/^https?:\/\//i.test(value) || /\s/.test(value)) return null;
+
+  let hostname;
+  try { hostname = new URL(value).hostname.toLowerCase().replace(/^www\./, ''); } catch { return null; }
+
+  if (hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')) return { name: 'tiktok', url: value };
+  if (hostname === 'youtube.com' || hostname.endsWith('.youtube.com') || hostname === 'youtu.be') return { name: 'youtube', url: value };
+  if (hostname === 'instagram.com' || hostname.endsWith('.instagram.com')) return { name: 'instagram', url: value };
+  if (hostname === 'pinterest.com' || hostname.endsWith('.pinterest.com') || hostname === 'pin.it') return { name: 'pinterest', url: value };
+  if (hostname === 'capcut.com' || hostname.endsWith('.capcut.com')) return { name: 'capcut', url: value };
+  if (hostname === 'x.com' || hostname.endsWith('.x.com') || hostname === 'twitter.com' || hostname.endsWith('.twitter.com')) return { name: 'twitter', url: value };
+  if (hostname === 'mediafire.com' || hostname.endsWith('.mediafire.com')) return { name: 'mediafire', url: value };
+  return null;
+}
+
 export function createMessageEngine({ config, logger, identity, registry, repositories, economy, providers }) {
   const seen = new Map();
   const cooldowns = new Map();
@@ -173,15 +197,31 @@ export function createMessageEngine({ config, logger, identity, registry, reposi
       return;
     }
 
-    const parsed = parseIncomingMessage(message, config.prefix);
-    if (!parsed) return;
-    logger.info(`Dari ${displaySender(senderJid, senderPhoneJid, chatId)} = ${parsed.raw}`);
+    let parsed = parseIncomingMessage(message, config.prefix);
+    if (!parsed) {
+      const detected = detectAutoDownloader(plainText);
+      if (!detected) return;
+
+      const storedUser = repositories.users.get(senderJid);
+      const autoAllowed = identity.isOwner(senderPhoneJid || senderJid) || hasActivePremium(storedUser);
+      if (!autoAllowed) return;
+
+      parsed = Object.freeze({
+        raw: plainText,
+        name: detected.name,
+        args: [detected.url],
+        argumentText: detected.url,
+        autoDownload: true,
+      });
+    }
+    logger.info(`Dari ${displaySender(senderJid, senderPhoneJid, chatId)} = ${parsed.raw}${parsed.autoDownload ? ' [AUTO-DOWNLOAD]' : ''}`);
     const command = registry.resolve(parsed.name);
     if (!command) return;
 
     const context = createMessageContext({ socket, message, command, registry, identity, config, parsed, providers, repositories, economy, resolveNewsletterMessage, resolveGroupMessage });
     const permission = await context.permissionLevel(command.permission);
     if ((PERMISSION_ORDER[permission] ?? 0) < (PERMISSION_ORDER[command.permission] ?? 0)) { await context.reply('Kamu tidak memiliki izin untuk menggunakan command ini.'); return; }
+    if (command.access === 'premium' && !context.isOwner && !context.isPremium) { await context.reply('Fitur ini khusus untuk pengguna Premium dan Owner.'); return; }
     if (command.cost > 0 && !context.isOwner) {
       const wallet = economy.getWallet(senderJid);
       if (wallet.coins < command.cost) { await context.reply(`Coin tidak cukup. Butuh ${command.cost} 🪙, saldo kamu ${wallet.coins} 🪙.`); return; }

@@ -56,6 +56,8 @@ export function createMessageContext({ socket, message, command, registry, ident
   const directPhoneNumber = directPhoneJid ? normalizePhoneNumber(String(directPhoneJid).split('@')[0]) : null;
   const storedNumber = refreshedUser?.number ? normalizePhoneNumber(refreshedUser.number) : null;
   const userNumber = storedNumber || directPhoneNumber || null;
+  const premiumUntil = refreshedUser?.premium_until == null ? null : Number(refreshedUser.premium_until);
+  const isPremium = Boolean(refreshedUser?.is_premium) && (premiumUntil === null || (Number.isFinite(premiumUntil) && premiumUntil > Date.now()));
   let groupMetadataPromise = null;
   const capabilities = createCapabilityEngine(socket);
   const group = createGroupService();
@@ -112,7 +114,7 @@ export function createMessageContext({ socket, message, command, registry, ident
   return Object.freeze({
     socket, message, config, registry, command, parsed, providers, repositories, economy,
     chatId, chatType, senderJid, senderPhoneJid, senderNumber: userNumber,
-    user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
+    user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner, isPremium,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
     getNewsletterReplyTarget, group, newsletter, calculate,
     media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark, download: downloadMedia, send: sendMedia }),

@@ -1,16 +1,17 @@
 import { replyWithDownloaderMedia } from '../../services/providers/downloader-response.js';
 
 export const command = {
-  name: 'facebook',
-  description: 'Download media Facebook.',
+  name: 'capcut',
+  description: 'Download media template CapCut.',
   category: 'downloader',
-  aliases: ['fb'],
-  usage: 'facebook <url>',
+  aliases: [],
+  usage: 'capcut <url>',
   permission: 'user',
   minArgs: 1,
+  maxArgs: 1,
   cooldown: 5000,
   async execute(ctx) {
-    const response = await ctx.providers.downloader.facebook(ctx.parsed.args[0]);
+    const response = await ctx.providers.downloader.capcut(ctx.parsed.args[0]);
     await replyWithDownloaderMedia(ctx, response, { kind: 'video' });
   },
 };
