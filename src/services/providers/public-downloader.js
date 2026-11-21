@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 
 const USER_AGENT = 'SkyVerseDownloader/1.0 (+WhatsApp bot)';
 const SIPUTZ = 'https://api.siputzx.my.id';
+const RYZUMI = 'https://api.ryzumi.net/api/downloader/all-in-one';
 const TIKWM = 'https://www.tikwm.com/api/';
 
 export function normalizeYouTubeUrl(value) {
@@ -220,6 +221,22 @@ export function createPublicDownloaderProvider() {
     return unwrap(await requestJson(withUrl(`${SIPUTZ}/api/d/${path}`, url)));
   }
 
+  async function ryzumi(url) {
+    return unwrap(await requestJson(withUrl(RYZUMI, url)));
+  }
+
+  async function withRyzumiFallback(primary, url) {
+    try { return await primary(); }
+    catch (primaryError) {
+      try { return await ryzumi(url); }
+      catch (fallbackError) {
+        const first = primaryError?.message ?? 'Provider utama gagal tanpa detail.';
+        const second = fallbackError?.message ?? 'Provider cadangan gagal tanpa detail.';
+        throw new Error(`Semua provider downloader gagal. Siputzx: ${first} | Ryzumi: ${second}`);
+      }
+    }
+  }
+
   async function tikwm(url) {
     const endpoint = withUrl(TIKWM, url);
     endpoint.searchParams.set('hd', '1');
@@ -233,7 +250,7 @@ export function createPublicDownloaderProvider() {
     instagram: async (url) => normalizeInstagramInfo(await getYtDlpJson(normalizeInstagramUrl(url))),
     pinterest: (url) => siputzx('pinterest', url),
     capcut: (url) => siputzx('capcut', url),
-    twitter: (url) => siputzx('twitter', url),
+    twitter: (url) => withRyzumiFallback(() => siputzx('twitter', url), url),
     mediafire: (url) => siputzx('mediafire', url),
   });
 }
