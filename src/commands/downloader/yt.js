@@ -2,7 +2,7 @@ import { replyWithDownloaderMedia } from '../../services/providers/downloader-re
 
 export const command = {
   name: 'youtube',
-  description: 'Download video YouTube.',
+  description: 'Download video YouTube, termasuk Shorts.',
   category: 'downloader',
   aliases: ['yt'],
   usage: 'youtube <url>',
