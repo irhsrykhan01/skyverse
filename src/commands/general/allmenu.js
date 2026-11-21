@@ -15,7 +15,7 @@ function buildAllMenu(ctx) {
   }
 
   const userNumber = ctx.senderNumber
-    ? `+${String(ctx.senderNumber).replace(/^\\+/, '')}`
+    ? \`+\${String(ctx.senderNumber).replace(/^\+/, '')}\`
     : 'Tidak tersedia';
   const status = ctx.isOwner
     ? 'Owner'
@@ -26,24 +26,24 @@ function buildAllMenu(ctx) {
   const lines = [
     '╭───〔 *SKYVERSE BOT* 〕───',
     '│',
-    `│ ◦ *User*          : ${userNumber}`,
-    `│ ◦ *Status*        : ${status}`,
-    `│ ◦ *Total Command* : ${commands.length} Commands`,
+    \`│ ◦ *User*          : \${userNumber}\`,
+    \`│ ◦ *Status*        : \${status}\`,
+    \`│ ◦ *Total Command* : \${commands.length} Commands\`,
     '│',
     '╰────────────────────',
     '> All-in-one WhatsApp virtual bot assistant.',
   ];
 
   for (const [category, items] of orderMenuCategories(groups)) {
-    lines.push('', `╭─「 *${getMenuCategoryLabel(category).toUpperCase()}* 」`);
+    lines.push('', \`╭─「 *\${getMenuCategoryLabel(category).toUpperCase()}* 」\`);
     items.forEach((item, index) => {
       const branch = index === items.length - 1 ? '╰' : '├';
-      lines.push(`${branch} ${ctx.config.prefix}${item.name}`);
+      lines.push(\`\${branch} \${ctx.config.prefix}\${item.name}\`);
     });
   }
 
   lines.push('', 'Support SkyVerse:', SUPPORT_URL);
-  return lines.join('\\n');
+  return lines.join('\n');
 }
 
 export const command = {
@@ -54,7 +54,7 @@ export const command = {
   permission: 'user',
   usage: 'allmenu',
   async execute(ctx) {
-    const encodedThumbnail = fs.readFileSync(SUPPORT_THUMBNAIL, 'utf8').replace(/\\s+/g, '');
+    const encodedThumbnail = fs.readFileSync(SUPPORT_THUMBNAIL, 'utf8').replace(/\s+/g, '');
     const thumbnail = Buffer.from(encodedThumbnail, 'base64');
     if (!thumbnail.length) throw new Error('Thumbnail link preview allmenu kosong.');
 
