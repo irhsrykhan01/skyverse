@@ -70,7 +70,7 @@ async function sendInteractive(socket, jid, { title, body, footer, buttons, cont
 
 async function buildSupportPreview(socket) {
   const bannerPath = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
-  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\\s+/g, '');
+  const encodedBanner = fs.readFileSync(bannerPath, 'utf8').replace(/\s+/g, '');
   const banner = Buffer.from(encodedBanner, 'base64');
   if (!banner.length) throw new Error('Banner SkyLabs untuk link preview menu kosong.');
 
@@ -127,7 +127,7 @@ export async function sendA2UIMenu(socket, jid, { config, registry, body = null 
 
   return sendInteractive(socket, jid, {
     title: config.botName || 'SKYVERSE BOT',
-    body: body ?? `SkyVerse Online\\nPrefix: ${config.prefix}\\nCommands: ${registry.all({ includeHidden: false }).length}\\n\\nPilih kategori untuk melihat command yang tersedia.\\n\\nSupport SkyVerse:\\n${SUPPORT_URL}`,
+    body: body ?? `SkyVerse Online\nPrefix: ${config.prefix}\nCommands: ${registry.all({ includeHidden: false }).length}\n\nPilih kategori untuk melihat command yang tersedia.\n\nSupport SkyVerse:\n${SUPPORT_URL}`,
     footer: 'SkyLabs • SkyVerse',
     buttons,
     contextInfo,
@@ -150,7 +150,7 @@ export async function sendA2UICategoryMenu(socket, jid, { config, registry, cate
 
   return sendInteractive(socket, jid, {
     title: `${label} Menu`,
-    body: `SkyVerse • ${label}\\n${commands.length} command tersedia.\\n\\nPilih command yang ingin dijalankan.`,
+    body: `SkyVerse • ${label}\n${commands.length} command tersedia.\n\nPilih command yang ingin dijalankan.`,
     footer: 'SkyLabs • SkyVerse',
     buttons: [
       button('single_select', { title: `${label} Commands`, sections: [{ title: `${label} Menu`, rows }] }),
