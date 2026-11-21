@@ -8,7 +8,7 @@ export function normalizeYouTubeUrl(value) {
   try { parsed = new URL(String(value)); }
   catch { throw new Error('Masukkan URL YouTube yang valid.'); }
 
-  const host = parsed.hostname.toLowerCase().replace(/^www\\./, '');
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
   if (!['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'].includes(host)) {
     throw new Error('URL harus berasal dari YouTube.');
   }
