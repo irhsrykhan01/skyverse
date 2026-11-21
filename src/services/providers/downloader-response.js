@@ -124,6 +124,20 @@ async function downloadUrl(url, { maxBytes = 30 * 1024 * 1024, retries = 2, kind
 
 export async function replyWithDownloaderMedia(ctx, response, { kind = 'video', caption = null, filename = null } = {}) {
   const result = response?.result ?? response?.data ?? response;
+  const mediaItems = Array.isArray(result) ? result
+    : [result?.medias, result?.items, result?.data].find(Array.isArray) ?? [];
+  if (mediaItems.length) {
+    for (const item of mediaItems.slice(0, 10)) {
+      const url = findDownloaderUrl(item, { kind: 'auto' });
+      if (!url) continue;
+      const mime = String(item?.mimeType ?? item?.mimetype ?? item?.type ?? '').toLowerCase();
+      const image = mime.includes('image') || /\\.(?:jpe?g|png|webp)(?:$|\\?)/i.test(url);
+      const mediaKind = image ? 'image' : 'video';
+      const media = await downloadUrl(url, { kind: mediaKind, maxBytes: image ? 15 * 1024 * 1024 : 30 * 1024 * 1024 });
+      await ctx.media.send(media, mediaKind, { caption });
+    }
+    return;
+  }
   const slideImages = Array.isArray(result?.images) ? result.images.filter(isMediaUrl) : [];
   if (slideImages.length) {
     for (const url of slideImages) {
