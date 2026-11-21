@@ -5,7 +5,7 @@ import { getMenuCategoryLabel, orderMenuCategories } from '../../core/menu-categ
 const SUPPORT_URL = 'https://saweria.co/irhsrykhan';
 const SUPPORT_THUMBNAIL = new URL('../../../assets/link-preview/skylabs-banner.jpg.b64', import.meta.url);
 
-function buildAllMenu(ctx) {
+async function buildAllMenu(ctx) {
   const commands = ctx.registry.all({ includeHidden: false });
   const groups = new Map();
 
@@ -17,11 +17,14 @@ function buildAllMenu(ctx) {
   const userNumber = ctx.senderNumber
     ? `+${String(ctx.senderNumber).replace(/^\+/, '')}`
     : 'Tidak tersedia';
+  const isGroupAdmin = await ctx.isAdmin();
   const tier = ctx.isOwner
     ? 'Owner'
-    : ctx.user?.is_premium
-      ? 'Premium User'
-      : 'Free User';
+    : isGroupAdmin
+      ? 'Admin'
+      : ctx.isPremium
+        ? 'Premium User'
+        : 'Free User';
 
   const lines = [
     '╭───〔 *SKYVERSE BOT* 〕───',
@@ -90,7 +93,7 @@ export const command = {
     const quote = ctx.isChannel || ctx.isBroadcast ? {} : { quoted: ctx.message };
     const sent = await ctx.socket.sendMessage(
       ctx.chatId,
-      { text: buildAllMenu(ctx), linkPreview },
+      { text: await buildAllMenu(ctx), linkPreview },
       quote,
     );
 
