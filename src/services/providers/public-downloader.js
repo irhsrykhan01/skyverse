@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process';
-
 const USER_AGENT = 'SkyVerseDownloader/1.0 (+WhatsApp bot)';
 const SIPUTZ = 'https://api.siputzx.my.id';
 const RYZUMI = 'https://api.ryzumi.net/api/downloader/all-in-one';
@@ -29,128 +27,6 @@ export function normalizeYouTubeUrl(value) {
     return `https://www.youtube.com/watch?v=${encodeURIComponent(parsed.searchParams.get('v'))}`;
   }
   throw new Error('URL YouTube tidak memiliki ID video yang valid.');
-}
-
-function normalizeInstagramUrl(value) {
-  let parsed;
-  try { parsed = new URL(String(value)); }
-  catch { throw new Error('Masukkan URL Instagram yang valid.'); }
-  const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-  if (!['instagram.com', 'm.instagram.com'].includes(host)) {
-    throw new Error('URL harus berasal dari Instagram.');
-  }
-  if (!/^\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+\/?/.test(parsed.pathname)) {
-    throw new Error('Gunakan URL postingan, Reel, atau video Instagram yang valid.');
-  }
-  return parsed.toString();
-}
-
-function runProcess(command, args, timeoutMs = 60_000) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
-    const finish = (error, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (error) reject(error);
-      else resolve(value);
-    };
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      finish(new Error('yt-dlp melewati batas waktu 60 detik.'));
-    }, timeoutMs);
-
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-      if (stdout.length > 8 * 1024 * 1024) {
-        child.kill('SIGKILL');
-        finish(new Error('Metadata Instagram dari yt-dlp terlalu besar.'));
-      }
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-      if (stderr.length > 16_384) stderr = stderr.slice(-16_384);
-    });
-    child.on('error', (error) => {
-      if (error.code === 'ENOENT') {
-        finish(Object.assign(new Error(`Perintah ${command} tidak ditemukan.`), { code: 'ENOENT' }));
-      } else finish(error);
-    });
-    child.on('close', (code) => {
-      if (settled) return;
-      if (code !== 0) {
-        const detail = stderr.trim().split('\n').slice(-3).join(' ').slice(0, 500);
-        finish(new Error(detail || `yt-dlp berhenti dengan kode ${code}.`));
-        return;
-      }
-      finish(null, stdout);
-    });
-  });
-}
-
-async function getYtDlpJson(url) {
-  const args = ['--dump-single-json', '--no-warnings', '--no-playlist', '--no-progress', url];
-  let output;
-  try {
-    output = await runProcess('yt-dlp', args);
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw new Error(`yt-dlp gagal mengambil Instagram: ${error.message}`);
-    try {
-      output = await runProcess('python3', ['-m', 'yt_dlp', ...args]);
-    } catch (pythonError) {
-      if (pythonError.code === 'ENOENT' || /No module named yt_dlp/.test(pythonError.message)) {
-        throw new Error('yt-dlp belum terpasang di server. Pasang yt-dlp pada environment Pterodactyl terlebih dahulu.');
-      }
-      throw new Error(`yt-dlp gagal mengambil Instagram: ${pythonError.message}`);
-    }
-  }
-
-  try { return JSON.parse(output); }
-  catch { throw new Error('yt-dlp tidak menghasilkan metadata JSON Instagram yang valid.'); }
-}
-
-function bestDirectUrl(item) {
-  if (typeof item?.url === 'string' && /^https?:\/\//i.test(item.url)) return item.url;
-  const requested = item?.requested_downloads?.find((entry) => /^https?:\/\//i.test(entry?.url ?? ''));
-  if (requested) return requested.url;
-  const formats = (item?.formats ?? [])
-    .filter((format) => /^https?:\/\//i.test(format?.url ?? ''))
-    .sort((a, b) => (b.height ?? 0) - (a.height ?? 0));
-  return formats[0]?.url ?? null;
-}
-
-function toInstagramMedia(item) {
-  const url = bestDirectUrl(item);
-  if (!url) return null;
-  const ext = String(item?.ext ?? '').toLowerCase();
-  const image = ['jpg', 'jpeg', 'png', 'webp', 'avif'].includes(ext);
-  return {
-    url,
-    type: image ? 'image' : 'video',
-    mimeType: image ? (ext === 'png' ? 'image/png' : 'image/jpeg') : 'video/mp4',
-  };
-}
-
-function normalizeInstagramInfo(info) {
-  const entries = Array.isArray(info?.entries) ? info.entries : null;
-  if (entries) {
-    const medias = entries.map(toInstagramMedia).filter(Boolean);
-    if (!medias.length) throw new Error('yt-dlp tidak menemukan file media pada postingan Instagram ini.');
-    return { result: { medias, title: info.title ?? 'Instagram' } };
-  }
-
-  const media = toInstagramMedia(info);
-  if (!media) throw new Error('yt-dlp tidak menemukan URL media Instagram yang bisa diunduh.');
-  return {
-    result: media.type === 'image'
-      ? { images: [media.url], title: info.title ?? 'Instagram' }
-      : { video: media.url, title: info.title ?? 'Instagram' },
-  };
 }
 
 function withUrl(endpoint, sourceUrl) {
@@ -249,7 +125,7 @@ export function createPublicDownloaderProvider() {
     tiktok: tikwm,
     youtube: (url) => siputzx('ytmp4', normalizeYouTubeUrl(url)),
     youtubeMp3: (url) => siputzx('ytmp3', normalizeYouTubeUrl(url)),
-    instagram: async (url) => normalizeInstagramInfo(await getYtDlpJson(normalizeInstagramUrl(url))),
+    instagram: (url) => withRyzumiFallback(() => siputzx('igdl', url), url),
     pinterest: (url) => siputzx('pinterest', url),
     capcut: (url) => siputzx('capcut', url),
     twitter: (url) => withRyzumiFallback(() => siputzx('twitter', url), url),
