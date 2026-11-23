@@ -115,15 +115,16 @@ function getNormalizedItems(data) {
 
 function getRawMediaItems(data, platform) {
   const raw = getRawResult(data);
+  const platformKey = String(platform).toLowerCase();
 
-  if (platform === 'youtube') {
+  if (platformKey === 'youtube') {
     return [
       ...(isMediaUrl(raw.mp4) ? [{ label: 'MP4 Video', type: 'video', url: raw.mp4 }] : []),
       ...(isMediaUrl(raw.mp3) ? [{ label: 'MP3 Audio', type: 'audio', url: raw.mp3 }] : []),
     ];
   }
 
-  if (platform === 'instagram') {
+  if (platformKey === 'instagram') {
     const list = Array.isArray(raw.result) ? raw.result : Array.isArray(raw) ? raw : [];
     return list
       .filter((item) => isMediaUrl(item?.url))
@@ -134,7 +135,7 @@ function getRawMediaItems(data, platform) {
       }));
   }
 
-  if (platform === 'twitter') {
+  if (platformKey === 'twitter' || platformKey === 'twitter/x') {
     const variants = Array.isArray(raw.url) ? raw.url : [];
     return variants.flatMap((entry) => {
       if (!entry || typeof entry !== 'object') return [];
@@ -144,7 +145,7 @@ function getRawMediaItems(data, platform) {
     });
   }
 
-  if (platform === 'pinterest') {
+  if (platformKey === 'pinterest') {
     const layer = raw.result && typeof raw.result === 'object' ? raw.result : raw;
     const pin = layer.result && typeof layer.result === 'object' && !Array.isArray(layer.result)
       ? layer.result
