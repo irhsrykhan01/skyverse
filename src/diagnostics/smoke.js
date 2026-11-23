@@ -22,8 +22,8 @@ const providers = createProviderManager(config);
 const visibleCommands = registry.all({ includeHidden: false });
 const visibleNames = new Set(visibleCommands.map((command) => command.name));
 
-for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'pinterest', 'capcut', 'twitter', 'mediafire']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
-for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4']) {
+for (const required of ['menu', 'help', 'ping', 'info', 'owner', 'balance', 'claim', 'sticker', 'brat', 'bratvid', 'iqc', 'smeme', 'stickerwatermark', 'tomp3', 'tomp4', 'toimg', 'tovideo', 'tovn', 'texttoqr', 'hd', 'removebg', 'warn', 'unwarn', 'delete', 'instagram', 'youtube', 'ytmp3', 'pinterest', 'capcut', 'twitter']) assert(visibleNames.has(required), `Missing visible command: ${required}`);
+for (const removed of ['tictactoe', 'a2uitest', 'add', 'warnings', 'ytmp4', 'mediafire']) {
   assert(!visibleNames.has(removed), `Removed command is still visible: ${removed}`);
   assert(registry.resolve(removed) === undefined, `Removed command is still resolvable: ${removed}`);
 }
@@ -44,21 +44,21 @@ assert(normalizeYouTubeUrl('https://www.youtube.com/shorts/ShortID123?feature=sh
 assert(normalizeYouTubeUrl('https://youtu.be/VideoID123') === 'https://www.youtube.com/watch?v=VideoID123', 'Short YouTube URL normalization regression.');
 assert(registry.resolve('pin')?.name === 'pinterest', 'Pinterest command alias regression.');
 assert(registry.resolve('x')?.name === 'twitter', 'Twitter/X command alias regression.');
-assert(registry.resolve('mf')?.name === 'mediafire', 'MediaFire command alias regression.');
+assert(registry.resolve('mf') === undefined, 'Removed MediaFire alias is still resolvable.');
 assert(typeof providers.makers?.brat === 'function', 'Maker provider is missing brat().');
 assert(typeof providers.makers?.bratFrames === 'function', 'Maker provider is missing bratFrames().');
 assert(typeof providers.makers?.iqc === 'function', 'Maker provider is missing iqc().');
 assert(config.bratBaseUrl === 'https://aqul-brat.hf.space', 'Default Brat provider URL regression.');
 assert(config.nexrayBaseUrl === 'https://api.nexray.web.id', 'Default Nexray provider URL regression.');
 assert(typeof providers.downloader?.tiktok === 'function', 'TikWM provider is missing.');
-assert(typeof providers.downloader?.youtube === 'function', 'Siputzx YouTube MP4 provider is missing.');
-assert(typeof providers.downloader?.youtubeMp3 === 'function', 'Siputzx YouTube MP3 provider is missing.');
+assert(typeof providers.downloader?.youtube === 'function', 'btch-downloader YouTube MP4 provider is missing.');
+assert(typeof providers.downloader?.youtubeMp3 === 'function', 'btch-downloader YouTube MP3 provider is missing.');
 assert(typeof providers.downloader?.instagram === 'function', 'Instagram downloader provider is missing.');
 assert(typeof providers.downloader?.pinterest === 'function', 'Pinterest downloader provider is missing.');
 assert(typeof providers.downloader?.capcut === 'function', 'CapCut downloader provider is missing.');
 assert(typeof providers.downloader?.twitter === 'function', 'Twitter/X downloader provider is missing.');
-assert(typeof providers.downloader?.mediafire === 'function', 'MediaFire downloader provider is missing.');
-assert(Object.keys(providers.downloader).sort().join(',') === ['capcut', 'instagram', 'mediafire', 'pinterest', 'tiktok', 'twitter', 'youtube', 'youtubeMp3'].sort().join(','), 'Downloader provider set contains an unapproved API.');
+assert(!Object.hasOwn(providers.downloader, 'mediafire'), 'Removed MediaFire provider is still registered.');
+assert(Object.keys(providers.downloader).sort().join(',') === ['capcut', 'instagram', 'pinterest', 'tiktok', 'twitter', 'youtube', 'youtubeMp3'].sort().join(','), 'Downloader provider set contains an unapproved API.');
 assert(typeof media.toMp3 === 'function', 'Media toMp3 export is missing.');
 assert(typeof media.toMp4 === 'function', 'Media toMp4 export is missing.');
 assert(normalizePhoneNumber('628123456789:7@s.whatsapp.net') === '628123456789', 'Phone normalization did not remove the WhatsApp device suffix.');
@@ -129,4 +129,4 @@ assert(ptvDescriptor?.type === 'video', 'PTV regression: ptvMessage was not clas
 assert(ptvDescriptor?.isPTV === true, 'PTV regression: isPTV flag was not preserved.');
 assert(ptvDescriptor?.message?.message?.videoMessage, 'PTV regression: ptvMessage was not normalized for downloadMediaMessage.');
 
-console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + public downloader aliases + economy + games + Canvas Rich + PTV resolver tests.`);
+console.log(`SkyVerse smoke test passed: ${visibleCommands.length} visible commands + maker providers + TikWM, CapCut and btch downloader providers + economy + games + Canvas Rich + PTV resolver tests.`);
