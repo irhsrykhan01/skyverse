@@ -113,6 +113,58 @@ function getNormalizedItems(data) {
   return [];
 }
 
+function getRawMediaItems(data, platform) {
+  const raw = getRawResult(data);
+
+  if (platform === 'youtube') {
+    return [
+      ...(isMediaUrl(raw.mp4) ? [{ label: 'MP4 Video', type: 'video', url: raw.mp4 }] : []),
+      ...(isMediaUrl(raw.mp3) ? [{ label: 'MP3 Audio', type: 'audio', url: raw.mp3 }] : []),
+    ];
+  }
+
+  if (platform === 'instagram') {
+    const list = Array.isArray(raw.result) ? raw.result : Array.isArray(raw) ? raw : [];
+    return list
+      .filter((item) => isMediaUrl(item?.url))
+      .map((item) => ({
+        label: 'Instagram media',
+        type: classifyMedia({ url: item.url, label: 'video' }, 'video'),
+        url: item.url,
+      }));
+  }
+
+  if (platform === 'twitter') {
+    const variants = Array.isArray(raw.url) ? raw.url : [];
+    return variants.flatMap((entry) => {
+      if (!entry || typeof entry !== 'object') return [];
+      return Object.entries(entry)
+        .filter(([, url]) => isMediaUrl(url))
+        .map(([quality, url]) => ({ label: quality.toUpperCase(), type: 'video', url }));
+    });
+  }
+
+  if (platform === 'pinterest') {
+    const layer = raw.result && typeof raw.result === 'object' ? raw.result : raw;
+    const pin = layer.result && typeof layer.result === 'object' && !Array.isArray(layer.result)
+      ? layer.result
+      : layer;
+    const images = pin.images && typeof pin.images === 'object' ? pin.images : {};
+    const imageUrl = images.orig?.url
+      ?? images['736x']?.url
+      ?? images['600x315']?.url
+      ?? pin.image_url
+      ?? pin.image
+      ?? null;
+    return [
+      ...(isMediaUrl(pin.video_url) ? [{ label: 'Video', type: 'video', url: pin.video_url }] : []),
+      ...(isMediaUrl(imageUrl) ? [{ label: 'Image', type: 'image', url: imageUrl }] : []),
+    ];
+  }
+
+  return [];
+}
+
 function classifyMedia(item, fallback = 'video') {
   const declared = String(item?.type ?? '').toLowerCase();
   if (['video', 'image', 'audio'].includes(declared)) return declared;
@@ -133,8 +185,10 @@ function classifyMedia(item, fallback = 'video') {
   return fallback;
 }
 
-function normalizeMediaItems(data, fallbackType = 'video') {
-  return getNormalizedItems(data)
+function normalizeMediaItems(data, fallbackType = 'video', platform = '') {
+  const normalized = getNormalizedItems(data);
+  const items = normalized.length ? normalized : getRawMediaItems(data, platform);
+  return items
     .filter((item) => isMediaUrl(item?.url))
     .map((item) => {
       const type = classifyMedia(item, fallbackType);
@@ -161,7 +215,7 @@ async function btchDownload(platform, sourceUrl) {
 }
 
 function buildMediaResponse(data, platform, fallbackType = 'video') {
-  const medias = normalizeMediaItems(data, fallbackType);
+  const medias = normalizeMediaItems(data, fallbackType, platform);
   if (!medias.length) {
     throw new Error(platform + ' tidak mengembalikan tautan media yang bisa diunduh.');
   }
@@ -217,7 +271,7 @@ export function createPublicDownloaderProvider() {
 
   async function youtube(url) {
     const data = await btchDownload('youtube', normalizeYouTubeUrl(url));
-    const normalized = normalizeMediaItems(data);
+    const normalized = normalizeMediaItems(data, 'video', 'youtube');
     const raw = getRawResult(data);
     const video = normalized.find((item) => item.type === 'video')?.url
       ?? (isMediaUrl(raw.mp4) ? raw.mp4 : null);
