@@ -287,7 +287,7 @@ export function createPublicDownloaderProvider() {
 
   async function youtubeMp3(url) {
     const data = await btchDownload('youtube', normalizeYouTubeUrl(url));
-    const normalized = normalizeMediaItems(data);
+    const normalized = normalizeMediaItems(data, 'video', 'youtube');
     const raw = getRawResult(data);
     const audio = normalized.find((item) => item.type === 'audio')?.url
       ?? (isMediaUrl(raw.mp3) ? raw.mp3 : null);
