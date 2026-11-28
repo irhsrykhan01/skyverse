@@ -120,7 +120,7 @@ export function createMessageContext({ socket, message, command, registry, ident
     };
     const generated = generateWAMessageFromContent(chatId, content, {
       userJid: socket.user?.id,
-      ...(!options.quoted && canQuoteMessage(chatType) ? { quoted: message } : {}),
+      ...(options.quoted !== false && canQuoteMessage(chatType) ? { quoted: message } : {}),
     });
     return socket.relayMessage(chatId, generated.message, { messageId: generated.key.id });
   }
