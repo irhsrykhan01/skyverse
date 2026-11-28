@@ -108,12 +108,12 @@ write('Utils/messages.js', (source) => {
     );
     source = replaceRequired(
       source,
-      'timeoutMs: options.mediaUploadTimeoutMs\n        });',
+      /timeoutMs: options\\.mediaUploadTimeoutMs\\s*\\n\\s*\\}\\);/,
       'timeoutMs: options.mediaUploadTimeoutMs,\n            newsletter: isNewsletter\n        });',
       'newsletter upload mode'
     );
   }
-  if (!source.includes('directPath,\\n                thumbnailDirectPath,\\n                thumbnailSha256')) {
+  if (!source.includes('directPath,\n                thumbnailDirectPath,\n                thumbnailSha256')) {
     source = replaceRequired(
       source,
       'url: mediaUrl,\n                directPath,\n                fileSha256,',
