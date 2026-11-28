@@ -244,7 +244,9 @@ async function mapWithConcurrency(items, limit, task) {
       results[index] = await task(items[index]);
     }
   });
-  await Promise.all(workers);
+  const settled = await Promise.allSettled(workers);
+  const failed = settled.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
   return results;
 }
 
