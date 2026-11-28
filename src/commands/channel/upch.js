@@ -10,6 +10,6 @@ export const command = {
   cooldown: 5000,
   async execute(ctx) {
     await ctx.newsletter.upload(ctx, ctx.parsed.args.join(' '));
-    await ctx.reply('Berhasil dikirim ke WhatsApp Channel.');
+    await ctx.reply('Permintaan pengiriman sudah diteruskan ke WhatsApp. Cek Channel untuk memastikan postingan muncul.');
   },
 };
