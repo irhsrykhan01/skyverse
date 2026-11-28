@@ -17,7 +17,9 @@ export const command = {
       return;
     }
     const output = await ctx.media.toSoundSticker(media.buffer);
-    if (output.audio) await ctx.media.sendSoundSticker(output.sticker, output.audio);
-    else await ctx.media.send(output.sticker, 'sticker');
+    if (output.audio) {
+      await ctx.media.sendSoundSticker(output.sticker, output.audio);
+      if (output.trimmed) await ctx.reply('Video lebih dari 30 detik, jadi bagian setelah detik ke-30 dipotong.');
+    } else await ctx.media.send(output.sticker, 'sticker');
   },
 };
