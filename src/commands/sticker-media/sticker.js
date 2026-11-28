@@ -19,7 +19,7 @@ export const command = {
     const output = await ctx.media.toSoundSticker(media.buffer);
     if (output.audio) {
       await ctx.media.sendSoundSticker(output.sticker, output.audio);
-      if (output.trimmed) await ctx.reply('Video lebih dari 30 detik, jadi bagian setelah detik ke-30 dipotong.');
+      if (output.trimmed) await ctx.reply(`Durasi sound sticker disesuaikan menjadi ${output.seconds.toFixed(1)} detik agar ukuran tetap di bawah 500 KB dan kualitas visual terjaga.`);
     } else await ctx.media.send(output.sticker, 'sticker');
   },
 };
