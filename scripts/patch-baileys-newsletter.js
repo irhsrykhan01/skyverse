@@ -113,7 +113,7 @@ write('Utils/messages.js', (source) => {
       'newsletter upload mode'
     );
   }
-  if (!source.includes('thumbnailDirectPath, thumbnailSha256')) {
+  if (!source.includes('directPath,\\n                thumbnailDirectPath,\\n                thumbnailSha256')) {
     source = replaceRequired(
       source,
       'url: mediaUrl,\n                directPath,\n                fileSha256,',
