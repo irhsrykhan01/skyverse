@@ -244,7 +244,7 @@ export async function toSoundSticker(buffer) {
     let sticker = null;
     // WhatsApp animated stickers use a 512x512 canvas. Keep that canvas fixed:
     // reduce encoding cost first instead of destroying detail by shrinking to tiny resolutions.
-    const qualityLevels = [82, 76, 70, 64, 58];
+    const qualityLevels = [82, 76, 70, 64, 58, 52, 46, 40, 35, 30];
     for (const quality of qualityLevels) {
       const outputPath = join(dir, `sticker-512-q${quality}.webp`);
       await runProcess('ffmpeg', [
@@ -252,7 +252,8 @@ export async function toSoundSticker(buffer) {
         '-i', inputPath, '-t', String(seconds),
         '-map', '0:v:0', '-an',
         '-map_metadata', '-1', '-map_chapters', '-1', '-sn', '-dn',
-        '-vf', 'fps=21,scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p',
+        '-vf', 'fps=25,scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p',
+        '-r', '25',
         '-c:v', 'libwebp', '-lossless', '0', '-quality', String(quality),
         '-preset', 'picture', '-cr_threshold', '20', '-cr_size', '16',
         '-loop', '0', '-f', 'webp', outputPath,
