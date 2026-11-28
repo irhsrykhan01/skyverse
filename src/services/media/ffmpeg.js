@@ -242,24 +242,20 @@ export async function toSoundSticker(buffer) {
     if (audio.length > 950 * 1024) throw new Error('Audio hasil kompresi melewati batas ukuran sound sticker.');
 
     let sticker = null;
-    const profiles = [
-      { dimension: 512, quality: 30 },
-      { dimension: 384, quality: 25 },
-      { dimension: 320, quality: 20 },
-      { dimension: 256, quality: 15 },
-      { dimension: 192, quality: 10 },
-      { dimension: 160, quality: 5 },
-      { dimension: 128, quality: 0 },
-    ];
-    for (const { dimension, quality } of profiles) {
-      const outputPath = join(dir, `sticker-${dimension}-${quality}.webp`);
+    // WhatsApp animated stickers use a 512x512 canvas. Keep that canvas fixed:
+    // reduce encoding cost first instead of destroying detail by shrinking to tiny resolutions.
+    const qualityLevels = [82, 76, 70, 64, 58];
+    for (const quality of qualityLevels) {
+      const outputPath = join(dir, `sticker-512-q${quality}.webp`);
       await runProcess('ffmpeg', [
         '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
         '-i', inputPath, '-t', String(seconds),
         '-map', '0:v:0', '-an',
-        '-vf', `fps=21,scale=${dimension}:${dimension}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${dimension}:${dimension}:(ow-iw)/2:(oh-ih)/2:color=black@0,format=rgba`,
-        '-c:v', 'libwebp', '-lossless', '0', '-q:v', String(quality),
-        '-compression_level', '0', '-loop', '0', '-f', 'webp', outputPath,
+        '-map_metadata', '-1', '-map_chapters', '-1', '-sn', '-dn',
+        '-vf', 'fps=21,scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p',
+        '-c:v', 'libwebp', '-lossless', '0', '-quality', String(quality),
+        '-preset', 'picture', '-cr_threshold', '20', '-cr_size', '16',
+        '-loop', '0', '-f', 'webp', outputPath,
       ]);
       const candidate = await readFile(outputPath);
       if (isAnimatedWebp(candidate) && candidate.length <= 500 * 1024) {
@@ -267,7 +263,7 @@ export async function toSoundSticker(buffer) {
         break;
       }
     }
-    if (!sticker) throw new Error('Video terlalu kompleks untuk batas ukuran sticker. Coba video yang lebih sederhana atau lebih pendek; FPS tetap dijaga minimal 21.');
+    if (!sticker) throw new Error('Video masih melewati batas 500 KB pada resolusi 512p dan kualitas minimum yang aman. Kualitas tidak akan diturunkan menjadi pecah; coba potong durasi atau gunakan video dengan gerakan lebih sederhana.');
     return { sticker, audio, seconds, trimmed: sourceDuration > 30 };
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
