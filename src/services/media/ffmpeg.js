@@ -275,7 +275,7 @@ async function measureSoundStickerBytesPerFrame(inputPath, dir, duration) {
       "-map_metadata", "-1", "-map_chapters", "-1", "-sn", "-dn",
       "-vf", filter,
       "-c:v", "libwebp", "-lossless", "0", "-quality", String(quality),
-      "-compression_level", "4", "-preset", "picture",
+      "-compression_level", "6", "-preset", "picture",
       "-loop", "0", "-f", "webp", samplePath,
     ]);
     try {
@@ -352,7 +352,7 @@ export async function toSoundSticker(buffer) {
         "-map_metadata", "-1", "-map_chapters", "-1", "-sn", "-dn",
         "-vf", soundStickerFilter(fps),
         "-c:v", "libwebp", "-lossless", "0", "-quality", String(quality),
-        "-compression_level", "4", "-preset", "picture",
+        "-compression_level", "6", "-preset", "picture",
         "-loop", "0", "-f", "webp", outputPath,
       ]);
       const candidate = await readFile(outputPath);
