@@ -25,6 +25,7 @@ const checks = {
   'newsletter raw media metadata': messages.includes('newsletter: isNewsletter') &&
     messages.includes('thumbnailDirectPath') && messages.includes('url: isNewsletter ? null : mediaUrl'),
   'newsletter plaintext media attributes': /tag: 'plaintext',[\s\S]{0,100}attrs: extraAttrs/.test(send),
+  'sound-sticker protobuf field 134': send.includes('SOUND_STICKER_FIELD_134') && send.includes('encodeSoundStickerNewsletterMessage(patched)'),
 };
 
 console.log(`[SkyVerse] Baileys version: ${pkg.version ?? 'unknown'}`);
