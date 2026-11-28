@@ -230,9 +230,14 @@ function soundStickerSampleWindows(duration) {
 }
 
 function soundStickerFilter(fps) {
-  return "fps=" + fps +
-    ",scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos" +
-    ",pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p";
+  return "scale=512:512:force_original_aspect_ratio=increase:flags=lanczos" +
+    ",crop=512:512,fps=" + fps + ",setsar=1,format=yuva420p";
+}
+
+function preferredSoundStickerSetting(duration) {
+  if (duration > 15) return { fps: 8, quality: 45 };
+  if (duration > 8) return { fps: 12, quality: 65 };
+  return { fps: 15, quality: 65 };
 }
 
 async function mapWithConcurrency(items, limit, task) {
@@ -356,16 +361,15 @@ export async function toSoundSticker(buffer) {
     };
 
     let sticker = null;
-    let selected = null;
+    let selected = preferredSoundStickerSetting(seconds);
     let fullEncodes = 0;
 
-    // Short clips get one quick direct attempt before the sample-based planner.
-    if (seconds <= 6) {
-      selected = { fps: 21, quality: 55 };
-      sticker = await encodeSticker(selected);
-      fullEncodes += 1;
-      if (sticker.length > maxStickerBytes) sticker = null;
-    }
+    // Start with the reference encoder's duration-based 512px/FPS/quality profile.
+    // If the real output exceeds WhatsApp's 500 KiB sticker budget, use measured
+    // samples to select a lighter FPS/quality combination without shortening clips.
+    sticker = await encodeSticker(selected);
+    fullEncodes += 1;
+    if (sticker.length > maxStickerBytes) sticker = null;
 
     if (!sticker) {
       const bytesPerFrame = await measureSoundStickerBytesPerFrame(inputPath, dir, seconds);
@@ -393,7 +397,7 @@ export async function toSoundSticker(buffer) {
       "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
       "-i", inputPath, "-t", String(seconds),
       "-map", "0:a:0", "-vn", "-map_metadata", "-1", "-map_chapters", "-1",
-      "-c:a", "libopus", "-b:a", "32k", "-vbr", "on",
+      "-c:a", "libopus", "-b:a", "64k", "-vbr", "on",
       "-application", "audio", "-frame_duration", "20",
       "-ar", "48000", "-ac", "1", "-f", "ogg", audioPath,
     ]);
