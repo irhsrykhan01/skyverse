@@ -125,13 +125,28 @@ write('Utils/messages.js', (source) => {
 });
 
 write('Socket/messages-send.js', (source) => {
-  if (source.includes("tag: 'plaintext',\n                    attrs: extraAttrs,")) return source;
-  return replaceRequired(
-    source,
-    /tag: 'plaintext',\s*attrs: \{\},\s*content: bytes/,
-    "tag: 'plaintext',\n                    attrs: extraAttrs,\n                    content: bytes",
-    'newsletter plaintext media attributes'
-  );
+  if (!source.includes("tag: 'plaintext',\n                    attrs: extraAttrs,")) {
+    source = replaceRequired(
+      source,
+      /tag: 'plaintext',\s*attrs: \{\},\s*content: bytes/,
+      "tag: 'plaintext',\n                    attrs: extraAttrs,\n                    content: bytes",
+      'newsletter plaintext media attributes'
+    );
+  }
+  if (!source.includes('SOUND_STICKER_FIELD_134')) {
+    const marker = 'export const makeMessagesSocket =';
+    if (!source.includes(marker)) throw new Error('[SkyVerse] Baileys message socket layout is unsupported.');
+    source = source.replace(marker, "// SOUND_STICKER_FIELD_134: encode the WhatsApp sound-sticker envelope for Channels.\nfunction encodeSoundStickerVarint(value) {\n  let number = Number(value);\n  const bytes = [];\n  while (number > 127) { bytes.push((number & 127) | 128); number = Math.floor(number / 128); }\n  bytes.push(number);\n  return Buffer.from(bytes);\n}\nfunction encodeSoundStickerBytes(fieldNumber, value) {\n  const data = Buffer.from(value);\n  return Buffer.concat([encodeSoundStickerVarint(fieldNumber * 8 + 2), encodeSoundStickerVarint(data.length), data]);\n}\nfunction encodeSoundStickerNewsletterMessage(message) {\n  const sticker = message?.stickerMessage;\n  if (!sticker?.audioMessage) return encodeNewsletterMessage(message);\n  const { audioMessage, stickerEmoji, ...stickerFields } = sticker;\n  const { stickerMessage: _ignoredSticker, ...baseMessage } = message;\n  const baseBytes = Buffer.from(proto.Message.encode(baseMessage).finish());\n  const stickerBytes = Buffer.from(proto.Message.StickerMessage.encode(stickerFields).finish());\n  const audioBytes = Buffer.from(proto.Message.AudioMessage.encode(audioMessage).finish());\n  const parts = [stickerBytes, Buffer.from([0xc0, 0x01, 0x00])];\n  if (typeof stickerEmoji === 'string' && stickerEmoji.length) parts.push(encodeSoundStickerBytes(25, Buffer.from(stickerEmoji, 'utf8')));\n  parts.push(encodeSoundStickerBytes(26, audioBytes));\n  const nestedSticker = encodeSoundStickerBytes(26, Buffer.concat(parts));\n  const futureProofMessage = encodeSoundStickerBytes(1, nestedSticker);\n  const soundStickerField = encodeSoundStickerBytes(134, futureProofMessage);\n  return Buffer.concat([baseBytes, soundStickerField]);\n}" + '\n\n' + marker);
+  }
+  if (!source.includes('encodeSoundStickerNewsletterMessage(patched)')) {
+    source = replaceRequired(
+      source,
+      'const bytes = encodeNewsletterMessage(patched);',
+      'const bytes = encodeSoundStickerNewsletterMessage(patched);',
+      'newsletter sound-sticker protobuf envelope'
+    );
+  }
+  return source;
 });
 
 console.log('[SkyVerse] Baileys newsletter media transport patch applied.');
