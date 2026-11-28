@@ -108,11 +108,11 @@ async function uploadQuotedSoundSticker(context, channelJid, stickerData) {
   const [stickerMedia, audioMedia] = await Promise.all([
     prepareWAMessageMedia(
       { sticker: stickerBuffer, mimetype: 'image/webp' },
-      { upload, newsletter: true },
+      { upload, jid: channelJid },
     ),
     prepareWAMessageMedia(
       { audio: audioBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: false },
-      { upload, newsletter: true },
+      { upload, jid: channelJid },
     ),
   ]);
   if (!stickerMedia?.stickerMessage || !audioMedia?.audioMessage) {
