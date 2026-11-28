@@ -227,12 +227,47 @@ export async function toSoundSticker(buffer) {
     if (!metadata.streams?.some((stream) => stream.codec_type === 'video')) throw new Error('Media tidak memiliki video.');
     const hasAudio = metadata.streams.some((stream) => stream.codec_type === 'audio');
     if (!hasAudio) return { sticker: await toAnimatedSticker(buffer), audio: null, seconds: Math.min(sourceDuration, 6), trimmed: false };
-    const seconds = Math.min(sourceDuration, 30);
 
+    const maxDuration = Math.min(sourceDuration, 30);
+    const maxStickerBytes = 500 * 1024;
+    const outputPath = join(dir, 'sticker.webp');
+    let seconds = maxDuration;
+    let sticker = null;
+
+    // Encode the full clip once. If it exceeds the sticker payload limit,
+    // estimate a shorter duration from the measured output size and retry once.
+    const encodeSticker = async (duration, quality) => {
+      await runProcess('ffmpeg', [
+        '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+        '-i', inputPath, '-t', String(duration),
+        '-map', '0:v:0', '-an',
+        '-map_metadata', '-1', '-map_chapters', '-1', '-sn', '-dn',
+        '-vf', 'fps=21,scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p',
+        '-c:v', 'libwebp', '-lossless', '0', '-quality', String(quality),
+        '-compression_level', '0', '-preset', 'picture',
+        '-loop', '0', '-f', 'webp', outputPath,
+      ]);
+      const candidate = await readFile(outputPath);
+      if (!isAnimatedWebp(candidate)) throw new Error('FFmpeg tidak menghasilkan animasi WebP yang valid.');
+      return candidate;
+    };
+
+    let candidate = await encodeSticker(seconds, 55);
+    if (candidate.length <= maxStickerBytes) {
+      sticker = candidate;
+    } else {
+      const estimatedSeconds = seconds * (maxStickerBytes / candidate.length) * 0.88;
+      seconds = Math.max(3, Math.min(seconds - 0.25, estimatedSeconds));
+      candidate = await encodeSticker(seconds, 55);
+      if (candidate.length > maxStickerBytes) candidate = await encodeSticker(seconds, 45);
+      if (candidate.length <= maxStickerBytes) sticker = candidate;
+    }
+
+    if (!sticker) throw new Error('Video terlalu kompleks untuk batas 500 KB, bahkan setelah durasi disesuaikan. Coba video yang lebih sederhana atau lebih singkat.');
     await runProcess('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
       '-i', inputPath, '-t', String(seconds),
-      '-map', '0:a:0', '-vn', '-map_metadata', '-1',
+      '-map', '0:a:0', '-vn', '-map_metadata', '-1', '-map_chapters', '-1',
       '-c:a', 'libopus', '-b:a', '32k', '-vbr', 'on',
       '-application', 'audio', '-frame_duration', '20',
       '-ar', '48000', '-ac', '1', '-f', 'ogg', audioPath,
@@ -240,32 +275,7 @@ export async function toSoundSticker(buffer) {
     const audio = await readFile(audioPath);
     if (audio.length < 100 || audio.subarray(0, 4).toString('ascii') !== 'OggS') throw new Error('Audio Opus hasil konversi tidak valid.');
     if (audio.length > 950 * 1024) throw new Error('Audio hasil kompresi melewati batas ukuran sound sticker.');
-
-    let sticker = null;
-    // WhatsApp animated stickers use a 512x512 canvas. Keep that canvas fixed:
-    // reduce encoding cost first instead of destroying detail by shrinking to tiny resolutions.
-    const qualityLevels = [82, 76, 70, 64, 58, 52, 46, 40, 35, 30];
-    for (const quality of qualityLevels) {
-      const outputPath = join(dir, `sticker-512-q${quality}.webp`);
-      await runProcess('ffmpeg', [
-        '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-        '-i', inputPath, '-t', String(seconds),
-        '-map', '0:v:0', '-an',
-        '-map_metadata', '-1', '-map_chapters', '-1', '-sn', '-dn',
-        '-vf', 'fps=25,scale=512:512:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0,format=yuva420p',
-        '-r', '25',
-        '-c:v', 'libwebp', '-lossless', '0', '-quality', String(quality),
-        '-preset', 'picture', '-cr_threshold', '20', '-cr_size', '16',
-        '-loop', '0', '-f', 'webp', outputPath,
-      ]);
-      const candidate = await readFile(outputPath);
-      if (isAnimatedWebp(candidate) && candidate.length <= 500 * 1024) {
-        sticker = candidate;
-        break;
-      }
-    }
-    if (!sticker) throw new Error('Video masih melewati batas 500 KB pada resolusi 512p dan kualitas minimum yang aman. Kualitas tidak akan diturunkan menjadi pecah; coba potong durasi atau gunakan video dengan gerakan lebih sederhana.');
-    return { sticker, audio, seconds, trimmed: sourceDuration > 30 };
+    return { sticker, audio, seconds, trimmed: sourceDuration > seconds + 0.25 };
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
