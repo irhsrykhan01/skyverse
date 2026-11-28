@@ -1,10 +1,10 @@
 export const command = {
   name: 'upch',
-  description: 'Mengirim teks atau pesan yang dibalas ke Channel tersimpan.',
+  description: 'Mengirim teks, media, atau sound sticker yang dibalas ke Channel tersimpan.',
   category: 'system',
   hidden: true,
-  aliases: ['uploadchannel'],
-  usage: 'upch [teks] (atau reply pesan)',
+  aliases: ['uploadchannel', 'tosaluran'],
+  usage: 'upch [teks] (atau reply pesan/media)',
   permission: 'user',
   minArgs: 0,
   cooldown: 5000,
