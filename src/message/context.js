@@ -1,7 +1,8 @@
 import { normalizePhoneNumber } from '../security/identity.js';
 import { getPermissionLevel } from '../security/permissions.js';
 import { createGroupService, createCapabilityEngine, calculate, createNewsletterService } from '../services/index.js';
-import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark } from '../services/media/index.js';
+import { toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toSoundSticker, toVoiceNote, toStickerWatermark } from '../services/media/index.js';
+import { prepareWAMessageMedia, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 import { downloadResolvedMedia } from '../services/media/resolver.js';
 
 function getSenderJid(message) {
@@ -101,6 +102,28 @@ export function createMessageContext({ socket, message, command, registry, ident
     const quote = options.quoted === false || !canQuoteMessage(chatType) ? {} : { quoted: message };
     return socket.sendMessage(chatId, payload, quote);
   }
+  async function sendSoundSticker(stickerBuffer, audioBuffer, options = {}) {
+    if (!Buffer.isBuffer(stickerBuffer) || !Buffer.isBuffer(audioBuffer)) throw new Error('Data sound sticker tidak valid.');
+    const upload = socket.waUploadToServer;
+    if (typeof upload !== 'function') throw new Error('Baileys media uploader tidak tersedia.');
+    const [stickerContent, audioContent] = await Promise.all([
+      prepareWAMessageMedia({ sticker: stickerBuffer, mimetype: 'image/webp' }, { upload }),
+      prepareWAMessageMedia({ audio: audioBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: false }, { upload }),
+    ]);
+    if (!stickerContent?.stickerMessage || !audioContent?.audioMessage) throw new Error('Gagal menyiapkan media sound sticker.');
+    const content = {
+      stickerMessage: {
+        ...stickerContent.stickerMessage,
+        audioMessage: audioContent.audioMessage,
+        stickerEmoji: options.emoji ?? '🎵',
+      },
+    };
+    const generated = generateWAMessageFromContent(chatId, content, {
+      userJid: socket.user?.id,
+      ...(!options.quoted && canQuoteMessage(chatType) ? { quoted: message } : {}),
+    });
+    return socket.relayMessage(chatId, generated.message, { messageId: generated.key.id });
+  }
   function getNewsletterReplyTarget() {
     if (!isChannel) return null;
     const stanzaId = getQuotedStanzaId(message);
@@ -115,6 +138,6 @@ export function createMessageContext({ socket, message, command, registry, ident
     user: refreshedUser, isGroup, isChannel, isBroadcast, isPrivate, isOwner,
     capabilities, getGroupMetadata, isAdmin, permissionLevel, reply, react, read, sendPresence,
     getNewsletterReplyTarget, group, newsletter, calculate,
-    media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toVoiceNote, toStickerWatermark, download: downloadMedia, send: sendMedia }),
+    media: Object.freeze({ toMp3, toImage, toVideo, toSticker, toAnimatedSticker, toSoundSticker, toVoiceNote, toStickerWatermark, download: downloadMedia, send: sendMedia, sendSoundSticker }),
   });
 }

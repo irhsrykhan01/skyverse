@@ -10,6 +10,9 @@ import { createProviderManager } from './services/providers/manager.js';
 import { EconomyManager } from './economy/manager.js';
 import { createLogger } from './utils/logger.js';
 import { getErrorMessage } from './utils/errors.js';
+import { installWAPProtoSoundStickerPatch } from './platform/whatsapp/sound-sticker-proto.js';
+
+installWAPProtoSoundStickerPatch();
 
 const logger = createLogger(config.logLevel);
 const identity = createIdentity({ config });

@@ -213,4 +213,61 @@ export function toSmeme(buffer, { top = '', bottom = '' } = {}) { const filters 
 export async function toStickerWatermark(buffer, { pack = 'SkyVerse', author = 'SkyVerse Bot' } = {}) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-vf', `${scaleFilter()},format=rgba`, '-frames:v', '1', '-c:v', 'libwebp', '-lossless', '0', '-q:v', '75', '-preset', 'picture', '-metadata', `comment=${pack} | ${author}`, '-f', 'webp', output]); }
 export function toSticker(buffer) { return withTempMedia(buffer, '.webp', (input, output) => ['-i', input, '-frames:v', '1', '-vf', scaleFilter(), '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-preset', 'picture', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_STATIC_STICKER_BYTES, 'Sticker')); }
 export function toAnimatedSticker(buffer) { return withTempMedia(buffer, '.webp', (input, output) => ['-t', '6', '-i', input, '-vf', `fps=8,${scaleFilter()}`, '-c:v', 'libwebp', '-lossless', '0', '-q:v', '55', '-compression_level', '6', '-loop', '0', '-an', '-f', 'webp', output]).then((output) => throwOversize(output, MAX_ANIMATED_STICKER_BYTES, 'Sticker animasi')); }
+export async function toSoundSticker(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 32) throw new Error('Video kosong atau tidak valid.');
+  const dir = await mkdtemp(join(tmpdir(), 'skyverse-sound-sticker-'));
+  const inputPath = join(dir, 'input.mp4');
+  const audioPath = join(dir, 'audio.ogg');
+  try {
+    await writeFile(inputPath, buffer);
+    const probe = await runProcess('ffprobe', ['-v', 'error', '-show_entries', 'format=duration:stream=codec_type', '-of', 'json', inputPath]);
+    const metadata = JSON.parse(probe.stdout);
+    const sourceDuration = Number(metadata.format?.duration);
+    if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) throw new Error('Durasi video tidak dapat dibaca.');
+    if (!metadata.streams?.some((stream) => stream.codec_type === 'video')) throw new Error('Media tidak memiliki video.');
+    const hasAudio = metadata.streams.some((stream) => stream.codec_type === 'audio');
+    if (!hasAudio) return { sticker: await toAnimatedSticker(buffer), audio: null, seconds: Math.min(sourceDuration, 6), trimmed: false };
+    const seconds = Math.min(sourceDuration, 30);
+
+    await runProcess('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+      '-i', inputPath, '-t', String(seconds),
+      '-map', '0:a:0', '-vn', '-map_metadata', '-1',
+      '-c:a', 'libopus', '-b:a', '32k', '-vbr', 'on',
+      '-application', 'audio', '-frame_duration', '20',
+      '-ar', '48000', '-ac', '1', '-f', 'ogg', audioPath,
+    ]);
+    const audio = await readFile(audioPath);
+    if (audio.length < 100 || audio.subarray(0, 4).toString('ascii') !== 'OggS') throw new Error('Audio Opus hasil konversi tidak valid.');
+    if (audio.length > 950 * 1024) throw new Error('Audio hasil kompresi melewati batas ukuran sound sticker.');
+
+    let sticker = null;
+    const dimensions = [512, 384, 320, 256, 192];
+    const qualities = [45, 35, 25, 18];
+    for (const dimension of dimensions) {
+      for (const quality of qualities) {
+        const outputPath = join(dir, `sticker-${dimension}-${quality}.webp`);
+        await runProcess('ffmpeg', [
+          '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+          '-i', inputPath, '-t', String(seconds),
+          '-map', '0:v:0', '-an',
+          '-vf', `fps=21,scale=${dimension}:${dimension}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${dimension}:${dimension}:(ow-iw)/2:(oh-ih)/2:color=black@0,format=rgba`,
+          '-c:v', 'libwebp', '-lossless', '0', '-q:v', String(quality),
+          '-compression_level', '6', '-loop', '0', '-f', 'webp', outputPath,
+        ]);
+        const candidate = await readFile(outputPath);
+        if (isAnimatedWebp(candidate) && candidate.length <= 500 * 1024) {
+          sticker = candidate;
+          break;
+        }
+      }
+      if (sticker) break;
+    }
+    if (!sticker) throw new Error('Video terlalu kompleks untuk batas ukuran sticker. Coba video yang lebih sederhana atau lebih pendek; FPS tetap dijaga minimal 21.');
+    return { sticker, audio, seconds, trimmed: sourceDuration > 30 };
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 export { framesToAnimatedWebp as toAnimatedStickerFromFrames };

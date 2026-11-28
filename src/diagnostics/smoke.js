@@ -11,11 +11,14 @@ import { renderTicTacToe } from '../platform/whatsapp/tictactoe-canvas.js';
 import { economyDefaults, EconomyManager } from '../economy/manager.js';
 import { normalizePhoneNumber } from '../security/identity.js';
 import { createRichMessage, htmlToText } from '../platform/whatsapp/rich.js';
+import { proto } from '@whiskeysockets/baileys';
+import { installWAPProtoSoundStickerPatch } from '../platform/whatsapp/sound-sticker-proto.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+installWAPProtoSoundStickerPatch();
 const config = loadConfig({});
 const registry = await createCommandRegistry();
 const providers = createProviderManager(config);
@@ -68,6 +71,11 @@ assert(typeof media.toHd === 'function', 'Media toHd export is missing.');
 assert(typeof media.toSmeme === 'function', 'Media toSmeme export is missing.');
 assert(typeof media.toStickerWatermark === 'function', 'Media toStickerWatermark export is missing.');
 assert(typeof media.toAnimatedStickerFromFrames === 'function', 'Media frame animation export is missing.');
+assert(typeof media.toSoundSticker === 'function', 'Media sound sticker export is missing.');
+const soundStickerFixture = proto.Message.fromObject({ stickerMessage: { mimetype: 'image/webp', url: 'https://example.invalid/sticker.webp', audioMessage: { mimetype: 'audio/ogg; codecs=opus', seconds: 2, ptt: false }, stickerEmoji: '🎵' } });
+const soundStickerRoundTrip = proto.Message.decode(proto.Message.encode(soundStickerFixture).finish());
+assert(soundStickerRoundTrip.stickerMessage?.audioMessage?.mimetype === 'audio/ogg; codecs=opus', 'Sound sticker WAProto encode/decode regression.');
+assert(soundStickerRoundTrip.stickerMessage?.stickerEmoji === '🎵', 'Sound sticker emoji WAProto round-trip regression.');
 assert(typeof downloadResolvedMedia === 'function', 'Central media downloader export is missing.');
 assert(typeof resolveMediaTarget === 'function', 'Media target resolver export is missing.');
 
