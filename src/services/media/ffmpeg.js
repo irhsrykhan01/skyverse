@@ -242,26 +242,30 @@ export async function toSoundSticker(buffer) {
     if (audio.length > 950 * 1024) throw new Error('Audio hasil kompresi melewati batas ukuran sound sticker.');
 
     let sticker = null;
-    const dimensions = [512, 384, 320, 256, 192];
-    const qualities = [45, 35, 25, 18];
-    for (const dimension of dimensions) {
-      for (const quality of qualities) {
-        const outputPath = join(dir, `sticker-${dimension}-${quality}.webp`);
-        await runProcess('ffmpeg', [
-          '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-          '-i', inputPath, '-t', String(seconds),
-          '-map', '0:v:0', '-an',
-          '-vf', `fps=21,scale=${dimension}:${dimension}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${dimension}:${dimension}:(ow-iw)/2:(oh-ih)/2:color=black@0,format=rgba`,
-          '-c:v', 'libwebp', '-lossless', '0', '-q:v', String(quality),
-          '-compression_level', '6', '-loop', '0', '-f', 'webp', outputPath,
-        ]);
-        const candidate = await readFile(outputPath);
-        if (isAnimatedWebp(candidate) && candidate.length <= 500 * 1024) {
-          sticker = candidate;
-          break;
-        }
+    const profiles = [
+      { dimension: 512, quality: 30 },
+      { dimension: 384, quality: 25 },
+      { dimension: 320, quality: 20 },
+      { dimension: 256, quality: 15 },
+      { dimension: 192, quality: 10 },
+      { dimension: 160, quality: 5 },
+      { dimension: 128, quality: 0 },
+    ];
+    for (const { dimension, quality } of profiles) {
+      const outputPath = join(dir, `sticker-${dimension}-${quality}.webp`);
+      await runProcess('ffmpeg', [
+        '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+        '-i', inputPath, '-t', String(seconds),
+        '-map', '0:v:0', '-an',
+        '-vf', `fps=21,scale=${dimension}:${dimension}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad=${dimension}:${dimension}:(ow-iw)/2:(oh-ih)/2:color=black@0,format=rgba`,
+        '-c:v', 'libwebp', '-lossless', '0', '-q:v', String(quality),
+        '-compression_level', '0', '-loop', '0', '-f', 'webp', outputPath,
+      ]);
+      const candidate = await readFile(outputPath);
+      if (isAnimatedWebp(candidate) && candidate.length <= 500 * 1024) {
+        sticker = candidate;
+        break;
       }
-      if (sticker) break;
     }
     if (!sticker) throw new Error('Video terlalu kompleks untuk batas ukuran sticker. Coba video yang lebih sederhana atau lebih pendek; FPS tetap dijaga minimal 21.');
     return { sticker, audio, seconds, trimmed: sourceDuration > 30 };
