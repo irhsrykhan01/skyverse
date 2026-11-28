@@ -108,7 +108,7 @@ write('Utils/messages.js', (source) => {
     );
     source = replaceRequired(
       source,
-      /timeoutMs: options\\.mediaUploadTimeoutMs\\s*\\n\\s*\\}\\);/,
+      /timeoutMs: options\.mediaUploadTimeoutMs\s*\n\s*\}\);/,
       'timeoutMs: options.mediaUploadTimeoutMs,\n            newsletter: isNewsletter\n        });',
       'newsletter upload mode'
     );
