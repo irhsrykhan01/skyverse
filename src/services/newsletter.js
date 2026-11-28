@@ -1,4 +1,4 @@
-import { normalizeMessageContent } from '@whiskeysockets/baileys';
+import { normalizeMessageContent, prepareWAMessageMedia, generateWAMessageFromContent, downloadContentFromMessage } from '@whiskeysockets/baileys';
 import { extractMotionPhoto } from './media/motion-photo.js';
 import { downloadResolvedMedia, resolveMediaTarget } from './media/resolver.js';
 
@@ -74,6 +74,73 @@ function getContextInfo(message) {
 
 function getQuotedMessage(message) {
   return getContextInfo(message)?.quotedMessage ?? null;
+}
+
+function getSoundStickerData(message) {
+  const quoted = normalizeMessageContent(getQuotedMessage(message));
+  return quoted?.audioStickerMessage?.message?.stickerMessage
+    ?? quoted?.stickerMessage
+    ?? null;
+}
+
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return Buffer.concat(chunks);
+}
+
+async function uploadQuotedSoundSticker(context, channelJid, stickerData) {
+  if (!stickerData?.audioMessage) return false;
+  const [stickerStream, audioStream] = await Promise.all([
+    downloadContentFromMessage(stickerData, 'sticker'),
+    downloadContentFromMessage(stickerData.audioMessage, 'audio'),
+  ]);
+  const [stickerBuffer, audioBuffer] = await Promise.all([
+    streamToBuffer(stickerStream),
+    streamToBuffer(audioStream),
+  ]);
+  if (stickerBuffer.length < 16 || audioBuffer.length < 100) {
+    throw new Error('Data sound sticker dari pesan asal tidak lengkap.');
+  }
+
+  const upload = context.socket.waUploadToServer;
+  if (typeof upload !== 'function') throw new Error('Baileys media uploader tidak tersedia.');
+  const [stickerMedia, audioMedia] = await Promise.all([
+    prepareWAMessageMedia(
+      { sticker: stickerBuffer, mimetype: 'image/webp' },
+      { upload, newsletter: true },
+    ),
+    prepareWAMessageMedia(
+      { audio: audioBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: false },
+      { upload, newsletter: true },
+    ),
+  ]);
+  if (!stickerMedia?.stickerMessage || !audioMedia?.audioMessage) {
+    throw new Error('Gagal menyiapkan media sound sticker untuk Channel.');
+  }
+
+  const stickerMessage = {
+    ...stickerMedia.stickerMessage,
+    mimetype: 'image/webp',
+    width: Number(stickerData.width) || 512,
+    height: Number(stickerData.height) || 512,
+    isAnimated: stickerData.isAnimated !== false,
+    stickerSentTs: Date.now(),
+    audioMessage: {
+      ...audioMedia.audioMessage,
+      mimetype: 'audio/ogg; codecs=opus',
+      seconds: Number(stickerData.audioMessage.seconds) || 5,
+    },
+  };
+  if (stickerData.stickerEmoji) stickerMessage.stickerEmoji = stickerData.stickerEmoji;
+
+  const generated = generateWAMessageFromContent(
+    channelJid,
+    { stickerMessage },
+    { userJid: context.socket.user?.id },
+  );
+  await context.socket.relayMessage(channelJid, generated.message, { messageId: generated.key.id });
+  return true;
 }
 
 function getQuotedText(message) {
@@ -208,6 +275,12 @@ export function createNewsletterService() {
     if (!saved) throw new Error(`Channel belum diatur. Gunakan ${context.config.prefix}setchannel <link/JID>.`);
     const latest = await resolveReference(context.socket, saved.id);
     await assertCanPost(context, latest);
+
+    const soundSticker = getSoundStickerData(context.message);
+    if (soundSticker?.audioMessage) {
+      await uploadQuotedSoundSticker(context, latest.id, soundSticker);
+      return;
+    }
 
     const quotedContent = await buildQuotedContent(context);
     const bodyText = String(text).trim();
